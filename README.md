@@ -25,6 +25,8 @@ This repository has the following CAM-Nor branches:
 
 * **cam-Nor-dev** - based on cam_cesm2_1_rel_05-Nor (branched off at tag cam_cesm2_1_rel_05-Nor_v1.0.2) : post-CMIP6 development version of CAM6-Nor (including bugfixes, new developments, answer-changes modifications, ...)
 
+* **feature-hamocc-vsls** - based on cam_cesm2_1_rel_05-Nor (branched off at tag cam_cesm2_1_rel_05-Nor_v1.0.2) : related to version developed in project KeyClim for simulation of Very Short Lived Spiecies (VSLS) in ocean and atmosphere.  
+
 ### CAM-Nor and NorESM documentation https://noresm-docs.readthedocs.io/en/noresm2/
 
 ## How to checkout and use CAM:
