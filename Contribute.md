@@ -8,6 +8,8 @@ We welcome contributions to the CAM-Nor model system, including bug reports and 
    - Check that the pull request does not create conflicts. In case of conflicts, try to fix this in the pull request, or ask a maintainer for advice.
    - Changes to the `master` branch should be reviewed by at least one of the maintainers (other than the one submitting the pull request)
 
+Every branch on the NorESMhub/CAM repository should have an explanatory text in the Readme.md file.
+
 Please refer to the [gitHub help pages](https://help.github.com/en/github) for instructions on how to create [issues](https://help.github.com/en/github/managing-your-work-on-github/creating-an-issue), how to [fork](https://help.github.com/en/github/getting-started-with-github/fork-a-repo) or [clone](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository) a repository, and how to create a [pull request](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request).
 
 ![](CAM-Nor-branches.png)
