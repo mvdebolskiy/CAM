@@ -36,6 +36,9 @@
 ! June 2015- D. Swales        - Moved hydrometeor class variables to hydro_class_init in
 !                               the module quickbeam_optics.
 ! Mar 2016 - D. Swales        - Added scops_ccfrac. Was previously hardcoded in prec_scops.f90.  
+! Mar 2018 - R. Guzman        - Added LIDAR_NTYPE for the OPAQ diagnostics
+! Apr 2018 - R. Guzman        - Added parameters for GROUND LIDAR and ATLID simulators
+!
 ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 MODULE MOD_COSP_CONFIG
@@ -151,8 +154,7 @@ MODULE MOD_COSP_CONFIG
     integer,parameter :: &
          RTTOV_MAX_CHANNELS = 20
     character(len=256),parameter :: &
-         rttovDir = '/Projects/Clouds/dswales/RTTOV/rttov_11.3/'
-    
+         rttovDir = '/homedata/rguzman/CALIPSO/RTTOV/rttov_11.3/'
     ! ####################################################################################  
     ! Constants used by the PARASOL simulator.
     ! ####################################################################################  
@@ -270,23 +272,48 @@ MODULE MOD_COSP_CONFIG
     ! CLOUDSAT reflectivity histogram information 
     ! ####################################################################################
     integer,parameter :: &
-       DBZE_BINS     =   15, & ! Number of dBZe bins in histogram (cfad)
-       DBZE_MIN      = -100, & ! Minimum value for radar reflectivity
-       DBZE_MAX      =   80, & ! Maximum value for radar reflectivity
-       CFAD_ZE_MIN   =  -50, & ! Lower value of the first CFAD Ze bin
-       CFAD_ZE_WIDTH =    5    ! Bin width (dBZe)
+       CLOUDSAT_DBZE_BINS     =   15, & ! Number of dBZe bins in histogram (cfad)
+       CLOUDSAT_DBZE_MIN      = -100, & ! Minimum value for radar reflectivity
+       CLOUDSAT_DBZE_MAX      =   80, & ! Maximum value for radar reflectivity
+       CLOUDSAT_CFAD_ZE_MIN   =  -50, & ! Lower value of the first CFAD Ze bin
+       CLOUDSAT_CFAD_ZE_WIDTH =    5    ! Bin width (dBZe)
 
-    real(wp),parameter,dimension(DBZE_BINS+1) :: &
-         cloudsat_histRef = (/DBZE_MIN,(/(i, i=int(CFAD_ZE_MIN+CFAD_ZE_WIDTH),           &
-                             int(CFAD_ZE_MIN+(DBZE_BINS-1)*CFAD_ZE_WIDTH),               &
-                             int(CFAD_ZE_WIDTH))/),DBZE_MAX/)
-    real(wp),parameter,dimension(2,DBZE_BINS) :: &
+    real(wp),parameter,dimension(CLOUDSAT_DBZE_BINS+1) :: &
+         cloudsat_histRef = (/CLOUDSAT_DBZE_MIN,(/(i, i=int(CLOUDSAT_CFAD_ZE_MIN+CLOUDSAT_CFAD_ZE_WIDTH),&
+                             int(CLOUDSAT_CFAD_ZE_MIN+(CLOUDSAT_DBZE_BINS-1)*CLOUDSAT_CFAD_ZE_WIDTH),    &
+                             int(CLOUDSAT_CFAD_ZE_WIDTH))/),CLOUDSAT_DBZE_MAX/)
+    real(wp),parameter,dimension(2,CLOUDSAT_DBZE_BINS) :: &
          cloudsat_binEdges = reshape(source=(/cloudsat_histRef(1),((cloudsat_histRef(k), &
-                                   l=1,2),k=2,DBZE_BINS),cloudsat_histRef(DBZE_BINS+1)/),&
-                                   shape = (/2,DBZE_BINS/))     
-    real(wp),parameter,dimension(DBZE_BINS) :: &
-         cloudsat_binCenters = (cloudsat_binEdges(1,:)+cloudsat_binEdges(2,:))/2._wp  
-
+                                   l=1,2),k=2,CLOUDSAT_DBZE_BINS),cloudsat_histRef(CLOUDSAT_DBZE_BINS+1)/),&
+                                   shape = (/2,CLOUDSAT_DBZE_BINS/))     
+    real(wp),parameter,dimension(CLOUDSAT_DBZE_BINS) :: &
+         cloudsat_binCenters = (cloudsat_binEdges(1,:)+cloudsat_binEdges(2,:))/2._wp
+    
+    ! Parameters for Cloudsat near-surface precipitation diagnostics.
+    ! Precipitation classes.
+    integer, parameter :: &
+         nCloudsatPrecipClass = 10
+    integer, parameter :: &
+         pClass_noPrecip      = 0, & ! No precipitation
+         pClass_Rain1         = 1, & ! Rain possible
+         pClass_Rain2         = 2, & ! Rain probable
+         pClass_Rain3         = 3, & ! Rain certain
+         pClass_Snow1         = 4, & ! Snow possible
+         pClass_Snow2         = 5, & ! Snow certain
+         pClass_Mixed1        = 6, & ! Mixed-precipitation possible
+         pClass_Mixed2        = 7, & ! Mixed-precipitation certain
+         pClass_Rain4         = 8, & ! Heavy rain
+         pClass_default       = 9    ! Default
+    ! Reflectivity bin boundaries, used by decision tree to classify precipitation type.
+    real(wp), dimension(4),parameter :: &
+         Zenonbinval =(/0._wp, -5._wp, -7.5_wp, -15._wp/)
+    real(wp), dimension(6),parameter :: &
+         Zbinvallnd = (/10._wp, 5._wp, 2.5_wp, -2.5_wp, -5._wp, -15._wp/)
+    ! Vertical level index(Nlvgrid) for Cloudsat precipitation occurence/frequency diagnostics.
+    ! Level 39 of Nlvgrid(40) is 480-960m.
+    integer, parameter :: &
+         cloudsat_preclvl = 39
+    
     ! ####################################################################################
     ! Parameters used by the CALIPSO LIDAR simulator
     ! #################################################################################### 
@@ -307,7 +334,8 @@ MODULE MOD_COSP_CONFIG
 
     integer,parameter  ::     &
        LIDAR_NTEMP = 40, & 
-       LIDAR_NCAT  = 4     ! Number of categories for cloudtop heights (high/mid/low/tot)
+       LIDAR_NCAT  = 4,  & ! Number of categories for cloudtop heights (high/mid/low/tot)
+       LIDAR_NTYPE = 3     ! Number of categories for OPAQ (opaque/thin cloud + z_opaque)
     real(wp),parameter,dimension(LIDAR_NTEMP) :: &
        LIDAR_PHASE_TEMP=                                                                 &
        (/-91.5,-88.5,-85.5,-82.5,-79.5,-76.5,-73.5,-70.5,-67.5,-64.5,                    &
@@ -325,6 +353,48 @@ MODULE MOD_COSP_CONFIG
               -3.,     0.,   0.,   3.,   3.,   6.,   6.,   9.,   9.,  12.,               &
               12.,    15.,  15.,  18.,  18.,  21.,  21.,  24.,  24., 100. /),            &
               shape=(/2,40/))        
+
+    ! ####################################################################################
+    ! Parameters used by the GROUND LIDAR simulator
+    ! #################################################################################### 
+    ! GROUND LIDAR backscatter histogram bins 
+!    real(wp),parameter ::     &
+!       S_cld       = 5.0,     & ! Threshold for cloud detection
+!       S_att       = 0.01,    & !
+!       S_cld_att   = 30.        ! Threshold for undefined cloud phase detection
+    real(wp),parameter,dimension(SR_BINS+1) :: &
+         grLidar532_histBsct = (/-1.,0.01,1.2,3.0,5.0,7.0,10.0,15.0,20.0,25.0,30.0,40.0,50.0,  &
+                                 60.0,80.0,999./)         ! Backscatter histogram bins
+    real(wp),parameter,dimension(2,SR_BINS) :: &
+         grLidar532_binEdges = reshape(source=(/grLidar532_histBsct(1),((grLidar532_histBsct(k),  &
+                                    l=1,2),k=2,SR_BINS),grLidar532_histBsct(SR_BINS+1)/),   &
+                                    shape = (/2,SR_BINS/))     
+    real(wp),parameter,dimension(SR_BINS) :: &
+         grLidar532_binCenters = (grLidar532_binEdges(1,:)+grLidar532_binEdges(2,:))/2._wp  
+
+!    integer,parameter  ::     &
+!       LIDAR_NCAT  = 4       ! Number of categories for cloudtop heights (high/mid/low/tot)
+
+    ! ####################################################################################
+    ! Parameters used by the ATLID LIDAR simulator
+    ! #################################################################################### 
+    ! ATLID LIDAR backscatter histogram bins 
+    real(wp),parameter ::     &
+       S_cld_atlid       = 1.74,    & ! Threshold for cloud detection
+       S_att_atlid       = 0.01,    & !
+       S_cld_att_atlid   = 6.67        ! Threshold for undefined cloud phase detection
+    real(wp),parameter,dimension(SR_BINS+1) :: &
+         atlid_histBsct = (/-1.,0.01,1.03,1.38,1.74,2.07,2.62,3.65,4.63,5.63,6.67,8.8,11.25,  &
+                                 13.2,17.2,999./)         ! Backscatter histogram bins
+    real(wp),parameter,dimension(2,SR_BINS) :: &
+         atlid_binEdges = reshape(source=(/atlid_histBsct(1),((atlid_histBsct(k),  &
+                                    l=1,2),k=2,SR_BINS),atlid_histBsct(SR_BINS+1)/),   &
+                                    shape = (/2,SR_BINS/))     
+    real(wp),parameter,dimension(SR_BINS) :: &
+         atlid_binCenters = (atlid_binEdges(1,:)+atlid_binEdges(2,:))/2._wp  
+
+!    integer,parameter  ::     &
+!       LIDAR_NCAT  = 4       ! Number of categories for cloudtop heights (high/mid/low/tot)
 
     ! ####################################################################################
     ! New vertical grid used by CALIPSO and CLOUDSAT L3 (set up during initialization)

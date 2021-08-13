@@ -1,5 +1,5 @@
 !-----------------------------------------------------------------------
-! $Id: variables_prognostic_module.F90 7309 2014-09-20 17:06:28Z betlej@uwm.edu $
+! $Id$
 !===============================================================================
 module variables_prognostic_module
 
@@ -12,10 +12,11 @@ module variables_prognostic_module
 !       different points.
 !-----------------------------------------------------------------------
   use pdf_parameter_module, only: &
-    pdf_parameter ! Derived type
+      pdf_parameter,        & ! Variable Type(s)
+      implicit_coefs_terms
 
   use clubb_precision, only: &
-    core_rknd ! Variable(s)
+      core_rknd    ! Variable(s)
 
   implicit none
 
@@ -34,7 +35,9 @@ module variables_prognostic_module
     upwp,    & ! vertical u momentum flux      [m^2/s^2]
     vpwp,    & ! vertical v momentum flux      [m^2/s^2]
     up2,     & ! u'^2                          [m^2/s^2]
+    up3,     & ! u'^3                          [m^3/s^3]
     vp2,     & ! v'^2                          [m^2/s^2]
+    vp3,     & ! v'^3                          [m^3/s^3]
     thlm,    & ! liquid potential temperature  [K]
 !---> h1g
     temp_clubb, & ! air temperature [K]
@@ -56,7 +59,9 @@ module variables_prognostic_module
     upwp,    & ! vertical u momentum flux      [m^2/s^2]
     vpwp,    & ! vertical v momentum flux      [m^2/s^2]
     up2,     & ! u'^2                          [m^2/s^2]
+    up3,     & ! u'^3                          [m^3/s^3]
     vp2,     & ! v'^2                          [m^2/s^2]
+    vp3,     & ! v'^3                          [m^3/s^3]
     thlm,    & ! liquid potential temperature  [K]
     rtm,     & ! total water mixing ratio      [kg/kg]
     wprtp,   & ! w'rt'                         [(kg/kg) m/s]
@@ -70,7 +75,7 @@ module variables_prognostic_module
 #endif
 ! <--- h1g, 2010-06-16
 
-!$omp   threadprivate(um, vm, upwp, vpwp, up2, vp2)
+!$omp   threadprivate(um, vm, upwp, vpwp, up2, up3, vp2, vp3)
 !$omp   threadprivate(thlm, rtm, wprtp, wpthlp, wprcp)
 !$omp   threadprivate(wp2, wp3, rtp2, thlp2, rtpthlp)
 
@@ -145,6 +150,7 @@ module variables_prognostic_module
   real( kind = core_rknd ), target, allocatable, dimension(:,:), public :: & 
     sclrm,           & ! Mean passive scalars           [units vary]
     sclrp2,          & ! sclr'^2                        [units^2]
+    sclrp3,          & ! sclr'^3                        [units^3]
     sclrprtp,        & ! sclr'rt'                       [units kg/kg]
     sclrpthlp,       & ! sclr'th_l'                     [units K]
     sclrm_forcing,   & ! Scalars' forcing               [units/s]
@@ -160,8 +166,8 @@ module variables_prognostic_module
 #endif
 !<--- h1g, 2010-06-16
 
-!$omp   threadprivate(sclrm, sclrp2, sclrprtp, sclrpthlp, sclrm_forcing, &
-!$omp     edsclrm, edsclrm_forcing, wpsclrp)
+!$omp   threadprivate(sclrm, sclrp2, sclrp3, sclrprtp, sclrpthlp, &
+!$omp                 sclrm_forcing,  edsclrm, edsclrm_forcing, wpsclrp)
 
   ! PDF parameters
   real( kind = core_rknd ), target, allocatable, dimension(:), public :: &
@@ -169,11 +175,16 @@ module variables_prognostic_module
 
 !$omp threadprivate(sigma_sqd_w)
 
-  type(pdf_parameter), target, allocatable, dimension(:), public :: &
+  type(pdf_parameter), public, save :: &
     pdf_params, &
     pdf_params_frz !for use when l_use_ice_latent = .true.
 
 !$omp threadprivate(pdf_params, pdf_params_frz)
+
+  type(implicit_coefs_terms), allocatable, public, save :: &
+    pdf_implicit_coefs_terms    ! Implicit coefs / explicit terms [units vary]
+
+!$omp threadprivate(pdf_implicit_coefs_terms)
 
   contains
 !-----------------------------------------------------------------------
@@ -195,11 +206,16 @@ module variables_prognostic_module
         zero
 
     use parameters_model, only: & 
-        sclr_dim,  & ! Variable(s)
-        edsclr_dim
+        sclr_dim,   & ! Variable(s)
+        edsclr_dim, &
+        sclr_tol
+
+    use pdf_parameter_module, only: &
+        init_pdf_params,               & ! Procedure(s)
+        init_pdf_implicit_coefs_terms
 
     use clubb_precision, only: &
-      core_rknd ! Variable(s)
+        core_rknd ! Variable(s)
 
     implicit none
 
@@ -218,7 +234,9 @@ module variables_prognostic_module
     allocate( vpwp(1:nz) )      ! vertical v momentum flux
 
     allocate( up2(1:nz) )
+    allocate( up3(1:nz) )
     allocate( vp2(1:nz) )
+    allocate( vp3(1:nz) )
 
     allocate( thlm(1:nz) )      ! liquid potential temperature
 !---> h1g, 2010-06-16
@@ -276,6 +294,7 @@ module variables_prognostic_module
     allocate( wpsclrp_sfc(1:sclr_dim) )
     allocate( sclrm(1:nz, 1:sclr_dim) )
     allocate( sclrp2(1:nz, 1:sclr_dim) )
+    allocate( sclrp3(1:nz, 1:sclr_dim) )
     allocate( sclrm_forcing(1:nz, 1:sclr_dim) )
     allocate( sclrprtp(1:nz, 1:sclr_dim) )
     allocate( sclrpthlp(1:nz, 1:sclr_dim) )
@@ -295,8 +314,12 @@ module variables_prognostic_module
     allocate( sigma_sqd_w(1:nz) )    ! PDF width parameter (momentum levels)
 
     ! Variables for pdf closure scheme
-    allocate( pdf_params(1:nz) )
-    allocate( pdf_params_frz(1:nz) )
+    call init_pdf_params( nz, pdf_params )
+    call init_pdf_params( nz, pdf_params_frz )
+
+    allocate( pdf_implicit_coefs_terms )
+    call init_pdf_implicit_coefs_terms( nz, sclr_dim, &            ! Intent(in)
+                                        pdf_implicit_coefs_terms ) ! Intent(out)
 
 !--------- Set initial values for array variables ---------
 
@@ -308,9 +331,11 @@ module variables_prognostic_module
     upwp(1:nz)    = 0.0_core_rknd     ! vertical u momentum flux
     vpwp(1:nz)    = 0.0_core_rknd     ! vertical v momentum flux
 
-    up2(1:nz)     = w_tol_sqd ! u'^2
-    vp2(1:nz)     = w_tol_sqd ! v'^2
-    wp2(1:nz)     = w_tol_sqd ! w'^2
+    up2(1:nz)     = w_tol_sqd     ! u'^2
+    up3(1:nz)     = 0.0_core_rknd ! u'^3
+    vp2(1:nz)     = w_tol_sqd     ! v'^2
+    vp3(1:nz)     = 0.0_core_rknd ! v'^3
+    wp2(1:nz)     = w_tol_sqd     ! w'^2
 
     thlm(1:nz)    = 0.0_core_rknd         ! liquid potential temperature
     rtm(1:nz)     = 0.0_core_rknd         ! total water mixing ratio
@@ -358,85 +383,6 @@ module variables_prognostic_module
 
     sigma_sqd_w           = 0.0_core_rknd ! PDF width parameter (momentum levels)
 
-    ! Variables for PDF closure scheme
-    pdf_params(:)%w_1                 = zero
-    pdf_params(:)%w_2                 = zero
-    pdf_params(:)%varnce_w_1          = zero
-    pdf_params(:)%varnce_w_2          = zero
-    pdf_params(:)%rt_1                = zero
-    pdf_params(:)%rt_2                = zero
-    pdf_params(:)%varnce_rt_1         = zero
-    pdf_params(:)%varnce_rt_2         = zero
-    pdf_params(:)%thl_1               = zero
-    pdf_params(:)%thl_2               = zero
-    pdf_params(:)%varnce_thl_1        = zero
-    pdf_params(:)%varnce_thl_2        = zero
-    pdf_params(:)%rrtthl              = zero
-    pdf_params(:)%alpha_thl           = zero
-    pdf_params(:)%alpha_rt            = zero
-    pdf_params(:)%crt_1               = zero
-    pdf_params(:)%crt_2               = zero
-    pdf_params(:)%cthl_1              = zero
-    pdf_params(:)%cthl_2              = zero
-    pdf_params(:)%chi_1               = zero
-    pdf_params(:)%chi_2               = zero
-    pdf_params(:)%stdev_chi_1         = zero
-    pdf_params(:)%stdev_chi_2         = zero
-    pdf_params(:)%stdev_eta_1         = zero
-    pdf_params(:)%stdev_eta_2         = zero
-    pdf_params(:)%covar_chi_eta_1     = zero
-    pdf_params(:)%covar_chi_eta_2     = zero
-    pdf_params(:)%corr_chi_eta_1      = zero
-    pdf_params(:)%corr_chi_eta_2      = zero
-    pdf_params(:)%rsatl_1             = zero
-    pdf_params(:)%rsatl_2             = zero
-    pdf_params(:)%rc_1                = zero
-    pdf_params(:)%rc_2                = zero
-    pdf_params(:)%cloud_frac_1        = zero
-    pdf_params(:)%cloud_frac_2        = zero
-    pdf_params(:)%mixt_frac           = zero
-    pdf_params(:)%ice_supersat_frac_1 = zero
-    pdf_params(:)%ice_supersat_frac_2 = zero
-
-    pdf_params_frz(:)%w_1                 = zero
-    pdf_params_frz(:)%w_2                 = zero
-    pdf_params_frz(:)%varnce_w_1          = zero
-    pdf_params_frz(:)%varnce_w_2          = zero
-    pdf_params_frz(:)%rt_1                = zero
-    pdf_params_frz(:)%rt_2                = zero
-    pdf_params_frz(:)%varnce_rt_1         = zero
-    pdf_params_frz(:)%varnce_rt_2         = zero
-    pdf_params_frz(:)%thl_1               = zero
-    pdf_params_frz(:)%thl_2               = zero
-    pdf_params_frz(:)%varnce_thl_1        = zero
-    pdf_params_frz(:)%varnce_thl_2        = zero
-    pdf_params_frz(:)%rrtthl              = zero
-    pdf_params_frz(:)%alpha_thl           = zero
-    pdf_params_frz(:)%alpha_rt            = zero
-    pdf_params_frz(:)%crt_1               = zero
-    pdf_params_frz(:)%crt_2               = zero
-    pdf_params_frz(:)%cthl_1              = zero
-    pdf_params_frz(:)%cthl_2              = zero
-    pdf_params_frz(:)%chi_1               = zero
-    pdf_params_frz(:)%chi_2               = zero
-    pdf_params_frz(:)%stdev_chi_1         = zero
-    pdf_params_frz(:)%stdev_chi_2         = zero
-    pdf_params_frz(:)%stdev_eta_1         = zero
-    pdf_params_frz(:)%stdev_eta_2         = zero
-    pdf_params_frz(:)%covar_chi_eta_1     = zero
-    pdf_params_frz(:)%covar_chi_eta_2     = zero
-    pdf_params_frz(:)%corr_chi_eta_1      = zero
-    pdf_params_frz(:)%corr_chi_eta_2      = zero
-    pdf_params_frz(:)%rsatl_1             = zero
-    pdf_params_frz(:)%rsatl_2             = zero
-    pdf_params_frz(:)%rc_1                = zero
-    pdf_params_frz(:)%rc_2                = zero
-    pdf_params_frz(:)%cloud_frac_1        = zero
-    pdf_params_frz(:)%cloud_frac_2        = zero
-    pdf_params_frz(:)%mixt_frac           = zero
-    pdf_params_frz(:)%ice_supersat_frac_1 = zero
-    pdf_params_frz(:)%ice_supersat_frac_2 = zero
-
     ! Surface fluxes
     wpthlp_sfc = 0.0_core_rknd
     wprtp_sfc  = 0.0_core_rknd
@@ -452,15 +398,16 @@ module variables_prognostic_module
 
     ! Passive scalars
     do i = 1, sclr_dim, 1
-      wpsclrp_sfc(i)   = 0.0_core_rknd
+       wpsclrp_sfc(i)   = 0.0_core_rknd
 
-      sclrm(1:nz,i)         = 0.0_core_rknd
-      sclrp2(1:nz,i)        = 0.0_core_rknd
-      sclrprtp(1:nz,i)      = 0.0_core_rknd
-      sclrpthlp(1:nz,i)     = 0.0_core_rknd
-      sclrm_forcing(1:nz,i) = 0.0_core_rknd
-      wpsclrp(1:nz,i)         = 0.0_core_rknd
-    end do
+       sclrm(1:nz,i)         = 0.0_core_rknd
+       sclrp2(1:nz,i)        = sclr_tol(i)**2
+       sclrp3(1:nz,i)        = 0.0_core_rknd
+       sclrprtp(1:nz,i)      = 0.0_core_rknd
+       sclrpthlp(1:nz,i)     = 0.0_core_rknd
+       sclrm_forcing(1:nz,i) = 0.0_core_rknd
+       wpsclrp(1:nz,i)       = 0.0_core_rknd
+    enddo
 
     do i = 1, edsclr_dim, 1
       wpedsclrp_sfc(i) = 0.0_core_rknd
@@ -485,6 +432,7 @@ module variables_prognostic_module
       deallocate( vpwp )      ! vertical v momentum flux
 
       deallocate( up2, vp2 )
+      deallocate( up3, vp3 )
 
       deallocate( thlm )      ! liquid potential temperature
 
@@ -540,14 +488,13 @@ module variables_prognostic_module
 
       deallocate( sigma_sqd_w )    ! PDF width parameter (momentum levels)
 
-      ! Variable for pdf closure scheme
-      deallocate( pdf_params )
-      deallocate( pdf_params_frz )
+      deallocate( pdf_implicit_coefs_terms )
 
       ! Passive scalars
       deallocate( wpsclrp_sfc, wpedsclrp_sfc )
       deallocate( sclrm )
       deallocate( sclrp2 )
+      deallocate( sclrp3 )
       deallocate( sclrprtp )
       deallocate( sclrpthlp )
       deallocate( sclrm_forcing )

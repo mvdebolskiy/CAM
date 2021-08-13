@@ -1,5 +1,5 @@
 !---------------------------------------------------------------------------
-! $Id: Nc_Ncn_eqns.F90 7130 2014-07-29 23:29:54Z raut@uwm.edu $
+! $Id$
 !===============================================================================
 module Nc_Ncn_eqns
 
@@ -92,7 +92,7 @@ module Nc_Ncn_eqns
   ! |  |                                                       |
   ! |  |                                                       |
   ! |  |                                                       |
-  ! |  |--(intent in)-------microphys_schemes-------------(intent in)
+  ! |  |--(intent in)---calc_microphys_scheme_tendcies----(intent in)
   ! |  |                            |
   ! |  |                            |
   ! |  |                call a microphysics scheme
@@ -147,14 +147,16 @@ module Nc_Ncn_eqns
   private :: bivar_NL_chi_Ncn_mean, &
              bivar_Ncnm_eqn_comp
 
-contains
+  contains
 
   !=============================================================================
-  function Ncnm_to_Nc_in_cloud( mu_chi_1, mu_chi_2, mu_Ncn_1, mu_Ncn_2, &
-                                sigma_chi_1, sigma_chi_2, sigma_Ncn_1, &
-                                sigma_Ncn_2, sigma_Ncn_1_n, sigma_Ncn_2_n, &
-                                corr_chi_Ncn_1_n, corr_chi_Ncn_2_n, mixt_frac, &
-                                cloud_frac_1, cloud_frac_2 ) &
+  elemental function Ncnm_to_Nc_in_cloud( mu_chi_1, mu_chi_2, mu_Ncn_1, &
+                                          mu_Ncn_2, sigma_chi_1, sigma_chi_2, &
+                                          sigma_Ncn_1, sigma_Ncn_2, &
+                                          sigma_Ncn_1_n, sigma_Ncn_2_n, &
+                                          corr_chi_Ncn_1_n, corr_chi_Ncn_2_n, &
+                                          mixt_frac, cloud_frac_1, &
+                                          cloud_frac_2 ) &
   result( Nc_in_cloud )
 
     ! Description:
@@ -246,10 +248,11 @@ contains
   end function Ncnm_to_Nc_in_cloud
 
   !=============================================================================
-  function Nc_in_cloud_to_Ncnm( mu_chi_1, mu_chi_2, sigma_chi_1, &
-                                sigma_chi_2, mixt_frac, Nc_in_cloud, &
-                                cloud_frac_1, cloud_frac_2, &
-                                const_Ncnp2_on_Ncnm2, const_corr_chi_Ncn ) &
+  elemental function Nc_in_cloud_to_Ncnm( mu_chi_1, mu_chi_2, sigma_chi_1, &
+                                          sigma_chi_2, mixt_frac, Nc_in_cloud, &
+                                          cloud_frac_1, cloud_frac_2, &
+                                          const_Ncnp2_on_Ncnm2, &
+                                          const_corr_chi_Ncn ) &
   result( Ncnm )
 
     ! Description:
@@ -275,8 +278,8 @@ contains
 
     use constants_clubb, only: &
         one,            & ! Constant(s)
-        zero,           &
-        cloud_frac_min
+        cloud_frac_min, &
+        eps
 
     use clubb_precision, only: &
         core_rknd  ! Variable(s)
@@ -317,7 +320,7 @@ contains
     cloud_frac = mixt_frac * cloud_frac_1 + ( one - mixt_frac ) * cloud_frac_2
 
     if ( cloud_frac > cloud_frac_min &
-         .and. const_corr_chi_Ncn * const_Ncnp2_on_Ncnm2 /= zero ) then
+         .and. abs(const_corr_chi_Ncn * const_Ncnp2_on_Ncnm2) > eps ) then
 
        ! There is cloud found at this grid level.  Additionally, Ncn varies.
        ! Calculate Nc_in_cloud.
@@ -342,10 +345,11 @@ contains
   end function Nc_in_cloud_to_Ncnm
 
   !=============================================================================
-  function Ncnm_to_Ncm( mu_chi_1, mu_chi_2, mu_Ncn_1, mu_Ncn_2, &
-                        sigma_chi_1, sigma_chi_2, sigma_Ncn_1, &
-                        sigma_Ncn_2, sigma_Ncn_1_n, sigma_Ncn_2_n, &
-                        corr_chi_Ncn_1_n, corr_chi_Ncn_2_n, mixt_frac ) &
+  elemental function Ncnm_to_Ncm( mu_chi_1, mu_chi_2, mu_Ncn_1, mu_Ncn_2, &
+                                  sigma_chi_1, sigma_chi_2, sigma_Ncn_1, &
+                                  sigma_Ncn_2, sigma_Ncn_1_n, sigma_Ncn_2_n, &
+                                  corr_chi_Ncn_1_n, corr_chi_Ncn_2_n, &
+                                  mixt_frac ) &
   result( Ncm )
 
     ! Description:
@@ -469,9 +473,10 @@ contains
   end function Ncnm_to_Ncm
 
   !=============================================================================
-  function Ncm_to_Ncnm( mu_chi_1, mu_chi_2, sigma_chi_1, sigma_chi_2, &
-                        mixt_frac, Ncm, const_Ncnp2_on_Ncnm2, &
-                        const_corr_chi_Ncn, Ncnm_val_denom_0 ) &
+  elemental function Ncm_to_Ncnm( mu_chi_1, mu_chi_2, sigma_chi_1, &
+                                  sigma_chi_2, mixt_frac, Ncm, &
+                                  const_Ncnp2_on_Ncnm2, const_corr_chi_Ncn, &
+                                  Ncnm_val_denom_0 ) &
   result( Ncnm )
 
     ! Description:
@@ -699,8 +704,9 @@ contains
   end function Ncm_to_Ncnm
 
   !=============================================================================
-  function bivar_NL_chi_Ncn_mean( mu_chi_i, mu_Ncn_i, sigma_chi_i, &
-                                  sigma_Ncn_i, sigma_Ncn_i_n, corr_chi_Ncn_i_n )
+  elemental function bivar_NL_chi_Ncn_mean( mu_chi_i, mu_Ncn_i, sigma_chi_i, &
+                                            sigma_Ncn_i, sigma_Ncn_i_n, &
+                                            corr_chi_Ncn_i_n )
 
     ! Description:
     ! The double integral over Ncn * H(chi) multiplied by the
@@ -771,9 +777,6 @@ contains
         chi_tol,  &
         Ncn_tol
 
-    use anl_erf, only: &
-        erfc  ! Procedure(s)
-
     use clubb_precision, only: &
         core_rknd  ! Variable(s)
 
@@ -793,7 +796,7 @@ contains
       bivar_NL_chi_Ncn_mean
 
 
-    if ( sigma_chi_i <=chi_tol .and. sigma_Ncn_i <= Ncn_tol ) then
+    if ( sigma_chi_i <= chi_tol .and. sigma_Ncn_i <= Ncn_tol ) then
 
        ! The ith PDF component variances of both chi and Ncn are 0.
 
@@ -850,8 +853,9 @@ contains
   end function bivar_NL_chi_Ncn_mean
 
   !=============================================================================
-  function bivar_Ncnm_eqn_comp( mu_chi_i, sigma_chi_i, &
-                                const_Ncnp2_on_Ncnm2, const_corr_chi_Ncn )
+  elemental function bivar_Ncnm_eqn_comp( mu_chi_i, sigma_chi_i, &
+                                          const_Ncnp2_on_Ncnm2, &
+                                          const_corr_chi_Ncn )
 
     ! Description:
     ! When <Ncn> is found based on the value of <Nc>, the following equation is
@@ -894,9 +898,6 @@ contains
         zero,     &
         chi_tol
 
-    use anl_erf, only: &
-        erfc  ! Procedure(s)
-
     use clubb_precision, only: &
         core_rknd  ! Variable(s)
 
@@ -931,23 +932,12 @@ contains
 
        endif
 
-
-    elseif ( const_Ncnp2_on_Ncnm2 == zero ) then
-
-       ! The ith PDF component variance of Ncn is 0.
-
-       bivar_Ncnm_eqn_comp &
-       = one_half * erfc( - ( mu_chi_i / ( sqrt_2 * sigma_chi_i ) ) )
-
-
     else
 
        ! Both chi and Ncn vary in the ith PDF component. 
 
        bivar_Ncnm_eqn_comp &
-       = one_half &
-         * erfc( - ( one / sqrt_2 ) &
-                   * ( ( mu_chi_i / sigma_chi_i ) &
+       = one_half * erfc( - ( one / sqrt_2 ) * ( ( mu_chi_i / sigma_chi_i ) &
                        + const_corr_chi_Ncn * sqrt( const_Ncnp2_on_Ncnm2 ) ) )
 
 

@@ -24,7 +24,6 @@ module prescribed_volcaero
   public :: write_prescribed_volcaero_restart
   public :: read_prescribed_volcaero_restart
   public :: has_prescribed_volcaero
-  public :: has_prescribed_volcaero_cmip6,solar_bands,terrestrial_bands
   public :: init_prescribed_volcaero_restart
 
 
@@ -46,11 +45,6 @@ module prescribed_volcaero
   integer            :: fixed_tod = 0
   integer            :: radius_ndx
 
-  ! CMIP6 extension 
-  logical, save :: has_prescribed_volcaero_cmip6 = .false.
-  integer, parameter :: solar_bands=14, terrestrial_bands=16
-  character(len=256) :: locfn
-
 contains
 
 !-------------------------------------------------------------------
@@ -60,21 +54,12 @@ subroutine prescribed_volcaero_readnl(nlfile)
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
    use mpishorthand
-   ! CMIP6 
-   use cam_pio_utils,   only : cam_pio_openfile, init_pio_subsystem
-   use pio,             only : pio_inquire, file_desc_t, pio_inq_dimname
-   use pio,             only : pio_nowrite, pio_closefile, pio_noerr
 
    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
    ! Local variables
    integer :: unitn, ierr
    character(len=*), parameter :: subname = 'prescribed_volcaero_readnl'
-
-   ! CMIP6
-   integer :: dimid,ndims
-   type(file_desc_t) :: ncid
-   character(len=80) :: dimname
 
    character(len=16)  :: prescribed_volcaero_name
    character(len=256) :: prescribed_volcaero_file
@@ -151,28 +136,6 @@ subroutine prescribed_volcaero_readnl(nlfile)
    ! Turn on prescribed volcanics if user has specified an input dataset.
    if (len_trim(filename) > 0 .and. filename.ne.'NONE') has_prescribed_volcaero = .true.
 
-   ! Check if input file contains CMIP6 forcing   
-   if (has_prescribed_volcaero) then
-      if (len_trim(datapath) > 0 ) then
-        locfn=trim(datapath)//'/'//trim(filename)
-      else
-        locfn=trim(filename)
-      endif
-      call init_pio_subsystem
-      call cam_pio_openfile(ncid,locfn,PIO_NOWRITE)
-      ierr = pio_inquire(ncid,ndimensions=ndims)
-      do dimid=1,ndims
-         ierr = pio_inq_dimname(ncid,dimid,dimname)
-         ! assume CMIP6 if vertical coordinate is altitude
-         if ( trim(dimname) == 'altitude' ) then
-           has_prescribed_volcaero = .false.
-           has_prescribed_volcaero_cmip6 = .true.
-         endif
-      enddo
-      call pio_closefile(ncid)
-   endif
-
-
 end subroutine prescribed_volcaero_readnl
 
 !-------------------------------------------------------------------
@@ -183,30 +146,10 @@ end subroutine prescribed_volcaero_readnl
 
     integer :: idx
 
-    ! CMIP6  
-    integer :: band
-    character(len=3) :: c3
-
     if (has_prescribed_volcaero) then
        call pbuf_add_field(volcaero_name,'physpkg',dtype_r8,(/pcols,pver/),idx)
        call pbuf_add_field(volcrad_name, 'physpkg',dtype_r8,(/pcols,pver/),idx)
 
-    endif
-
-    ! CMIP6  
-    if (has_prescribed_volcaero_cmip6) then
-       do band=1,solar_bands
-         write(c3,'(i3)') band
-         call pbuf_add_field('ext_sun'//trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-         call pbuf_add_field('omega_sun'//trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-         call pbuf_add_field('g_sun'//trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-       enddo 
-       do band=1,terrestrial_bands
-         write(c3,'(i3)') band
-         call pbuf_add_field('ext_earth'//trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-         call pbuf_add_field('omega_earth'//trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-         call pbuf_add_field('g_earth'//trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-       enddo 
     endif
 
   endsubroutine prescribed_volcaero_register
@@ -217,33 +160,21 @@ end subroutine prescribed_volcaero_readnl
 
     use tracer_data, only : trcdata_init
     use cam_history, only : addfld, horiz_only
-    use ppgrid,      only : pver
-    use error_messages, only: handle_err
-    use ppgrid,         only: pcols, pver, begchunk, endchunk
-    
-    use physics_buffer, only : physics_buffer_desc, pbuf_get_index
+    use physics_buffer, only : pbuf_get_index
 
     implicit none
 
     integer :: ndx, istat
     integer :: errcode
     character(len=32) :: specifier(1)
-
-    ! CMIP6 
-    integer :: band
-    character(len=3) :: c3
-    character(len=32) :: specifier_cmip6(3*(solar_bands+terrestrial_bands))
     
-    if ( has_prescribed_volcaero .or. has_prescribed_volcaero_cmip6 ) then
+    if ( has_prescribed_volcaero ) then
        if ( masterproc ) then
           write(iulog,*) 'volcanic aerosol is prescribed in :'//trim(filename)
        endif
     else
        return
     endif
-
-    ! not CMIP6
-    if ( has_prescribed_volcaero ) then
 
     specifier(1) = trim(volcaero_name)//':'//trim(fld_name)
 
@@ -260,35 +191,6 @@ end subroutine prescribed_volcaero_readnl
     call addfld(volcmass_column_name, horiz_only,  'I','kg/m^2', 'volcanic aerosol column mass' )
 
     radius_ndx = pbuf_get_index(volcrad_name, errcode)
-
-    ! CMIP6
-    else
-
-    do band=1,solar_bands
-       write(c3,'(i3)') band
-       specifier_cmip6(band*3-2) = 'ext_sun'//trim(adjustl(c3))//':'//'ext_sun'//trim(adjustl(c3))
-       specifier_cmip6(band*3-1) = 'omega_sun'//trim(adjustl(c3))//':'//'omega_sun'//trim(adjustl(c3))
-       specifier_cmip6(band*3-0) = 'g_sun'//trim(adjustl(c3))//':'//'g_sun'//trim(adjustl(c3))
-       call addfld('ext_sun'//trim(adjustl(c3)),(/ 'lev' /), 'I', '1/km', 'Extinction coefficient of solar bands' )
-       call addfld('omega_sun'//trim(adjustl(c3)),(/ 'lev' /), 'I', '1', 'Single scattering albedo of solar bands' )
-       call addfld('g_sun'//trim(adjustl(c3)),(/ 'lev' /), 'I', '1', 'Asymmetry factor of solar bands' )
-    enddo
-    do band=1,terrestrial_bands
-       write(c3,'(i3)') band
-       specifier_cmip6((solar_bands+band)*3-2) = 'ext_earth'//trim(adjustl(c3))//':'//'ext_earth'//trim(adjustl(c3))
-       specifier_cmip6((solar_bands+band)*3-1) = 'omega_earth'//trim(adjustl(c3))//':'//'omega_earth'//trim(adjustl(c3))
-       specifier_cmip6((solar_bands+band)*3-0) = 'g_earth'//trim(adjustl(c3))//':'//'g_earth'//trim(adjustl(c3))
-       call addfld('ext_earth'//trim(adjustl(c3)),(/ 'lev' /), 'I', '1/km', 'Extinction coefficient of terrestrial bands' )
-       call addfld('omega_earth'//trim(adjustl(c3)),(/ 'lev' /), 'I', '1', 'Single scattering albedo of terrestrial bands' )
-       call addfld('g_earth'//trim(adjustl(c3)),(/ 'lev' /), 'I', '1', 'Asymmetry factor of terrestrial bands' )
-    enddo
-
-    allocate(file%in_pbuf(size(specifier_cmip6)))
-    file%in_pbuf(:) = .true.
-    call trcdata_init( specifier_cmip6, filename, filelist, datapath, fields, file, &
-                       rmv_file, cycle_yr, fixed_ymd, fixed_tod, data_type)
-
-    endif 
 
   end subroutine prescribed_volcaero_init
 
@@ -333,16 +235,9 @@ end subroutine prescribed_volcaero_readnl
     !WACCM-derived relation between mass concentration and wet aerosol radius in meters
     real(r8),parameter :: radius_conversion = 1.9e-4_r8
 
-    ! CMIP6
-    integer :: band 
-    character(len=3) :: c3
-
-    if ( .not. (has_prescribed_volcaero .or. has_prescribed_volcaero_cmip6) ) return
+    if( .not. has_prescribed_volcaero ) return
 
     call advance_trcdata( fields, file, state, pbuf2d )
-
-    ! not CMIP6    
-    if ( has_prescribed_volcaero ) then 
 
     ! copy prescribed tracer fields into state svariable with the correct units
     do c = begchunk,endchunk
@@ -389,65 +284,6 @@ end subroutine prescribed_volcaero_readnl
        call outfld( volcmass_column_name, columnmass(:), pcols, state(c)%lchnk)
 
     enddo
-
-    ! CMIP6 
-    else 
-
-    do c = begchunk,endchunk
-       pbuf_chnk => pbuf_get_chunk(pbuf2d, c)
-       call tropopause_find(state(c), tropLev, primary=TROP_ALG_TWMO, backup=TROP_ALG_CLIMATE)
-       ncol = state(c)%ncol
-       do band=1,solar_bands
-          write(c3,'(i3)') band
-          call pbuf_get_field(pbuf_chnk, fields(band*3-2)%pbuf_ndx, data)
-          do i = 1,ncol
-             do k = 1,pver
-                if ( k >= tropLev(i) ) data(i,k) = 0._r8
-             enddo
-          enddo
-          call outfld('ext_sun'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
-          call pbuf_get_field(pbuf_chnk, fields(band*3-1)%pbuf_ndx, data)
-          do i = 1,ncol
-             do k = 1,pver
-                if ( k >= tropLev(i) ) data(i,k) = 0.999_r8
-             enddo
-          enddo
-          call outfld('omega_sun'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
-          call pbuf_get_field(pbuf_chnk, fields(band*3-0)%pbuf_ndx, data)
-          do i = 1,ncol
-             do k = 1,pver
-                if ( k >= tropLev(i) ) data(i,k) = 0.5_r8
-             enddo
-          enddo
-          call outfld('g_sun'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
-       enddo
-       do band=1,terrestrial_bands
-          write(c3,'(i3)') band
-          call pbuf_get_field(pbuf_chnk, fields((solar_bands+band)*3-2)%pbuf_ndx, data)
-          do i = 1,ncol
-             do k = 1,pver
-                if ( k >= tropLev(i) ) data(i,k) = 0._r8
-             enddo
-          enddo
-          call outfld('ext_earth'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
-          call pbuf_get_field(pbuf_chnk, fields((solar_bands+band)*3-1)%pbuf_ndx, data)
-          do i = 1,ncol
-             do k = 1,pver
-                if ( k >= tropLev(i) ) data(i,k) = 0.999_r8
-             enddo
-          enddo
-          call outfld('omega_earth'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
-          call pbuf_get_field(pbuf_chnk, fields((solar_bands+band)*3-0)%pbuf_ndx, data)
-          do i = 1,ncol
-             do k = 1,pver
-                if ( k >= tropLev(i) ) data(i,k) = 0.5_r8
-             enddo
-          enddo
-          call outfld('g_earth'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
-       enddo 
-    enddo 
-
-    endif 
 
   end subroutine prescribed_volcaero_adv
 

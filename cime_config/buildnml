@@ -39,12 +39,17 @@ def buildnml(case, caseroot, compname):
     CAM_NML_USE_CASE    = case.get_value("CAM_NML_USE_CASE")
     DEBUG               = case.get_value("DEBUG")
     NINST_ATM           = case.get_value("NINST_ATM")
+    NTASKS              = case.get_value("NTASKS_PER_INST_ATM")
     RUN_TYPE            = case.get_value("RUN_TYPE")
     RUN_STARTDATE       = case.get_value("RUN_STARTDATE")
     RUN_REFCASE         = case.get_value("RUN_REFCASE")
     RUN_REFDATE         = case.get_value("RUN_REFDATE")
     RUN_REFTOD          = case.get_value("RUN_REFTOD")
-    DMS_MODE            = case.get_value("CCSM_BGC")
+
+    testsrc = os.path.join(srcroot, "components", "cam")
+    if os.path.exists(testsrc):
+        srcroot = testsrc
+
     #--------------------------------------------------------------------
     # call buildcpp to set both cppdefs and config_cache.xml file for generating namelist
     #--------------------------------------------------------------------
@@ -57,7 +62,7 @@ def buildnml(case, caseroot, compname):
         if not filecmp.cmp(file1, file2):
             call_buildcpp = True
     if call_buildcpp:
-        cmd = os.path.join(os.path.join(srcroot,"components","cam","cime_config","buildcpp"))
+        cmd = os.path.join(os.path.join(srcroot,"cime_config","buildcpp"))
         logger.info("     ...calling cam buildcpp to set build time options")
         try:
             mod = imp.load_source("buildcpp", cmd)
@@ -133,7 +138,6 @@ def buildnml(case, caseroot, compname):
         dtime = int( (3600*24)/int(atm_ncpl) + .5)
         infile_lines.append(" dtime = " + str(dtime))
         start_ymd = RUN_STARTDATE.replace('-','')
-        infile_lines.append(" start_ymd = " + start_ymd)
 
         if DEBUG:
             infile_lines.append(" state_debug_checks = .true.")
@@ -147,10 +151,9 @@ def buildnml(case, caseroot, compname):
         # call build-namelist
         # -----------------------------------------------------
 
-        ntasks = int(case.get_value("NTASKS_PER_INST_ATM"))
-
-        buildnl_opts = ["-ntasks", str(ntasks), "-csmdata", din_loc_root,
-                        "-infile", os.path.join(camconf, "namelist")]
+        buildnl_opts = ["-ntasks", str(NTASKS), "-csmdata", din_loc_root,
+                        "-infile", os.path.join(camconf, "namelist"),
+                        "-start_ymd", start_ymd]
 
         if ('-01-01' in RUN_STARTDATE) or ('-09-01' in RUN_STARTDATE):
             buildnl_opts.append("-ignore_ic_year")
@@ -165,7 +168,7 @@ def buildnml(case, caseroot, compname):
         buildnl_opts += ["-namelist",
                          '" &atmexp ' + CAM_NAMELIST_OPTS + '/" ']
 
-        cmd = os.path.join(srcroot, "components", "cam", "bld", "build-namelist")
+        cmd = os.path.join(srcroot,  "bld", "build-namelist")
         cmd += " " + " ".join(buildnl_opts)
 
         rc, out, err = run_cmd(cmd, from_dir=camconf)
@@ -190,15 +193,6 @@ def buildnml(case, caseroot, compname):
         file1 = os.path.join(camconf, "drv_flds_in")
         file2 = os.path.join(rundir, "drv_flds_in")
         if (os.path.isfile(file1)) and (not os.path.isfile(file2)):
-            shutil.copy(file1,file2)
-
-        # -----------------------------------------------------
-        # copy aquap_in to rundir if it exists
-        # -----------------------------------------------------
-
-        file1 = os.path.join(camconf, "aquap_in")
-        file2 = os.path.join(rundir, "aquap_in")
-        if os.path.isfile(file1):
             shutil.copy(file1,file2)
 
 ###############################################################################

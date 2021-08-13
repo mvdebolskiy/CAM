@@ -26,10 +26,6 @@ module mo_gas_phase_chemdr
   integer :: het1_ndx
   integer :: ndx_cldfr, ndx_cmfdqr, ndx_nevapr, ndx_cldtop, ndx_prain
   integer :: ndx_h2so4
-#ifdef OSLO_AERO
-  logical :: inv_o3, inv_oh, inv_no3, inv_ho2
-  integer :: id_o3, id_oh, id_no3, id_ho2
-#endif
 !
 ! CCMI
 !
@@ -57,7 +53,7 @@ contains
 
   subroutine gas_phase_chemdr_inti()
 
-    use mo_chem_utls,      only : get_spc_ndx, get_extfrc_ndx, get_rxt_ndx, get_inv_ndx
+    use mo_chem_utls,      only : get_spc_ndx, get_extfrc_ndx, get_rxt_ndx
     use cam_history,       only : addfld,add_default,horiz_only
     use mo_chm_diags,      only : chm_diags_inti
     use constituents,      only : cnst_get_ind
@@ -78,25 +74,6 @@ contains
 
     call phys_getopts( convproc_do_aer_out = convproc_do_aer, history_cesm_forcing_out=history_cesm_forcing )
    
-#if defined(OSLO_AERO)
-    inv_o3   = get_inv_ndx('O3') > 0
-    inv_oh   = get_inv_ndx('OH') > 0
-    inv_no3  = get_inv_ndx('NO3') > 0
-    inv_ho2  = get_inv_ndx('HO2') > 0
-    if (inv_o3) then
-       id_o3 = get_inv_ndx('O3')
-    endif
-    if (inv_oh) then
-       id_oh = get_inv_ndx('OH')
-    endif
-    if (inv_no3) then
-       id_no3 = get_inv_ndx('NO3')
-    endif
-    if (inv_ho2) then
-       id_ho2 = get_inv_ndx('HO2')
-    endif
-#endif
-
     ndx_h2so4 = get_spc_ndx('H2SO4')
 !
 ! CCMI
@@ -223,22 +200,6 @@ contains
     call addfld( 'HCL_GAS',    (/ 'lev' /), 'I', 'mol/mol', 'gas-phase hcl' )
     call addfld( 'HCL_STS',    (/ 'lev' /), 'I', 'mol/mol', 'STS condensed HCL' )
 
-    !++IH: Adding extra fields for oxi-output (before and after diurnal variations.)
-    call addfld ('OH_bef    ',  (/ 'lev' /), 'A','unit', 'OH invariants before adding diurnal variations'           )
-    call addfld ('HO2_bef   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants before adding diurnal variations'          )
-    call addfld ('NO3_bef   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants before adding diurnal variations'          )
-    call addfld ('OH_aft    ',  (/ 'lev' /), 'A','unit', 'OH invariants after adding diurnal variations'            )
-    call addfld ('HO2_aft   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants after adding diurnal variations'           )
-    call addfld ('NO3_aft   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants after adding diurnal variations'           )
-
-    call add_default ('OH_bef       ', 1, ' ')
-    call add_default ('HO2_bef      ', 1, ' ')
-    call add_default ('NO3_bef      ', 1, ' ')
-    call add_default ('OH_aft       ', 1, ' ')
-    call add_default ('HO2_aft      ', 1, ' ')
-    call add_default ('NO3_aft      ', 1, ' ')
-    !--IH
-
     if (het1_ndx>0) then
        call addfld( 'het1_total', (/ 'lev' /), 'I', '/s', 'total N2O5 + H2O het rate constant' )
     endif
@@ -270,6 +231,8 @@ contains
     call addfld( 'GAMMA_HET5', (/ 'lev' /), 'I', '1', 'Reaction Probability' )
     call addfld( 'GAMMA_HET6', (/ 'lev' /), 'I', '1', 'Reaction Probability' )
     call addfld( 'WTPER',      (/ 'lev' /), 'I', '%', 'H2SO4 Weight Percent' )
+
+    call addfld( 'O3S_LOSS',      (/ 'lev' /), 'I', '1/sec', 'O3S loss rate const' )
 
     call chem_prod_loss_diags_init
 
@@ -334,12 +297,9 @@ contains
     use mo_chm_diags,      only : chm_diags, het_diags
     use perf_mod,          only : t_startf, t_stopf
     use gas_wetdep_opts,   only : gas_wetdep_method
-#if (defined OSLO_AERO)
-    use oxi_diurnal_var,   only : set_diurnal_invariants
-#endif
     use physics_buffer,    only : physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
     use infnan,            only : nan, assignment(=)
-    use rate_diags,        only : rate_diags_calc
+    use rate_diags,        only : rate_diags_calc, rate_diags_o3s_loss
     use mo_mass_xforms,    only : mmr2vmr, vmr2mmr, h2o_to_vmr, mmr2vmri
     use orbit,             only : zenith
 !
@@ -514,6 +474,8 @@ contains
     real(r8) :: prod_out(ncol,pver,max(1,clscnt4))
     real(r8) :: loss_out(ncol,pver,max(1,clscnt4))
 
+    real(r8) :: o3s_loss(ncol,pver)
+
     if ( ele_temp_ndx>0 .and. ion_temp_ndx>0 ) then
        call pbuf_get_field(pbuf, ele_temp_ndx, ele_temp_fld)
        call pbuf_get_field(pbuf, ion_temp_ndx, ion_temp_fld)
@@ -548,7 +510,7 @@ contains
     !        ... Calculate cosine of zenith angle
     !            then cast back to angle (radians)
     !-----------------------------------------------------------------------      
-    call zenith( calday, rlats, rlons, zen_angle, ncol , delt) !+tht delt
+    call zenith( calday, rlats, rlons, zen_angle, ncol, delt) !+tht delt
     zen_angle(:) = acos( zen_angle(:) )
 
     sza(:) = zen_angle(:) * rad2deg
@@ -665,26 +627,6 @@ contains
     call setinv( invariants, tfld, h2ovmr, vmr, pmid, ncol, lchnk, pbuf )
 
     !-----------------------------------------------------------------------      
-#if defined (OSLO_AERO)
-    !        ... Set the "day/night cycle for prescribed oxidants"
-    !----------------------------------------------------------------------- 
-
-    !++IH
-    call outfld('OH_bef',    invariants(:,:,id_oh),  ncol, lchnk)
-    call outfld('HO2_bef',   invariants(:,:,id_ho2), ncol, lchnk)
-    call outfld('NO3_bef',   invariants(:,:,id_no3), ncol, lchnk)
-    !--IH
-
-    if (inv_oh.or.inv_ho2.or.inv_no3)  & !++IH: added inv_no3
-      call set_diurnal_invariants(invariants,delt,ncol,lchnk,inv_oh,inv_ho2,id_oh,id_ho2,inv_no3,id_no3) !++IH: added inv_no3 and id_no3
-  
-    !++IH
-    call outfld('OH_aft',    invariants(:,:,id_oh),  ncol, lchnk)
-    call outfld('HO2_aft',   invariants(:,:,id_ho2), ncol, lchnk)
-    call outfld('NO3_aft',   invariants(:,:,id_no3), ncol, lchnk)
-    !--IH
-
-#endif
     !        ... stratosphere aerosol surface area
     !-----------------------------------------------------------------------  
     if (sad_pbf_ndx>0) then
@@ -1005,9 +947,12 @@ contains
 
     ! reset O3S to O3 in the stratosphere ...
     if ( o3_ndx > 0 .and. o3s_ndx > 0 ) then
+       o3s_loss = rate_diags_o3s_loss( reaction_rates, vmr, ncol )
        do i = 1,ncol
           vmr(i,1:troplev(i),o3s_ndx) = vmr(i,1:troplev(i),o3_ndx)
+          vmr(i,troplev(i)+1:pver,o3s_ndx) = vmr(i,troplev(i)+1:pver,o3s_ndx) * exp(-delt*o3s_loss(i,troplev(i)+1:pver))
        end do
+       call outfld( 'O3S_LOSS',  o3s_loss,  ncol ,lchnk )
     end if
 
     if (convproc_do_aer) then
@@ -1171,6 +1116,7 @@ contains
     endif
 
     drydepflx(:,:) = 0._r8
+    wetdepflx_diag(:,:) = 0._r8
     do m = 1,pcnst
        n = map2chm( m )
        if ( n > 0 ) then
@@ -1183,7 +1129,7 @@ contains
     call chm_diags( lchnk, ncol, vmr(:ncol,:,:), mmr_new(:ncol,:,:), &
                     reaction_rates(:ncol,:,:), invariants(:ncol,:,:), depvel(:ncol,:),  sflx(:ncol,:), &
                     mmr_tend(:ncol,:,:), pdel(:ncol,:), pmid(:ncol,:), troplev(:ncol), wetdepflx_diag(:ncol,:), &
-                    nhx_nitrogen_flx(:ncol), noy_nitrogen_flx(:ncol), pbuf )
+                    nhx_nitrogen_flx(:ncol), noy_nitrogen_flx(:ncol) )
 
     call rate_diags_calc( reaction_rates(:,:,:), vmr(:,:,:), invariants(:,:,indexm), ncol, lchnk )
 !

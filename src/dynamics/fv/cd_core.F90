@@ -12,7 +12,8 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
                    mlt, ncx, ncy, nmfx, nmfy, iremote,            &
                    cxtag, cytag, mfxtag, mfytag,                  &
                    cxreqs, cyreqs, mfxreqs, mfyreqs,              &
-                   kmtp, am_correction, am_geom_crrct, am_fixer, dod, don ,high_order_top)
+                   kmtp, am_correction, am_geom_crrct, am_fixer,  &
+                   dod, don, high_order_top)
 
    ! Dynamical core for both C- and D-grid Lagrangian dynamics
    !
@@ -169,12 +170,7 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
    real(r8), intent(out) ::   &
       ptk(grid%im,grid%jfirst:grid%jlast,grid%kfirst:grid%klast)
 
-!+diag 3/7/2017 local array
-   real(r8)                ::   &
-      ucc(grid%im,grid%jfirst-grid%ng_d:grid%jlast+grid%ng_d,grid%kfirst:grid%klast)   ! u-Winds correction
-!-diag
-
-! C.-C. Chen, omega calculation
+   ! Omega calculation
    real(r8), intent(out) ::   &
       cx_om(grid%im,grid%jfirst:grid%jlast,grid%kfirst:grid%klast)   ! Courant in X
    real(r8), intent(out) ::  &
@@ -235,7 +231,7 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
    integer :: npes_yz
 
    integer i, j, k, ml
-   integer js1g1, js2g0, js2g1, jn2g1 ,js4g0 ,jn3g0 
+   integer js1g1, js2g0, js2g1, jn2g1, js4g0, jn3g0 
    integer jn2g0, jn1g1
    integer iord , jord
 
@@ -295,13 +291,10 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
    ! Used to allow the same code to execute with or without the AM correction
    real(r8) :: ptr(grid%im,grid%jfirst-1:grid%jlast+1,grid%kfirst:grid%klast+1)
 
-   logical :: sw_am_corr
-   logical :: am_press_crrct !+tht 11.05.2019
-   real(r8):: wg_hiord       !+tht 11.05.2019
-
-!+tht 12.10.2017
-   real(r8) tpr, acap
-!-tht 12.10.2017
+   logical  :: sw_am_corr
+   logical  :: am_press_crrct
+   real(r8) :: wg_hiord
+   real(r8) :: tpr, acap
 
    !******************************************************************
    !******************************************************************
@@ -383,14 +376,12 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
    endif
 #endif
 
-!+tht 11.05.2019
-   am_press_crrct = am_geom_crrct.and.am_correction
+   am_press_crrct = am_geom_crrct .and. am_correction
    if (am_press_crrct) then
-     wg_hiord       =-D1_0
+     wg_hiord = -1._r8
    else
-     wg_hiord       = D0_0
+     wg_hiord =  0._r8
    endif
-!-tht 11.05.2019
 
    npes_yz  = grid%npes_yz
 
@@ -420,27 +411,21 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
          kelp(grid%im,grid%jfirst-1:grid%jlast ,grid%kfirst:grid%klast  ), &
          dpn(grid%im,grid%jfirst  :grid%jlast  ,grid%kfirst:grid%klast  ), &
          dpo(grid%im,grid%jfirst  :grid%jlast  ,grid%kfirst:grid%klast  ) )
-!+tht 12/04/2019
-!    define polar cap contributions correctly
-      acap=1._r8/4._r8               ! effective AM/MoI contribution from polar caps
-!-tht 12/04/2019
+      acap = 1._r8/4._r8 ! effective AM/MoI contribution from polar caps
    endif
    if (am_press_crrct) then 
       allocate( &
          dpr(grid%im,grid%jfirst-1:grid%jlast+1,grid%kfirst:grid%klast  )  )
-      xakap      = 1._r8/cap3vc(1,jfirst,kfirst)
+      xakap = 1._r8/cap3vc(1,jfirst,kfirst)
    endif
    if (am_correction) then 
       allocate( &
          ddpu(grid%im,grid%jfirst  :grid%jlast ,grid%kfirst:grid%klast  ), &
          dpns(grid%jfirst:grid%jlast,grid%kfirst:grid%klast), &
          ddus(grid%jfirst:grid%jlast,grid%kfirst:grid%klast) )
-!+tht 04.07.2017
       ddus = 0._r8
-      ucc  = 0._r8
-!-tht 04.07.2017
    else
-      xakap      = 1._r8
+      xakap = 1._r8
    endif
 
    ! maintain consistent accuracy (uniform PPM order) over domain
@@ -1341,13 +1326,13 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
                   dpo(i,j,k)=(kelp(i,j,k)*cosp(j)+kelp(i,j-1,k)*cosp(j-1))/(cosp(j)+cosp(j-1)) ! A->D
                end do
             end do
-            if (jfirst.eq.1) then
+            if (jfirst == 1) then
                do i = 1, im
                   dpn(i, 2,k)=(help(i,  2 ,k)*cosp(  2 )+acap*help(i, 1,k)*cose( 2))/cosp(  2 )
                   dpo(i, 2,k)=(kelp(i,  2 ,k)*cosp(  2 )+acap*kelp(i, 1,k)*cose( 2))/cosp(  2 )
                end do
             endif
-            if (jlast.eq.jm) then
+            if (jlast == jm) then
                do i = 1, im
                   dpn(i,jm,k)=(help(i,jm-1,k)*cosp(jm-1)+acap*help(i,jm,k)*cose(jm))/cosp(jm-1)
                   dpo(i,jm,k)=(kelp(i,jm-1,k)*cosp(jm-1)+acap*kelp(i,jm,k)*cose(jm))/cosp(jm-1)
@@ -1369,7 +1354,7 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
             do k = kfirst, klast
                do j = js2g0, jlast
                   do i = 1, im
-                     ddu(i,j,k)=ddu(i,j,k)* D0_5*(dpo(i,j,k)+dpn(i,j,k)      )      ! new 05/03/2019
+                     ddu(i,j,k) = ddu(i,j,k)*0.5_r8*(dpo(i,j,k) + dpn(i,j,k))
                   end do
                end do
             end do
@@ -1378,22 +1363,21 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
             do k = kfirst, klast
                do j = js2g0, jlast
                   ddus(j,k) = ddu(1,j,k) &
-                             + (u(1,j,k) + uc(1,j,k)*D0_5)*ddpu(1,j,k) & ! new 05/03/2019
-                             + wg_hiord*vf(1,j,k)*(dpn(1,j,k) - dpo(1,j,k))*D0_5
+                             + (u(1,j,k) + uc(1,j,k)*0.5_r8)*ddpu(1,j,k) &
+                             + wg_hiord*vf(1,j,k)*(dpn(1,j,k) - dpo(1,j,k))*0.5_r8
                   dpns(j,k) = dpn(1,j,k)
                   do i = 2, im
                      ddus(j,k) = ddus(j,k) &
                                 + ddu(i,j,k) &
-                                + (u(i,j,k)+uc(i,j,k)*D0_5)*ddpu(i,j,k) & ! new 05/03/2019
-                                + wg_hiord*vf(i,j,k)*(dpn(i,j,k)-dpo(i,j,k))*D0_5
+                                + (u(i,j,k)+uc(i,j,k)*0.5_r8)*ddpu(i,j,k) &
+                                + wg_hiord*vf(i,j,k)*(dpn(i,j,k)-dpo(i,j,k))*0.5_r8
                      dpns(j,k) = dpns(j,k) + dpn(i,j,k)
                   end do
                   ddus(j,k) = ddus(j,k)/dpns(j,k)  
-!+tht 12.10.2017 taper beyond 72S/N
+                  ! taper beyond 72S/N
                   tpr = max(abs(-2.5_r8 + ((j-1)-0.5_r8)*(5._r8/(jm-1))),2._r8)
                   tpr = cos(pi*tpr)**2
                   ddus(j,k)=ddus(j,k)*tpr
-!-tht 12.10.2017
                end do
             end do
 
@@ -1402,9 +1386,6 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
                do j = js4g0, jn3g0
                   do i = 1, im !+++++++++++++++++++++++++++++++++++++++++++++
                      uc(i,j,k) = uc(i,j,k) + ddus(j,k) !  APPLY AM CORRECTION
-!+tht correction diagnostic
-                     ucc(i,j,k)= ddus(j,k)
-!-tht
                   enddo        !+++++++++++++++++++++++++++++++++++++++++++++
                enddo
             enddo
@@ -1412,28 +1393,28 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
          end if ! (am_correction)
  
          if (am_fixer) then
-            if (.not.am_geom_crrct) then 
+            if (.not. am_geom_crrct) then 
 !$omp parallel do private(i, j, k) 
-             do k = kfirst, klast
-               do j = js2g0, jlast
-                 do i = 1, im
-                  dpn(i,j,k)=(help(i,j,k)        +help(i,j-1,k)          )/(       2._r8     )
-                  dpo(i,j,k)=(kelp(i,j,k)        +kelp(i,j-1,k)          )/(       2._r8     )
-                end do
+               do k = kfirst, klast
+                  do j = js2g0, jlast
+                     do i = 1, im
+                        dpn(i,j,k) = (help(i,j,k) + help(i,j-1,k) )/ 2._r8
+                        dpo(i,j,k) = (kelp(i,j,k) + kelp(i,j-1,k) )/ 2._r8
+                     end do
+                  end do
+                  if (jfirst == 1) then
+                     do i = 1, im
+                        dpn(i,2,k) = (help(i,2,k) + help(i,1,k) )/ 2._r8
+                        dpo(i,2,k) = (kelp(i,2,k) + kelp(i,1,k) )/ 2._r8
+                     end do
+                  endif
+                  if (jlast == jm) then
+                     do i = 1, im
+                        dpn(i,jm,k) = (help(i,jm-1,k) + help(i,jm,k) )/ 2._r8
+                        dpo(i,jm,k) = (kelp(i,jm-1,k) + kelp(i,jm,k) )/ 2._r8
+                     end do
+                  endif
                end do
-               if (jfirst.eq.1) then
-                do i = 1, im
-                  dpn(i, 2,k)=(help(i,  2 ,k)    +     help(i, 1,k)         )/(  2._r8 )
-                  dpo(i, 2,k)=(kelp(i,  2 ,k)    +     kelp(i, 1,k)         )/(  2._r8 )
-                end do
-               endif
-               if (jlast.eq.jm) then
-                do i = 1, im
-                  dpn(i,jm,k)=(help(i,jm-1,k)    +     help(i,jm,k)         )/(  2._r8 )
-                  dpo(i,jm,k)=(kelp(i,jm-1,k)    +     kelp(i,jm,k)         )/(  2._r8 )
-                end do
-               endif
-             end do
             endif
 !$omp parallel do private(i, j, k) 
             do k = kfirst, klast
@@ -1441,7 +1422,7 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
                   do i = 1, im
                      don(j,k) = don(j,k) + (cosp(j) + cosp(j-1))*cose(j) &
                                 *(uc(i,j,k)*dpn(i,j,k)                   &
-                                 +(u(i,j,k) + cose(j)*oma)*(dpn(i,j,k)-dpo(i,j,k)))
+                                + (u(i,j,k) + cose(j)*oma)*(dpn(i,j,k) - dpo(i,j,k)))
                      dod(j,k) = dod(j,k) + (cosp(j) + cosp(j-1))*cose(j)**2*dpn(i,j,k)
                   end do
                end do
@@ -1982,15 +1963,6 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
             wk3(im,j) = uc(im,j,k)  +  grid%dtdxe(j)/(wk(im,j) + wk(1,j))       &
                         * (wk2(im,j)-wk2(1,j)+wz3(im,j,k+1)-wz3(im,j,k))
          end do
-
-!+tht replace in output adv.tend. diag with correction diag 3/7/2017
-        !do j = js2g0, jlast
-        !   do i = 1, im-1
-        !      uc(i,j,k) = ucc(i,j,k)
-        !   end do
-        !   uc(im,j,k) = ucc(im,j,k)
-        !end do
-!-tht
 
          if (am_geom_crrct) then
             ! apply cos-weighted avg'ing

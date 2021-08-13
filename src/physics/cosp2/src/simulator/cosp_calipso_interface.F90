@@ -28,6 +28,7 @@
 !
 ! History
 ! May 2015 - D. Swales - Original version
+! Jul 2017 - R. Guzman - Added Ground LIDar variables (GLID)
 ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 MODULE MOD_COSP_CALIPSO_INTERFACE
   USE COSP_KINDS,              ONLY: wp

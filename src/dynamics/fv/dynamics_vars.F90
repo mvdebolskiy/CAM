@@ -956,7 +956,7 @@ subroutine grid_vars_init(pi, ae, om, dt, fft_flt, &
 
    ! Compute coriolis parameter at cell corners.
 
-   if (am_geom_crrct) then 
+   if (am_geom_crrct) then
       do j = js2gc, jn1gc
          grid%fc(j) = (om+om)*grid%sine(j)
       end do

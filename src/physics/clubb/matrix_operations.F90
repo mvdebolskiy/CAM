@@ -1,5 +1,5 @@
 !-----------------------------------------------------------------------
-! $Id: matrix_operations.F90 7016 2014-07-07 16:48:40Z betlej@uwm.edu $
+! $Id$
 !===============================================================================
 module matrix_operations
 
@@ -124,12 +124,13 @@ module matrix_operations
 
     use clubb_precision, only: & 
       core_rknd
+      
+    use lapack_interfaces, only: &
+      lapack_potrf, &   ! Procedures
+      lapack_poequ, &
+      lapack_laqsy
 
     implicit none
-
-    ! External
-    external :: dpotrf, dpoequ, dlaqsy, & ! LAPACK subroutines
-                spotrf, spoequ, slaqsy
 
     ! Constant Parameters
     integer, parameter :: itermax = 10 ! Max iterations of the modified method
@@ -161,8 +162,6 @@ module matrix_operations
 
     character :: equed
 
-    logical :: l_dp
-
     ! ---- Begin code ----
 
     a_scaled = a_input ! Copy input array into output array
@@ -177,28 +176,14 @@ module matrix_operations
 
     equed = 'N'
 
-    if ( kind( 0.0_core_rknd ) == kind( 0.0d0 ) ) then
-      l_dp = .true.
-    else if ( kind( 0.0_core_rknd ) == kind( 0.0 ) ) then
-      l_dp = .false.
-    else
-      stop "Precision is not single or double precision in Cholesky_factor"
-    end if
-
-    ! Compute scaling for a_input
-    if ( l_dp ) then
-      call dpoequ( ndim, a_input, ndim, a_scaling, scond, amax, info )
-    else
-      call spoequ( ndim, a_input, ndim, a_scaling, scond, amax, info )
-    end if
+    ! Compute scaling for a_input, using Lapack routine spoequ for single precision,
+    ! or dpoequ for double precision
+    call lapack_poequ( ndim, a_input, ndim, a_scaling, scond, amax, info )
 
     if ( info == 0 ) then
-      ! Apply scaling to a_input
-      if ( l_dp ) then
-        call dlaqsy( 'Lower', ndim, a_scaled, ndim, a_scaling, scond, amax, equed )
-      else
-        call slaqsy( 'Lower', ndim, a_scaled, ndim, a_scaling, scond, amax, equed )
-      end if
+      ! Apply scaling to a_input, using Lapack routine slaqsy for single precision,
+      ! or dlaqsy for double precision
+      call lapack_laqsy( 'Lower', ndim, a_scaled, ndim, a_scaling, scond, amax, equed )
     end if
 
     ! Determine if scaling was necessary
@@ -212,11 +197,8 @@ module matrix_operations
 
     do iter = 1, itermax
 
-      if ( l_dp ) then
-        call dpotrf( 'Lower', ndim, a_Cholesky, ndim, info )
-      else
-        call spotrf( 'Lower', ndim, a_Cholesky, ndim, info )
-      end if
+      ! Lapack Cholesky factorization, spotrf for single or dpotrf for double precision
+      call lapack_potrf( 'Lower', ndim, a_Cholesky, ndim, info )
 
       select case( info )
       case( :-1 )
@@ -279,11 +261,11 @@ module matrix_operations
 
         if ( iter == itermax ) then
           write(fstderr,*) "iteration =", iter, "itermax =", itermax
-          stop "Fatal error in Cholesky_factor"
+          write(fstderr,*) "Fatal error in Cholesky_factor"
         else if ( clubb_at_least_debug_level( 1 ) ) then
           ! Adding a STOP statement to prevent this problem from slipping under
           ! the rug.
-          stop "Fatal error in Cholesky_factor"
+          write(fstderr,*) "Fatal error in Cholesky_factor"
           write(fstderr,*) "Attempting to modify matrix to allow factorization."
         end if
 
@@ -346,11 +328,11 @@ module matrix_operations
 
     use clubb_precision, only: &
       core_rknd ! double precision
+      
+    use lapack_interfaces, only: &
+      lapack_syev       ! Procedure
 
     implicit none
-
-    ! External
-    external :: dsyev, ssyev ! LAPACK subroutine(s)
 
     ! Parameters
     integer, parameter :: &
@@ -383,33 +365,26 @@ module matrix_operations
 !   end do
 !   pause
 
-    if ( kind( 0.0_core_rknd ) == kind( 0.0d0 ) ) then
-      call dsyev( 'No eigenvectors', 'Lower', ndim, a_scratch, ndim, &
-                  a_eigenvalues, work, lwork, info )
-    else if ( kind( 0.0_core_rknd ) == kind( 0.0 ) ) then
-      call ssyev( 'No eigenvectors', 'Lower', ndim, a_scratch, ndim, &
-                  a_eigenvalues, work, lwork, info )
-    else
-      stop "Precision is not single or double in Symm_matrix_eigenvalues"
-    end if
+    ! Lapack routine for computing eigenvalues and, optionally, eigenvectors. ssyev for 
+    ! single precision  or dsyev for double precision
+    call lapack_syev( 'No eigenvectors', 'Lower', ndim, a_scratch, ndim, &
+                      a_eigenvalues, work, lwork, info )
 
     select case( info )
     case( :-1 )
       write(fstderr,*) "Symm_matrix_eigenvalues:" // & 
         " illegal value for argument ", -info
-      stop
     case( 0 )
       ! Success!
 
     case( 1: )
       write(fstderr,*) "Symm_matrix_eigenvalues: Algorithm failed to converge."
-      stop
     end select
 
     return
   end subroutine Symm_matrix_eigenvalues
 !-------------------------------------------------------------------------------
-  subroutine set_lower_triangular_matrix( d_variables, index1, index2, xpyp, &
+  subroutine set_lower_triangular_matrix( pdf_dim, index1, index2, xpyp, &
                                           matrix )
 ! Description:
 !   Set a value for the lower triangular portion of a matrix.
@@ -427,14 +402,14 @@ module matrix_operations
 
     ! Input Variables
     integer, intent(in) :: &
-      d_variables, & ! Number of variates
+      pdf_dim, & ! Number of variates
       index1, index2 ! Indices for 2 variates (the order doesn't matter)
 
     real( kind = core_rknd ), intent(in) :: &
       xpyp ! Value for the matrix (usually a correlation or covariance) [units vary]
 
     ! Input/Output Variables
-    real( kind = core_rknd ), dimension(d_variables,d_variables), intent(inout) :: &
+    real( kind = core_rknd ), dimension(pdf_dim,pdf_dim), intent(inout) :: &
       matrix ! The lower triangular matrix
 
     integer :: i,j
@@ -454,7 +429,7 @@ module matrix_operations
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
-  subroutine get_lower_triangular_matrix( d_variables, index1, index2, matrix, &
+  subroutine get_lower_triangular_matrix( pdf_dim, index1, index2, matrix, &
                                           xpyp )
 ! Description:
 !   Returns a value from the lower triangular portion of a matrix.
@@ -472,11 +447,11 @@ module matrix_operations
 
     ! Input Variables
     integer, intent(in) :: &
-      d_variables, & ! Number of variates
+      pdf_dim, & ! Number of variates
       index1, index2 ! Indices for 2 variates (the order doesn't matter)
 
     ! Input/Output Variables
-    real( kind = core_rknd ), dimension(d_variables,d_variables), intent(in) :: &
+    real( kind = core_rknd ), dimension(pdf_dim,pdf_dim), intent(in) :: &
       matrix ! The covariance matrix
 
     real( kind = core_rknd ), intent(out) :: &

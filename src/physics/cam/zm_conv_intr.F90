@@ -306,6 +306,11 @@ subroutine zm_conv_init(pref_edge)
     call addfld ('DIFZM'   ,(/ 'lev' /), 'A','kg/kg/s ','Detrained ice water from ZM convection')
     call addfld ('DLFZM'   ,(/ 'lev' /), 'A','kg/kg/s ','Detrained liquid water from ZM convection')
 
+!+tht
+   !call addfld ('EURT',      horiz_only,  'A', '1/m', 'ZM plume ensemble entrainment rate') ! 2D
+    call addfld ('EURT',     (/ 'lev' /),  'A', '1/m', 'ZM plume ensemble entrainment rate') ! 3D
+!-tht
+
     call phys_getopts( history_budget_out = history_budget, &
                        history_budget_histfile_num_out = history_budget_histfile_num)
 
@@ -463,6 +468,11 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8) :: jcbot(pcols)  ! o row of base of cloud indices passed out.
 
    real(r8) :: pcont(pcols), pconb(pcols), freqzm(pcols)
+
+!+tht
+  !real(r8) :: eurt(pcols)      !+tht: entr.rate 2D
+   real(r8) :: eurt(pcols,pver) !+tht: entr.rate 3D
+!-tht
 
    ! history output fields
    real(r8) :: cape(pcols)        ! w  convective available potential energy.
@@ -635,18 +645,24 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
                     state%t       ,state%q(:,:,1),      prec    ,jctop   ,jcbot   , &
                     pblh    ,state%zm      ,state%phis    ,state%zi      ,ptend_loc%q(:,:,1)    , &
                     ptend_loc%s    , state%pmid     ,state%pint    ,state%pdel     , &
-                    .5_r8*ztodt    ,mcon    ,cme     , cape,      &
+!                   .5_r8*ztodt    ,mcon    ,cme     , cape,      &
+                    .5_r8*ztodt    ,mcon    ,cme     , cape, eurt,& !+tht eurt
                     tpert   ,dlf     ,pflx    ,zdu     ,rprd    , &
                     mu,      md,      du,      eu,      ed,       &
-                    dp,      dsubcld, jt,      maxg,    ideep,    &
+!                   dp,      dsubcld, jt,      maxg,    ideep,    &
+                    dp,      dsubcld, jt,      maxg,    ideep, lengath,  &
                     ql,  rliq, landfrac,                          &
                     org, orgt, zm_org2d,  &
                     dif, dnlf, dnif,  conv, &
                     aero(lchnk), rice)
 
-   lengath = count(ideep > 0)
+!  lengath = count(ideep > 0)
 
    call outfld('CAPE', cape, pcols, lchnk)        ! RBN - CAPE output
+
+  !call outfld('EURT', eurt, pcols, lchnk)        !+tht: entr.rate 2D
+   call outfld('EURT', eurt(1,1), pcols, lchnk)   !+tht: entr.rate 3D 
+
 !
 ! Output fractional occurance of ZM convection
 !
