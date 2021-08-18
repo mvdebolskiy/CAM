@@ -2394,8 +2394,6 @@
 <fv_am_fix_lbl        silhs="1" > .true. </fv_am_fix_lbl>
 <fv_am_diag           silhs="1" > .true. </fv_am_diag>
 
-<!-- CAM-Nor variables -->
-<dme_energy_adjust>.true.</dme_energy_adjust>
 
 <!-- default namelist for SCAM mode -->
 <ncdata             hgrid="64x128"    nlev="30"   scam="1"  >atm/cam/inic/gaus/cami_0000-09-01_64x128_L30_c031210.nc</ncdata>

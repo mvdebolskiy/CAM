@@ -334,8 +334,8 @@ CONTAINS
    real (r8)       cos_ppm               !critical cosine for ppm
 
    parameter (cos_upw = D0_05)       !roughly at 87 deg.
-   parameter (cos_van = 0.1_r8)      !roughly at 84 deg.
-   parameter (cos_ppm = 0.1_r8)
+   parameter (cos_van = D0_25)       !roughly at 75 deg.
+   parameter (cos_ppm = D0_25)
 
    integer i, imp, j
    real (r8) qmax, qmin

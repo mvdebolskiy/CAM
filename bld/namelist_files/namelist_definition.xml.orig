@@ -4318,15 +4318,6 @@ Full pathname of AMIE inputs for southern hemisphere.
 Default: NONE.
 </entry>
 
-<!-- Hydrostatic pressure work in mass adjustment -->
-
-<entry id="dme_energy_adjust" type="logical"  category="NorESM"
-       group="phys_ctl_nl" valid_values="" >
-Switch to use appropriate energy adjustment in dry-mass adjustment at the
-end of tphysac.
-Default: .true.
-</entry>
-
 <!-- Reference Pressures -->
 
 <entry id="trop_cloud_top_press" type="real" category="press_lim"

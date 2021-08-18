@@ -57,11 +57,6 @@
   </compset>
 
   <compset>
-    <alias>F2000climw</alias>
-    <lname>2000_CAM60_CLM50%SP_CICE%PRES_DOCN%DOM_MOSART_CISM2%NOEVOLVE_WW3</lname>
-  </compset>
-
-  <compset>
     <alias>FHIST</alias>
     <lname>HIST_CAM60_CLM50%SP_CICE%PRES_DOCN%DOM_MOSART_CISM2%NOEVOLVE_SWAV</lname>
     <science_support grid="f09_f09_mg17"/>

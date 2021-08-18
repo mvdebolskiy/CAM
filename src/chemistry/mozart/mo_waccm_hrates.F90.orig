@@ -116,7 +116,7 @@
       use set_cp,            only : calc_cp
       use cam_history,       only : outfld
       use shr_orb_mod,       only : shr_orb_decl
-      use time_manager,      only : get_curr_calday, get_step_size !+tht step_size
+      use time_manager,      only : get_curr_calday
       use cam_control_mod,   only : lambm0, eccen, mvelpp, obliqr
       use mo_constants,      only : r2d, n2min
       use short_lived_species,only: get_short_lived_species
@@ -195,9 +195,6 @@
       real(r8)     ::  delta                                         ! solar declination (radians)
       logical      ::  do_diag
 
-      integer      :: dtime !+tht time step
-      real(r8)     :: dtavg !+tht time step
-
       real(r8), pointer :: ele_temp_fld(:,:) ! electron temperature pointer
       real(r8), pointer :: ion_temp_fld(:,:) ! ion temperature pointer
 
@@ -242,12 +239,7 @@
 !        ... calculate cosine of zenith angle then cast back to angle
 !-----------------------------------------------------------------------      
       calday = get_curr_calday()
-!+tht
-     !call zenith( calday, rlats, rlons, zen_angle, ncol )
-      dtime=get_step_size()
-      dtavg=dtime
-      call zenith( calday, rlats, rlons, zen_angle, ncol ,dtavg)
-!-tht
+      call zenith( calday, rlats, rlons, zen_angle, ncol )
       zen_angle(:) = acos( zen_angle(:) )
 
 !-----------------------------------------------------------------------      

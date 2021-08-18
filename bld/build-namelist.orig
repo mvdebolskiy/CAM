@@ -167,13 +167,11 @@ if (@ARGV) {
 # 0 - only issue fatal error messages
 # 1 - only informs what files are created (default)
 # 2 - verbose
-print "Setting CAM configuration script directory to $cfgdir 1 \n"; 
-my $print = 2;
-#if ($opts{'silent'})  { $print = 0; }
-#if ($opts{'verbose'}) { $print = 2; }
-#my $eol = "\n";
+my $print = 1;
+if ($opts{'silent'})  { $print = 0; }
+if ($opts{'verbose'}) { $print = 2; }
 my $eol = "\n";
-print "Setting CAM configuration script directory to $cfgdir 2 \n"; 
+
 if ($print>=2) { print "Setting CAM configuration script directory to $cfgdir$eol"; }
 if ($print>=2) { print "build-namelist was invoked with the commandline:\n $commandline$eol"; }
 
@@ -1990,10 +1988,10 @@ if ($chem =~ /trop_mozart/ or $chem =~ /trop_strat/ or $chem =~ /waccm_tsmlt/) {
     my @files;
     # Datasets
     if ($chem =~ /trop_strat/ or $chem =~ /waccm_tsmlt/) {
-       @files = ( 'soil_erod_file', 'flbc_file','null',
+       @files = ( 'soil_erod_file', 'flbc_file',
                   'xs_coef_file','xs_short_file','xs_long_file', 'rsf_file' );
     } else {
-       @files = ( 'soil_erod_file', 'flbc_file','null',
+       @files = ( 'soil_erod_file', 'flbc_file',
                   'xs_coef_file','xs_short_file','xs_long_file', 'rsf_file', 'exo_coldens_file', 'sulf_file' );
     }
     foreach my $file (@files) {
@@ -2663,15 +2661,8 @@ if ($chem =~ /waccm_ma/ or $chem =~ /waccm_tsmlt/) {
 
 # Determine the source of the prescribed GHG values.
 
+my $lbc_file = $nl->get_value('flbc_file');
 my $scenario_ghg = $nl->get_value('scenario_ghg');
-my $lbc_file = $nl->get_value('null');
-
-if (defined $scenario_ghg) {
-    my $lbc_file = $nl->get_value('null');
-}
-else {
-    my $lbc_file = $nl->get_value('flbc_file');
-}
 
 if (defined  $lbc_file) {
 

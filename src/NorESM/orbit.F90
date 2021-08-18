@@ -54,7 +54,7 @@ subroutine zenith(calday  ,clat    , clon   ,coszrs  ,ncol, dt_avg, uniform_angl
 
    if (present(rad_call)) then !+tht pass rad_call arg
        do i=1,ncol
-         coszrs(i) = shr_orb_cosz( calday, clat(i), clon(i), delta, dt_avg, rad_call=rad_call)
+         coszrs(i) = shr_orb_cosz( calday, clat(i), clon(i), delta, dt_avg, rad_call)
        end do
    else
     if (present(uniform_angle)) then
