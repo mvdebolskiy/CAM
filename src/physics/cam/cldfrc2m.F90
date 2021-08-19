@@ -43,8 +43,9 @@ real(r8),  protected :: rhmaxi_const
 real(r8),  protected :: rhminis_const                 ! Minimum rh for ice cloud fraction > 0.
 real(r8),  protected :: rhmaxis_const
 
-real(r8),  parameter :: qist_min     = 1.e-7_r8      ! Minimum in-stratus ice IWC constraint [ kg/kg ]
-real(r8),  parameter :: qist_max     = 5.e-3_r8      ! Maximum in-stratus ice IWC constraint [ kg/kg ]
+!real(r8),  parameter :: qist_min     = 1.e-7_r8      ! Minimum in-stratus ice IWC constraint [ kg/kg ]
+real(r8),  parameter :: qist_min     = 4.e-6_r8      ! Minimum in-stratus ice IWC constraint [ kg/kg ]
+real(r8),  parameter :: qist_max     = 2.5e-4_r8     ! Maximum in-stratus ice IWC constraint [ kg/kg ]
 
 ! ----------------------------- !
 ! Parameters for Liquid Stratus !
@@ -879,7 +880,8 @@ subroutine aist_single(qv, T, p, qi, landfrac, snowh, aist, &
 
            !minimum
            if (icimr.lt.qist_min) then
-              aist = max(0._r8,min(1._r8,qi/qist_min))
+             !aist = max(0._r8,min(1._r8,qi/qist_min))
+              aist = max(0._r8,min(1._r8,sqrt(aist*qi/qist_min)))
            endif
            !maximum
            if (icimr.gt.qist_max) then
@@ -1132,7 +1134,8 @@ subroutine aist_vector(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, a
 
            !minimum
            if (icimr.lt.qist_min) then
-              aist = max(0._r8,min(1._r8,qi/qist_min))
+             !aist = max(0._r8,min(1._r8,qi/qist_min))
+              aist = max(0._r8,min(1._r8,sqrt(aist*qi/qist_min)))
            endif
            !maximum
            if (icimr.gt.qist_max) then

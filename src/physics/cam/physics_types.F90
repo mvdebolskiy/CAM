@@ -4,7 +4,7 @@
 module physics_types
 
   use shr_kind_mod,     only: r8 => shr_kind_r8
-  use ppgrid,           only: pcols, pver, psubcols
+  use ppgrid,           only: pcols, pver
   use constituents,     only: pcnst, qmin, cnst_name
   use geopotential,     only: geopotential_dse, geopotential_t
   use physconst,        only: zvir, gravit, cpair, rair, cpairv, rairv, cpliq, cpwv !+tht
@@ -17,14 +17,14 @@ module physics_types
   implicit none
   private          ! Make default type private to the module
 
- !logical, parameter :: adjust_te = .FALSE.!-tht (c'd out)
+ !logical, parameter :: adjust_te = .FALSE. !tht: c'd out
 
 ! Public types:
 
   public physics_state
   public physics_tend
   public physics_ptend
-  
+
 ! Public interfaces
 
   public physics_update
@@ -72,15 +72,15 @@ module physics_types
           u,       &! zonal wind (m/s)
           v,       &! meridional wind (m/s)
           s,       &! dry static energy
-          omega,   &! vertical pressure velocity (Pa/s) 
-          pmid,    &! midpoint pressure (Pa) 
-          pmiddry, &! midpoint pressure dry (Pa) 
+          omega,   &! vertical pressure velocity (Pa/s)
+          pmid,    &! midpoint pressure (Pa)
+          pmiddry, &! midpoint pressure dry (Pa)
           pdel,    &! layer thickness (Pa)
           pdeldry, &! layer thickness dry (Pa)
           rpdel,   &! reciprocal of layer thickness (Pa)
           rpdeldry,&! recipricol layer thickness dry (Pa)
           lnpmid,  &! ln(pmid)
-          lnpmiddry,&! log midpoint pressure dry (Pa) 
+          lnpmiddry,&! log midpoint pressure dry (Pa)
           exner,   &! inverse exner function w.r.t. surface pressure (ps/p)^(R/cp)
           zm        ! geopotential height above surface at midpoints (m)
 
@@ -89,9 +89,9 @@ module physics_types
 
      real(r8), dimension(:,:),allocatable        :: &
           pint,    &! interface pressure (Pa)
-          pintdry, &! interface pressure dry (Pa) 
+          pintdry, &! interface pressure dry (Pa)
           lnpint,  &! ln(pint)
-          lnpintdry,&! log interface pressure dry (Pa) 
+          lnpintdry,&! log interface pressure dry (Pa)
           zi        ! geopotential height above surface at interfaces (m)
 
      real(r8), dimension(:),allocatable          :: &
@@ -171,10 +171,8 @@ contains
     type(physics_tend), pointer :: phys_tend(:)
     integer, intent(in) :: begchunk, endchunk
     integer, intent(in) :: psetcols
-    
+
     integer :: ierr=0, lchnk
-    type(physics_state), pointer :: state
-    type(physics_tend), pointer :: tend
 
     allocate(phys_state(begchunk:endchunk), stat=ierr)
     if( ierr /= 0 ) then
@@ -203,11 +201,10 @@ contains
 ! Update the state and or tendency structure with the parameterization tendencies
 !-----------------------------------------------------------------------
     use shr_sys_mod,  only: shr_sys_flush
-    use constituents, only: cnst_get_ind, cnst_mw
+    use constituents, only: cnst_get_ind
     use scamMod,      only: scm_crm_mode, single_column
     use phys_control, only: phys_getopts
     use physconst,    only: physconst_update ! Routine which updates physconst variables (WACCM-X)
-    use ppgrid,       only: begchunk, endchunk
     use qneg_module,  only: qneg3
 
 !------------------------------Arguments--------------------------------
@@ -218,10 +215,10 @@ contains
     real(r8), intent(in) :: dt                     ! time step
 
     type(physics_tend ), intent(inout), optional  :: tend  ! Physics tendencies over timestep
-                    ! This is usually only needed by calls from physpkg.
+    ! tend is usually only needed by calls from physpkg.
 !
 !---------------------------Local storage-------------------------------
-    integer :: i,k,m                               ! column,level,constituent indices
+    integer :: k,m                                 ! column,level,constituent indices
     integer :: ixcldice, ixcldliq                  ! indices for CLDICE and CLDLIQ
     integer :: ixnumice, ixnumliq
     integer :: ixnumsnow, ixnumrain
@@ -371,10 +368,11 @@ contains
     !------------------------------------------------------------------------
     ! Get indices for molecular weights and call WACCM-X physconst_update
     !------------------------------------------------------------------------
-    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then 
-       call physconst_update(state%q, state%t, state%lchnk, ncol)
+    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then
+       call physconst_update(state%q, state%t, state%lchnk, state%ncol, &
+                             to_moist_factor=state%pdeldry(:ncol,:)/state%pdel(:ncol,:) )
     endif
-    
+
     !-----------------------------------------------------------------------
     ! cpairv_loc and rairv_loc need to be allocated to a size which matches state and ptend
     ! If psetcols == pcols, the cpairv is the correct size and just copy
@@ -395,11 +393,11 @@ contains
     else
        call endrun('physics_update: rairv_loc is not allowed to vary when subcolumns are turned on')
     end if
-   
+
     if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then 
       zvirv(:,:) = shr_const_rwv / rairv_loc(:,:) - 1._r8
     else
-      zvirv(:,:) = zvir    
+      zvirv(:,:) = zvir
     endif
 
     !-------------------------------------------------------------------------------------------------------------
@@ -423,7 +421,7 @@ contains
             state%zi    , state%zm      , ncol         )
        ! update dry static energy for use in next process
        do k = ptend%top_level, ptend%bot_level
-          state%s(:ncol,k) = state%t(:ncol,k  )*cpairv_loc(:ncol,k) &
+          state%s(:ncol,k) = state%t(:ncol,k)*cpairv_loc(:ncol,k) &
                            + gravit*state%zm(:ncol,k) + state%phis(:ncol)
        end do
     end if
@@ -484,11 +482,10 @@ contains
 ! Check a physics_state object for invalid data (e.g NaNs, negative
 ! temperatures).
 !-----------------------------------------------------------------------
-    use shr_infnan_mod, only: shr_infnan_inf_type, assignment(=), &
+    use shr_infnan_mod, only: assignment(=), &
                               shr_infnan_posinf, shr_infnan_neginf
-    use shr_assert_mod, only: shr_assert, shr_assert_in_domain
-    use physconst,      only: pi
-    use constituents,   only: pcnst, qmin
+    use shr_assert_mod, only: shr_assert_in_domain
+    use constituents,   only: pcnst
 
 !------------------------------Arguments--------------------------------
     ! State to check.
@@ -661,7 +658,7 @@ contains
 
     ! 3-D variables
     do m = 1,pcnst
-       call shr_assert_in_domain(state%q(:ncol,:,m),    lt=posinf_r8, ge=qmin(m), &
+       call shr_assert_in_domain(state%q(:ncol,:,m),    lt=posinf_r8, gt=neginf_r8, &
             varname="state%q ("//trim(cnst_name(m))//")", msg=msg)
     end do
 
@@ -689,19 +686,19 @@ contains
     if (ptend%psetcols /= ptend_sum%psetcols) then
        call endrun('physics_ptend_sum error: ptend and ptend_sum must have the same value for psetcols')
     end if
-      
+
     if (ncol > ptend_sum%psetcols) then
        call endrun('physics_ptend_sum error: ncol must be less than or equal to psetcols')
     end if
-    
+
     psetcols = ptend_sum%psetcols
-      
+
     ptend_sum%top_level = ptend%top_level
     ptend_sum%bot_level = ptend%bot_level
 
 ! Update u,v fields
     if(ptend%lu) then
-       if (.not. allocated(ptend_sum%u)) then 
+       if (.not. allocated(ptend_sum%u)) then
           allocate(ptend_sum%u(psetcols,pver), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%u')
           ptend_sum%u=0.0_r8
@@ -728,7 +725,7 @@ contains
     end if
 
     if(ptend%lv) then
-       if (.not. allocated(ptend_sum%v)) then 
+       if (.not. allocated(ptend_sum%v)) then
           allocate(ptend_sum%v(psetcols,pver), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%v')
           ptend_sum%v=0.0_r8
@@ -756,7 +753,7 @@ contains
 
 
     if(ptend%ls) then
-       if (.not. allocated(ptend_sum%s)) then 
+       if (.not. allocated(ptend_sum%s)) then
           allocate(ptend_sum%s(psetcols,pver), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%s')
           ptend_sum%s=0.0_r8
@@ -792,7 +789,7 @@ contains
           allocate(ptend_sum%cflx_srf(psetcols,pcnst), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%cflx_srf')
           ptend_sum%cflx_srf=0.0_r8
-  
+
           allocate(ptend_sum%cflx_top(psetcols,pcnst), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%cflx_top')
           ptend_sum%cflx_top=0.0_r8
@@ -910,7 +907,7 @@ subroutine physics_ptend_copy(ptend, ptend_cp)
       ptend_cp%hflux_srf = ptend%hflux_srf
       ptend_cp%hflux_top = ptend%hflux_top
    end if
-   
+
    if (ptend_cp%lu) then
       ptend_cp%u = ptend%u
       ptend_cp%taux_srf  = ptend%taux_srf
@@ -940,8 +937,6 @@ end subroutine physics_ptend_copy
 
 !------------------------------Arguments--------------------------------
     type(physics_ptend), intent(inout)  :: ptend   ! Parameterization tendencies
-!-----------------------------------------------------------------------
-    integer :: m             ! Index for constiuent
 !-----------------------------------------------------------------------
 
     if(ptend%ls) then
@@ -986,10 +981,10 @@ end subroutine physics_ptend_copy
     logical, optional                   :: lu       ! if true, then fields to support dudt are allocated
     logical, optional                   :: lv       ! if true, then fields to support dvdt are allocated
     logical, dimension(pcnst),optional  :: lq       ! if true, then fields to support dqdt are allocated
-    
+
 !-----------------------------------------------------------------------
 
-    if (allocated(ptend%s)) then 
+    if (allocated(ptend%s)) then
        call endrun(' physics_ptend_init: ptend should not be allocated before calling this routine')
     end if
 
@@ -1130,7 +1125,9 @@ end subroutine physics_ptend_copy
   end subroutine init_geo_unique
 
 !===============================================================================
-  subroutine physics_dme_adjust(state, tend, qini, dt, eflx, ent_tnd, ohf_adjust, ocnfrac, sst, ts)
+!+tht: gatekeeper module to control options for dme adjustment 
+  subroutine physics_dme_adjust(state, tend, qini, dt, &
+                                eflx, ent_tnd, ohf_adjust, ocnfrac, sst, ts)
 
       use phys_control, only: phys_getopts
 
@@ -1140,7 +1137,7 @@ end subroutine physics_ptend_copy
        real(r8),            intent(in   ) :: dt
        real(r8),  intent(out),  optional  :: eflx   (pcols)         ! energy flux for use in check_energy
        real(r8),  intent(out),  optional  :: ent_tnd(pcols)         ! column-integrated enthalpy tendency
-       logical ,  intent(in) ,  optional  :: ohf_adjust             !+tht 03/11/2015
+       logical ,  intent(in) ,  optional  :: ohf_adjust             ! keyword for material enthalpy flux adjustment
        real(r8),  intent(in) ,  optional  :: ocnfrac(pcols)         ! Ocean fraction (fraction)
        real(r8),  intent(in) ,  optional  :: sst    (pcols)         ! Sea surface temperature
        real(r8),  intent(in) ,  optional  :: ts     (pcols)         ! Surface temperature
@@ -1151,9 +1148,11 @@ end subroutine physics_ptend_copy
       if (dme_energy_adjust) then
          if (present(eflx) .and. present(ent_tnd).and. present(ohf_adjust) &
              .and. present(ocnfrac) .and. present(sst) .and. present(ts)) then
-           call physics_dme_adjust_THT(state, tend, qini, dt, eflx, ent_tnd, ohf_adjust, ocnfrac, sst, ts)
+           call physics_dme_adjust_THT(state, tend, qini, dt &
+                                     , eflx, ent_tnd, ohf_adjust, ocnfrac, sst, ts)
         else if (present(eflx)) then
-           call physics_dme_adjust_THT(state, tend, qini, dt, eflx)
+           call physics_dme_adjust_THT(state, tend, qini, dt &
+                                     , eflx)
         else
            call physics_dme_adjust_THT(state, tend, qini, dt)
         endif
@@ -1164,33 +1163,37 @@ end subroutine physics_ptend_copy
   end subroutine physics_dme_adjust
 
 !===============================================================================
+!+tht name change
+ !subroutine physics_dme_adjust(state, tend, qini, dt)
   subroutine physics_dme_adjust_BAB(state, tend, qini, dt)
-    !----------------------------------------------------------------------- 
-    ! 
+!-tht
+    !-----------------------------------------------------------------------
+    !
     ! Purpose: Adjust the dry mass in each layer back to the value of physics input state
-    ! 
+    !
     ! Method: Conserve the integrated mass, momentum and total energy in each layer
     !         by scaling the specific mass of consituents, specific momentum (velocity)
     !         and specific total energy by the relative change in layer mass. Solve for
     !         the new temperature by subtracting the new kinetic energy from total energy
     !         and inverting the hydrostatic equation
     !
-    !         The mass in each layer is modified, changing the relationship of the layer 
-    !         interfaces and midpoints to the surface pressure. The result is no longer in 
-    !         the original hybrid coordinate. 
+    !         The mass in each layer is modified, changing the relationship of the layer
+    !         interfaces and midpoints to the surface pressure. The result is no longer in
+    !         the original hybrid coordinate.
     !
     !         This procedure cannot be applied to the "eul" or "sld" dycores because they
     !         require the hybrid coordinate.
-    ! 
+    !
     ! Author: Byron Boville
 
     ! !REVISION HISTORY:
     !   03.03.28  Boville    Created, partly from code by Lin in p_d_adjust
-    ! 
+    !
+    !tht: All code associated with the logical parameter adjust_te is removed from this 
+    !     version. The reason is that adjust_te is hard-wired to .false., and has to be
+    !     because the associated code is logically, conceptually and physically wrong. 
+    !     (There must be some religious sect at NCAR that worships bad, dead code.)
     !-----------------------------------------------------------------------
-
-    use constituents, only : cnst_get_type_byind
-    use ppgrid,       only : begchunk, endchunk
 
     implicit none
     !
@@ -1205,7 +1208,7 @@ end subroutine physics_ptend_copy
     !
     integer  :: lchnk         ! chunk identifier
     integer  :: ncol          ! number of atmospheric columns
-    integer  :: i,k,m         ! Longitude, level indices
+    integer  :: k,m           ! Longitude, level indices
     real(r8) :: fdq(pcols)    ! mass adjustment factor
     real(r8) :: te(pcols)     ! total energy in a layer
     real(r8) :: utmp(pcols)   ! temp variable for recalculating the initial u values
@@ -1220,12 +1223,6 @@ end subroutine physics_ptend_copy
     if (state%psetcols .ne. pcols) then
        call endrun('physics_dme_adjust: cannot pass in a state which has sub-columns')
     end if
-!+tht N.B. adjust_te is hard-wired to .false. and has to be because associated code is nonsense.
-!         There must be some religious sect at NCAR that demands both the logical and the code to
-!         be preserved for no purpose at all (other than demonstrating an ability to write bad code).
-   !if (adjust_te) then
-   !   call endrun('physics_dme_adjust: must update code based on the "correct" energy before turning on "adjust_te"')
-   !end if
 
     lchnk = state%lchnk
     ncol  = state%ncol
@@ -1243,25 +1240,6 @@ end subroutine physics_ptend_copy
           state%q(:ncol,k,m) = state%q(:ncol,k,m) / fdq(:ncol)
        end do
 
-      !if (adjust_te) then
-      !   ! compute specific total energy of unadjusted state (J/kg)
-      !   te(:ncol) = state%s(:ncol,k) + 0.5_r8*(state%u(:ncol,k)**2 + state%v(:ncol,k)**2) 
-      !
-      !   ! recompute initial u,v from the new values and the tendencies
-      !   utmp(:ncol) = state%u(:ncol,k) - dt * tend%dudt(:ncol,k)
-      !   vtmp(:ncol) = state%v(:ncol,k) - dt * tend%dvdt(:ncol,k)
-      !   ! adjust specific total energy and specific momentum (velocity) to conserve each
-      !   te     (:ncol)   = te     (:ncol)     / fdq(:ncol)
-      !   state%u(:ncol,k) = state%u(:ncol,k  ) / fdq(:ncol)
-      !   state%v(:ncol,k) = state%v(:ncol,k  ) / fdq(:ncol)
-      !   ! compute adjusted u,v tendencies
-      !   tend%dudt(:ncol,k) = (state%u(:ncol,k) - utmp(:ncol)) / dt
-      !   tend%dvdt(:ncol,k) = (state%v(:ncol,k) - vtmp(:ncol)) / dt
-      !
-      !   ! compute adjusted static energy
-      !   state%s(:ncol,k) = te(:ncol) - 0.5_r8*(state%u(:ncol,k)**2 + state%v(:ncol,k)**2)
-      !end if
-
 ! compute new total pressure variables
        state%pdel  (:ncol,k  ) = state%pdel(:ncol,k  ) * fdq(:ncol)
        state%ps(:ncol)         = state%ps(:ncol)       + state%pdel(:ncol,k)
@@ -1270,36 +1248,11 @@ end subroutine physics_ptend_copy
        state%rpdel (:ncol,k  ) = 1._r8/ state%pdel(:ncol,k  )
     end do
 
-    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then 
+    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then
       zvirv(:,:) = shr_const_rwv / rairv(:,:,state%lchnk) - 1._r8
     else
-      zvirv(:,:) = zvir    
+      zvirv(:,:) = zvir
     endif
-
-! compute new T,z from new s,q,dp
-   !if (adjust_te) then
-   !
-! cpairv_loc needs to be allocated to a size which matches state and ptend
-! If psetcols == pcols, cpairv is the correct size and just copy into cpairv_loc
-! If psetcols > pcols and all cpairv match cpair, then assign the constant cpair
-   !
-   !   if (state%psetcols == pcols) then
-   !      cpairv_loc(:,:,:) = cpairv(:,:,state%lchnk)
-   !   else if (state%psetcols > pcols .and. all(cpairv(:,:,:) == cpair)) then
-   !      cpairv_loc(:,:) = cpair
-   !   else
-   !      call endrun('physics_dme_adjust: cpairv is not allowed to vary when subcolumns are turned on')
-   !   end if
-   !
-   !   call geopotential_dse(state%lnpint, state%lnpmid, state%pint,  &
-   !        state%pmid  , state%pdel    , state%rpdel,  &
-   !        state%s     , state%q(:,:,1), state%phis , rairv(:,:,state%lchnk), &
-   !        gravit, cpairv_loc(:,:), zvirv, &
-   !        state%t     , state%zi      , state%zm   , ncol)
-   !
-   !   deallocate(cpairv_loc)
-   !
-   !end if
 
   end subroutine physics_dme_adjust_BAB
 !-----------------------------------------------------------------------
@@ -1662,7 +1615,7 @@ end subroutine physics_ptend_copy
 
 !===============================================================================
   subroutine physics_state_copy(state_in, state_out)
-    
+
     use ppgrid,       only: pver, pverp
     use constituents, only: pcnst
 
@@ -1683,71 +1636,71 @@ end subroutine physics_ptend_copy
     call physics_state_alloc ( state_out, state_in%lchnk, state_in%psetcols)
 
     ncol = state_in%ncol
-    
+
     state_out%psetcols = state_in%psetcols
     state_out%ngrdcol  = state_in%ngrdcol
     state_out%lchnk    = state_in%lchnk
-    state_out%ncol     = state_in%ncol  
-    state_out%count    = state_in%count 
+    state_out%ncol     = state_in%ncol
+    state_out%count    = state_in%count
 
     do i = 1, ncol
        state_out%lat(i)    = state_in%lat(i)
        state_out%lon(i)    = state_in%lon(i)
        state_out%ps(i)     = state_in%ps(i)
        state_out%phis(i)   = state_in%phis(i)
-       state_out%te_ini(i) = state_in%te_ini(i) 
-       state_out%te_cur(i) = state_in%te_cur(i) 
-       state_out%tw_ini(i) = state_in%tw_ini(i) 
-       state_out%tw_cur(i) = state_in%tw_cur(i) 
+       state_out%te_ini(i) = state_in%te_ini(i)
+       state_out%te_cur(i) = state_in%te_cur(i)
+       state_out%tw_ini(i) = state_in%tw_ini(i)
+       state_out%tw_cur(i) = state_in%tw_cur(i)
     end do
 
     do k = 1, pver
        do i = 1, ncol
-          state_out%t(i,k)         = state_in%t(i,k) 
-          state_out%u(i,k)         = state_in%u(i,k) 
-          state_out%v(i,k)         = state_in%v(i,k) 
-          state_out%s(i,k)         = state_in%s(i,k) 
-          state_out%omega(i,k)     = state_in%omega(i,k) 
-          state_out%pmid(i,k)      = state_in%pmid(i,k) 
-          state_out%pdel(i,k)      = state_in%pdel(i,k) 
-          state_out%rpdel(i,k)     = state_in%rpdel(i,k) 
-          state_out%lnpmid(i,k)    = state_in%lnpmid(i,k) 
-          state_out%exner(i,k)     = state_in%exner(i,k) 
+          state_out%t(i,k)         = state_in%t(i,k)
+          state_out%u(i,k)         = state_in%u(i,k)
+          state_out%v(i,k)         = state_in%v(i,k)
+          state_out%s(i,k)         = state_in%s(i,k)
+          state_out%omega(i,k)     = state_in%omega(i,k)
+          state_out%pmid(i,k)      = state_in%pmid(i,k)
+          state_out%pdel(i,k)      = state_in%pdel(i,k)
+          state_out%rpdel(i,k)     = state_in%rpdel(i,k)
+          state_out%lnpmid(i,k)    = state_in%lnpmid(i,k)
+          state_out%exner(i,k)     = state_in%exner(i,k)
           state_out%zm(i,k)        = state_in%zm(i,k)
        end do
     end do
 
     do k = 1, pverp
        do i = 1, ncol
-          state_out%pint(i,k)      = state_in%pint(i,k) 
-          state_out%lnpint(i,k)    = state_in%lnpint(i,k) 
-          state_out%zi(i,k)        = state_in% zi(i,k) 
+          state_out%pint(i,k)      = state_in%pint(i,k)
+          state_out%lnpint(i,k)    = state_in%lnpint(i,k)
+          state_out%zi(i,k)        = state_in% zi(i,k)
        end do
     end do
 
 
        do i = 1, ncol
-          state_out%psdry(i)  = state_in%psdry(i) 
+          state_out%psdry(i)  = state_in%psdry(i)
        end do
        do k = 1, pver
           do i = 1, ncol
-             state_out%lnpmiddry(i,k) = state_in%lnpmiddry(i,k) 
-             state_out%pmiddry(i,k)   = state_in%pmiddry(i,k) 
-             state_out%pdeldry(i,k)   = state_in%pdeldry(i,k) 
-             state_out%rpdeldry(i,k)  = state_in%rpdeldry(i,k) 
+             state_out%lnpmiddry(i,k) = state_in%lnpmiddry(i,k)
+             state_out%pmiddry(i,k)   = state_in%pmiddry(i,k)
+             state_out%pdeldry(i,k)   = state_in%pdeldry(i,k)
+             state_out%rpdeldry(i,k)  = state_in%rpdeldry(i,k)
           end do
        end do
        do k = 1, pverp
           do i = 1, ncol
              state_out%pintdry(i,k)   = state_in%pintdry(i,k)
-             state_out%lnpintdry(i,k) = state_in%lnpintdry(i,k) 
+             state_out%lnpintdry(i,k) = state_in%lnpintdry(i,k)
           end do
        end do
 
     do m = 1, pcnst
        do k = 1, pver
           do i = 1, ncol
-             state_out%q(i,k,m) = state_in%q(i,k,m) 
+             state_out%q(i,k,m) = state_in%q(i,k,m)
           end do
        end do
     end do
@@ -1756,9 +1709,9 @@ end subroutine physics_ptend_copy
 !===============================================================================
 
   subroutine physics_tend_init(tend)
-    
+
     implicit none
-    
+
     !
     ! Arguments
     !
@@ -1778,7 +1731,7 @@ end subroutine physics_ptend_copy
     tend%flx_net = 0._r8
     tend%te_tnd  = 0._r8
     tend%tw_tnd  = 0._r8
-    
+
 end subroutine physics_tend_init
 
 !===============================================================================
@@ -1786,14 +1739,13 @@ end subroutine physics_tend_init
 subroutine set_state_pdry (state,pdeld_calc)
 
   use ppgrid,  only: pver
-  use pmgrid,  only: plev, plevp
   implicit none
 
   type(physics_state), intent(inout) :: state
   logical, optional, intent(in) :: pdeld_calc    !  .true. do calculate pdeld [default]
-                                                 !  .false. don't calculate pdeld 
+                                                 !  .false. don't calculate pdeld
   integer ncol
-  integer i, k
+  integer k
   logical do_pdeld_calc
 
   if ( present(pdeld_calc) ) then
@@ -1801,7 +1753,7 @@ subroutine set_state_pdry (state,pdeld_calc)
   else
      do_pdeld_calc = .true.
   endif
-  
+
   ncol = state%ncol
 
 
@@ -1823,7 +1775,7 @@ subroutine set_state_pdry (state,pdeld_calc)
   state%lnpmiddry(:ncol,:) = log(state%pmiddry(:ncol,:))
   state%lnpintdry(:ncol,:) = log(state%pintdry(:ncol,:))
 
-end subroutine set_state_pdry 
+end subroutine set_state_pdry
 
 !===============================================================================
 
@@ -1834,7 +1786,7 @@ subroutine set_wet_to_dry (state)
   type(physics_state), intent(inout) :: state
 
   integer m, ncol
-  
+
   ncol = state%ncol
 
   do m = 1,pcnst
@@ -1843,7 +1795,7 @@ subroutine set_wet_to_dry (state)
      endif
   end do
 
-end subroutine set_wet_to_dry 
+end subroutine set_wet_to_dry
 
 !===============================================================================
 
@@ -1854,7 +1806,7 @@ subroutine set_dry_to_wet (state)
   type(physics_state), intent(inout) :: state
 
   integer m, ncol
-  
+
   ncol = state%ncol
 
   do m = 1,pcnst
@@ -1878,7 +1830,7 @@ subroutine physics_state_alloc(state,lchnk,psetcols)
 
   integer, intent(in)                :: psetcols
 
-  integer :: ierr=0, i
+  integer :: ierr=0
 
   state%lchnk    = lchnk
   state%psetcols = psetcols
@@ -1893,106 +1845,106 @@ subroutine physics_state_alloc(state,lchnk,psetcols)
 
   allocate(state%lat(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lat')
-  
+
   allocate(state%lon(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lon')
-  
+
   allocate(state%ps(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%ps')
-  
+
   allocate(state%psdry(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%psdry')
-  
+
   allocate(state%phis(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%phis')
-  
+
   allocate(state%ulat(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%ulat')
-  
+
   allocate(state%ulon(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%ulon')
-  
+
   allocate(state%t(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%t')
-  
+
   allocate(state%u(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%u')
-  
+
   allocate(state%v(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%v')
-  
+
   allocate(state%s(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%s')
-  
+
   allocate(state%omega(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%omega')
-  
+
   allocate(state%pmid(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pmid')
-  
+
   allocate(state%pmiddry(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pmiddry')
-  
+
   allocate(state%pdel(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pdel')
-  
+
   allocate(state%pdeldry(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pdeldry')
-  
+
   allocate(state%rpdel(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%rpdel')
-  
+
   allocate(state%rpdeldry(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%rpdeldry')
-  
+
   allocate(state%lnpmid(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lnpmid')
-  
+
   allocate(state%lnpmiddry(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lnpmiddry')
-  
+
   allocate(state%exner(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%exner')
-  
+
   allocate(state%zm(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%zm')
-  
+
   allocate(state%q(psetcols,pver,pcnst), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%q')
-  
+
   allocate(state%pint(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pint')
-  
+
   allocate(state%pintdry(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pintdry')
-  
+
   allocate(state%lnpint(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lnpint')
-  
+
   allocate(state%lnpintdry(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lnpintdry')
-  
+
   allocate(state%zi(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%zi')
-  
+
   allocate(state%te_ini(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%te_ini')
-  
+
   allocate(state%te_cur(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%te_cur')
-  
+
   allocate(state%tw_ini(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%tw_ini')
-  
+
   allocate(state%tw_cur(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%tw_cur')
-  
+
   allocate(state%latmapback(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%latmapback')
-  
+
   allocate(state%lonmapback(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lonmapback')
-  
+
   allocate(state%cid(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%cid')
 
@@ -2019,13 +1971,13 @@ subroutine physics_state_alloc(state,lchnk,psetcols)
   state%exner(:,:) = inf
   state%zm(:,:) = inf
   state%q(:,:,:) = inf
-      
+
   state%pint(:,:) = inf
   state%pintdry(:,:) = inf
   state%lnpint(:,:) = inf
   state%lnpintdry(:,:) = inf
   state%zi(:,:) = inf
-      
+
   state%te_ini(:) = inf
   state%te_cur(:) = inf
   state%tw_ini(:) = inf
@@ -2044,103 +1996,103 @@ subroutine physics_state_dealloc(state)
 
   deallocate(state%lat, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lat')
-  
+
   deallocate(state%lon, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lon')
-  
+
   deallocate(state%ps, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%ps')
-  
+
   deallocate(state%psdry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%psdry')
-  
+
   deallocate(state%phis, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%phis')
-  
+
   deallocate(state%ulat, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%ulat')
-  
+
   deallocate(state%ulon, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%ulon')
-  
+
   deallocate(state%t, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%t')
-  
+
   deallocate(state%u, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%u')
-  
+
   deallocate(state%v, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%v')
-  
+
   deallocate(state%s, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%s')
-  
+
   deallocate(state%omega, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%omega')
-  
+
   deallocate(state%pmid, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pmid')
-  
+
   deallocate(state%pmiddry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pmiddry')
-  
+
   deallocate(state%pdel, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pdel')
-  
+
   deallocate(state%pdeldry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pdeldry')
-  
+
   deallocate(state%rpdel, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%rpdel')
-  
+
   deallocate(state%rpdeldry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%rpdeldry')
-  
+
   deallocate(state%lnpmid, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lnpmid')
-  
+
   deallocate(state%lnpmiddry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lnpmiddry')
-  
+
   deallocate(state%exner, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%exner')
-  
+
   deallocate(state%zm, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%zm')
-  
+
   deallocate(state%q, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%q')
-  
+
   deallocate(state%pint, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pint')
-  
+
   deallocate(state%pintdry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pintdry')
-  
+
   deallocate(state%lnpint, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lnpint')
-  
+
   deallocate(state%lnpintdry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lnpintdry')
-  
+
   deallocate(state%zi, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%zi')
 
   deallocate(state%te_ini, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%te_ini')
-  
+
   deallocate(state%te_cur, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%te_cur')
-  
+
   deallocate(state%tw_ini, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%tw_ini')
-  
+
   deallocate(state%tw_cur, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%tw_cur')
-  
+
   deallocate(state%latmapback, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%latmapback')
-  
+
   deallocate(state%lonmapback, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lonmapback')
 
@@ -2198,7 +2150,6 @@ subroutine physics_tend_dealloc(tend)
 ! deallocate the individual tend components
 
   type(physics_tend), intent(inout)  :: tend
-  integer :: psetcols
   integer :: ierr = 0
 
   deallocate(tend%dtdt, stat=ierr)
@@ -2245,7 +2196,7 @@ subroutine physics_ptend_alloc(ptend,psetcols)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%hflux_top')
   end if
 
-  if (ptend%lu) then 
+  if (ptend%lu) then
      allocate(ptend%u(psetcols,pver), stat=ierr)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%u')
 
@@ -2256,7 +2207,7 @@ subroutine physics_ptend_alloc(ptend,psetcols)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%taux_top')
   end if
 
-  if (ptend%lv) then 
+  if (ptend%lv) then
      allocate(ptend%v(psetcols,pver), stat=ierr)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%v')
 
@@ -2267,7 +2218,7 @@ subroutine physics_ptend_alloc(ptend,psetcols)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%tauy_top')
   end if
 
-  if (any(ptend%lq)) then 
+  if (any(ptend%lq)) then
      allocate(ptend%q(psetcols,pver,pcnst), stat=ierr)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%q')
 

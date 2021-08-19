@@ -26,12 +26,8 @@ module mo_gas_phase_chemdr
   integer :: het1_ndx
   integer :: ndx_cldfr, ndx_cmfdqr, ndx_nevapr, ndx_cldtop, ndx_prain
   integer :: ndx_h2so4
-#ifdef OSLO_AERO
   logical :: inv_o3, inv_oh, inv_no3, inv_ho2
   integer :: id_o3, id_oh, id_no3, id_ho2
-#endif
-!
-! CCMI
 !
   integer :: st80_25_ndx
   integer :: st80_25_tau_ndx
@@ -271,6 +267,8 @@ contains
     call addfld( 'GAMMA_HET6', (/ 'lev' /), 'I', '1', 'Reaction Probability' )
     call addfld( 'WTPER',      (/ 'lev' /), 'I', '%', 'H2SO4 Weight Percent' )
 
+    call addfld( 'O3S_LOSS',      (/ 'lev' /), 'I', '1/sec', 'O3S loss rate const' )
+
     call chem_prod_loss_diags_init
 
   end subroutine gas_phase_chemdr_inti
@@ -339,7 +337,7 @@ contains
 #endif
     use physics_buffer,    only : physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
     use infnan,            only : nan, assignment(=)
-    use rate_diags,        only : rate_diags_calc
+    use rate_diags,        only : rate_diags_calc, rate_diags_o3s_loss
     use mo_mass_xforms,    only : mmr2vmr, vmr2mmr, h2o_to_vmr, mmr2vmri
     use orbit,             only : zenith
 !
@@ -514,6 +512,8 @@ contains
     real(r8) :: prod_out(ncol,pver,max(1,clscnt4))
     real(r8) :: loss_out(ncol,pver,max(1,clscnt4))
 
+    real(r8) :: o3s_loss(ncol,pver)
+
     if ( ele_temp_ndx>0 .and. ion_temp_ndx>0 ) then
        call pbuf_get_field(pbuf, ele_temp_ndx, ele_temp_fld)
        call pbuf_get_field(pbuf, ion_temp_ndx, ion_temp_fld)
@@ -548,7 +548,7 @@ contains
     !        ... Calculate cosine of zenith angle
     !            then cast back to angle (radians)
     !-----------------------------------------------------------------------      
-    call zenith( calday, rlats, rlons, zen_angle, ncol , delt) !+tht delt
+    call zenith( calday, rlats, rlons, zen_angle, ncol, delt) !+tht delt
     zen_angle(:) = acos( zen_angle(:) )
 
     sza(:) = zen_angle(:) * rad2deg
@@ -1005,9 +1005,12 @@ contains
 
     ! reset O3S to O3 in the stratosphere ...
     if ( o3_ndx > 0 .and. o3s_ndx > 0 ) then
+       o3s_loss = rate_diags_o3s_loss( reaction_rates, vmr, ncol )
        do i = 1,ncol
           vmr(i,1:troplev(i),o3s_ndx) = vmr(i,1:troplev(i),o3_ndx)
+          vmr(i,troplev(i)+1:pver,o3s_ndx) = vmr(i,troplev(i)+1:pver,o3s_ndx) * exp(-delt*o3s_loss(i,troplev(i)+1:pver))
        end do
+       call outfld( 'O3S_LOSS',  o3s_loss,  ncol ,lchnk )
     end if
 
     if (convproc_do_aer) then
@@ -1171,6 +1174,7 @@ contains
     endif
 
     drydepflx(:,:) = 0._r8
+    wetdepflx_diag(:,:) = 0._r8
     do m = 1,pcnst
        n = map2chm( m )
        if ( n > 0 ) then
