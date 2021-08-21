@@ -115,6 +115,7 @@ contains
     use namelist_utils,  only: find_group_name
     use units,           only: getunit, freeunit
     use mpishorthand
+    use modal_aero_convproc,   only: ma_convproc_readnl 
 
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
@@ -159,6 +160,8 @@ contains
     wetdep_list = aer_wetdep_list
     drydep_list = aer_drydep_list
 
+    call ma_convproc_readnl(nlfile)
+    
   end subroutine aero_model_readnl
 
   !=============================================================================
@@ -946,8 +949,12 @@ end subroutine aero_model_init
     save iwet
 
 
+    vlc_trb = 0._r8
+    vlc_grv = 0._r8
+    vlc_dry = 0._r8
+    
     !------------------------------------------------------------------------
-    do k=1,pver
+    do k=top_lev,pver ! radius_part is not defined above top_lev
        do i=1,ncol
 
           lnsig = log(sig_part(i,k))
