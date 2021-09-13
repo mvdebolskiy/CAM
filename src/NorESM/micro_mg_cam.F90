@@ -974,7 +974,6 @@ subroutine micro_mg_cam_init(pbuf2d)
    call addfld ('MPDNICE  ',(/ 'lev' /), 'A', '1/kg/s  ', 'CLDICE number tendency - Morrison microphysics' )
    call addfld ('FRZR     ',(/ 'lev' /), 'A', 'kg/kg/s  ', 'Mass freezing rain to snow'    )
    call addfld ('NFRZR    ',(/ 'lev' /), 'A', '1/kg/s ', 'Number freezing rain to snow' )
-   call addfld ('MNUCCRI  ',(/ 'lev' /), 'A', 'kg/kg/s  ', 'Mass freezing rain to ice'  )
    call addfld ('NNUCCRI  ',(/ 'lev' /), 'A', '1/kg/s  ', 'Number freezing rain to ice' )
 
    ! History variables for CAM5 microphysics
@@ -1264,7 +1263,6 @@ subroutine micro_mg_cam_init(pbuf2d)
       case (2)
          call add_default ('FRZR ', budget_histfile, ' ')
          call add_default ('NFRZR ', budget_histfile, ' ')
-         call add_default ('MNUCCRI ', budget_histfile, ' ')
          call add_default ('NNUCCRI ', budget_histfile, ' ')
       end select
       call add_default ('MPDNLIQ  ', budget_histfile, ' ')
@@ -1838,7 +1836,6 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
    real(r8), target :: packed_nitnncld(mgncol,nlev)   ! corrrection for no cloud
    real(r8), target :: packed_frzr(mgncol,nlev)       ! mass freezing rain ==> snow 
    real(r8), target :: packed_nfrzr(mgncol,nlev)      ! number freezing rain ==> snow
-   real(r8), target :: packed_mnuccri(mgncol,nlev)    ! mass freezing rain ==> ice
    real(r8), target :: packed_nnuccri(mgncol,nlev)    ! number freezing rain ==>ice
 !AL
 
@@ -2549,7 +2546,6 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
    call post_proc%add_field(p(nitnncld), p(packed_nitnncld))
    call post_proc%add_field(p(frzr), p(packed_frzr))
    call post_proc%add_field(p(nfrzr), p(packed_nfrzr))
-   call post_proc%add_field(p(mnuccri), p(packed_mnuccri))
    call post_proc%add_field(p(nnuccri), p(packed_nnuccri))
 !AL
 
@@ -2754,7 +2750,7 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
               packed_npraio, packed_nnudepo,      & 
               packed_npccno, packed_nnuccdo, packed_mnudepo,       &
               packed_frzr,packed_nfrzr,        &
-              packed_nnuccri, packed_mnuccri,               &
+              packed_nnuccri,               &
               packed_nctnszmx,packed_nctnszmn, &
               packed_nctnncld, packed_nitncons, &
               packed_nitnszmx, packed_nitnszmn, packed_nitnncld, &
@@ -3782,7 +3778,6 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
    if (micro_mg_version > 1) then
       call outfld ('FRZR   ', frzr,       psetcols, lchnk, avg_subcol_field=use_subcol_microp )
       call outfld ('NFRZR  ', nfrzr,      psetcols, lchnk, avg_subcol_field=use_subcol_microp )
-      call outfld ('MNUCCRI', mnuccri,    psetcols, lchnk, avg_subcol_field=use_subcol_microp )
       call outfld ('NNUCCRI', nnuccri,    psetcols, lchnk, avg_subcol_field=use_subcol_microp )
    end if
 
