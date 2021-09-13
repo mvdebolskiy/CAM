@@ -167,13 +167,11 @@ if (@ARGV) {
 # 0 - only issue fatal error messages
 # 1 - only informs what files are created (default)
 # 2 - verbose
-print "Setting CAM configuration script directory to $cfgdir 1 \n"; 
-my $print = 2;
-#if ($opts{'silent'})  { $print = 0; }
-#if ($opts{'verbose'}) { $print = 2; }
-#my $eol = "\n";
+my $print = 1;
+if ($opts{'silent'})  { $print = 0; }
+if ($opts{'verbose'}) { $print = 2; }
 my $eol = "\n";
-print "Setting CAM configuration script directory to $cfgdir 2 \n"; 
+
 if ($print>=2) { print "Setting CAM configuration script directory to $cfgdir$eol"; }
 if ($print>=2) { print "build-namelist was invoked with the commandline:\n $commandline$eol"; }
 

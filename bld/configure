@@ -2046,7 +2046,7 @@ sub write_filepath
     my $inic_val      = $cfg_ref->get('analytic_ic');
 
     # Root directory
-    my $camsrcdir = "$cam_root/components";
+    my $camsrcdir = $cfg_ref->get('cam_dir');
 
     # Start writing paths to the file.  *** Order is important ***  The
     # sequence of paths will be used to set the GNU Makefile's VPATH macro
@@ -2070,13 +2070,13 @@ sub write_filepath
    #Un-commenting this line will give back standard CAM 5.3 (unmodified).
    #This is used for testing.
    #++djlo (should be switched off when pure NCAR version is desired)
-   print $fh "$camsrcdir/cam/src/NorESM\n";
-   print $fh "$camsrcdir/cam/src/NorESM/$dyn\n";
+   print $fh "$camsrcdir/src/NorESM\n";
+   print $fh "$camsrcdir/src/NorESM/$dyn\n";
    #--djlo
 
    # offline unit driver (defaults to stub)
-    print $fh "$camsrcdir/cam/src/unit_drivers\n";
-    print $fh "$camsrcdir/cam/src/unit_drivers/${offline_drv}\n";
+    print $fh "$camsrcdir/src/unit_drivers\n";
+    print $fh "$camsrcdir/src/unit_drivers/${offline_drv}\n";
 
     if ($simple_phys) {
       print $fh "$camsrcdir/src/physics/simple\n";
