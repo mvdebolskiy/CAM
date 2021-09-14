@@ -970,8 +970,6 @@ subroutine micro_mg_cam_init(pbuf2d)
    call addfld ('NITNSZMX ',(/ 'lev' /), 'A', '1/kg/s  ', 'NI tuning: maximum slope parameter'             )
    call addfld ('NITNNCLD ',(/ 'lev' /), 'A', '1/kg/s  ', 'NI tuning: removal of nI for zero cloud ice'    )
    call addfld ('MNUDEPO  ',(/ 'lev' /), 'A', 'kg/kg/s ', 'Mixing ratio deposition'                        )
-   call addfld ('MPDNLIQ  ',(/ 'lev' /), 'A', '1/kg/s  ', 'CLDLIQ number tendency - Morrison microphysics' )
-   call addfld ('MPDNICE  ',(/ 'lev' /), 'A', '1/kg/s  ', 'CLDICE number tendency - Morrison microphysics' )
    call addfld ('FRZR     ',(/ 'lev' /), 'A', 'kg/kg/s  ', 'Mass freezing rain to snow'    )
    call addfld ('NFRZR    ',(/ 'lev' /), 'A', '1/kg/s ', 'Number freezing rain to snow' )
    call addfld ('NNUCCRI  ',(/ 'lev' /), 'A', '1/kg/s  ', 'Number freezing rain to ice' )
@@ -3781,8 +3779,6 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
       call outfld ('NNUCCRI', nnuccri,    psetcols, lchnk, avg_subcol_field=use_subcol_microp )
    end if
 
-   call outfld( 'MPDNLIQ  ', ncten,       psetcols, lchnk, avg_subcol_field=use_subcol_microp )
-   call outfld( 'MPDNICE  ', niten,       psetcols, lchnk, avg_subcol_field=use_subcol_microp )
 !AL
 
 
