@@ -38,6 +38,9 @@ subroutine read_namelist(nlfilename, single_column, scmlat, scmlon)
    use physconst,           only: physconst_readnl
    use physics_buffer,      only: pbuf_readnl
    use phys_control,        only: phys_ctl_readnl
+#ifdef OSLO_AERO
+   use oslo_control,        only: oslo_ctl_readnl
+#endif
    use wv_saturation,       only: wv_sat_readnl
    use ref_pres,            only: ref_pres_readnl
    use cam3_aero_data,      only: cam3_aero_data_readnl
@@ -181,6 +184,9 @@ subroutine read_namelist(nlfilename, single_column, scmlat, scmlon)
    call rayleigh_friction_readnl(nlfilename)
 #if ( defined OFFLINE_DYN )
    call metdata_readnl(nlfilename)
+#endif
+#if (defined OSLO_AERO)
+   call oslo_ctl_readnl(nlfilename)
 #endif
    call offline_driver_readnl(nlfilename)
    call analytic_ic_readnl(nlfilename)

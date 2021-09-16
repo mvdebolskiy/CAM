@@ -7,7 +7,7 @@ module physics_types
   use ppgrid,           only: pcols, pver
   use constituents,     only: pcnst, qmin, cnst_name
   use geopotential,     only: geopotential_dse, geopotential_t
-  use physconst,        only: zvir, gravit, cpair, rair, cpairv, rairv
+  use physconst,        only: zvir, gravit, cpair, rair, cpairv, rairv, cpliq, cpwv !+tht
   use phys_grid,        only: get_ncols_p, get_rlon_all_p, get_rlat_all_p, get_gcol_all_p
   use cam_logfile,      only: iulog
   use cam_abortutils,   only: endrun
@@ -17,7 +17,7 @@ module physics_types
   implicit none
   private          ! Make default type private to the module
 
-  logical, parameter :: adjust_te = .FALSE.
+ !logical, parameter :: adjust_te = .FALSE. !tht: c'd out
 
 ! Public types:
 
@@ -269,7 +269,6 @@ contains
        end if
     end if
 
-
     !-----------------------------------------------------------------------
     call phys_getopts(state_debug_checks_out=state_debug_checks)
 
@@ -395,7 +394,7 @@ contains
        call endrun('physics_update: rairv_loc is not allowed to vary when subcolumns are turned on')
     end if
 
-    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then
+    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then 
       zvirv(:,:) = shr_const_rwv / rairv_loc(:,:) - 1._r8
     else
       zvirv(:,:) = zvir
@@ -1126,7 +1125,48 @@ end subroutine physics_ptend_copy
   end subroutine init_geo_unique
 
 !===============================================================================
-  subroutine physics_dme_adjust(state, tend, qini, dt)
+!+tht: gatekeeper module to control options for dme adjustment 
+  subroutine physics_dme_adjust(state, tend, qini, dt, &
+                                eflx, ent_tnd, ohf_adjust, ocnfrac, sst, ts)
+
+      use phys_control, only: phys_getopts
+
+       type(physics_state), intent(inout) :: state
+       type(physics_tend ), intent(inout) :: tend
+       real(r8),            intent(in   ) :: qini(pcols,pver)    ! initial specific humidity
+       real(r8),            intent(in   ) :: dt
+       real(r8),  intent(out),  optional  :: eflx   (pcols)         ! energy flux for use in check_energy
+       real(r8),  intent(out),  optional  :: ent_tnd(pcols)         ! column-integrated enthalpy tendency
+       logical ,  intent(in) ,  optional  :: ohf_adjust             ! keyword for material enthalpy flux adjustment
+       real(r8),  intent(in) ,  optional  :: ocnfrac(pcols)         ! Ocean fraction (fraction)
+       real(r8),  intent(in) ,  optional  :: sst    (pcols)         ! Sea surface temperature
+       real(r8),  intent(in) ,  optional  :: ts     (pcols)         ! Surface temperature
+       logical :: dme_energy_adjust
+
+      call phys_getopts(dme_energy_adjust_out=dme_energy_adjust)
+
+      if (dme_energy_adjust) then
+         if (present(eflx) .and. present(ent_tnd).and. present(ohf_adjust) &
+             .and. present(ocnfrac) .and. present(sst) .and. present(ts)) then
+           call physics_dme_adjust_THT(state, tend, qini, dt &
+                                     , eflx, ent_tnd, ohf_adjust, ocnfrac, sst, ts)
+        else if (present(eflx)) then
+           call physics_dme_adjust_THT(state, tend, qini, dt &
+                                     , eflx)
+        else
+           call physics_dme_adjust_THT(state, tend, qini, dt)
+        endif
+      else
+           call physics_dme_adjust_BAB(state, tend, qini, dt)
+      end if
+
+  end subroutine physics_dme_adjust
+
+!===============================================================================
+!+tht name change
+ !subroutine physics_dme_adjust(state, tend, qini, dt)
+  subroutine physics_dme_adjust_BAB(state, tend, qini, dt)
+!-tht
     !-----------------------------------------------------------------------
     !
     ! Purpose: Adjust the dry mass in each layer back to the value of physics input state
@@ -1149,6 +1189,10 @@ end subroutine physics_ptend_copy
     ! !REVISION HISTORY:
     !   03.03.28  Boville    Created, partly from code by Lin in p_d_adjust
     !
+    !tht: All code associated with the logical parameter adjust_te is removed from this 
+    !     version. The reason is that adjust_te is hard-wired to .false., and has to be
+    !     because the associated code is logically, conceptually and physically wrong. 
+    !     (There must be some religious sect at NCAR that worships bad, dead code.)
     !-----------------------------------------------------------------------
 
     implicit none
@@ -1179,9 +1223,6 @@ end subroutine physics_ptend_copy
     if (state%psetcols .ne. pcols) then
        call endrun('physics_dme_adjust: cannot pass in a state which has sub-columns')
     end if
-    if (adjust_te) then
-       call endrun('physics_dme_adjust: must update code based on the "correct" energy before turning on "adjust_te"')
-    end if
 
     lchnk = state%lchnk
     ncol  = state%ncol
@@ -1199,25 +1240,6 @@ end subroutine physics_ptend_copy
           state%q(:ncol,k,m) = state%q(:ncol,k,m) / fdq(:ncol)
        end do
 
-       if (adjust_te) then
-          ! compute specific total energy of unadjusted state (J/kg)
-          te(:ncol) = state%s(:ncol,k) + 0.5_r8*(state%u(:ncol,k)**2 + state%v(:ncol,k)**2)
-
-          ! recompute initial u,v from the new values and the tendencies
-          utmp(:ncol) = state%u(:ncol,k) - dt * tend%dudt(:ncol,k)
-          vtmp(:ncol) = state%v(:ncol,k) - dt * tend%dvdt(:ncol,k)
-          ! adjust specific total energy and specific momentum (velocity) to conserve each
-          te     (:ncol)   = te     (:ncol)     / fdq(:ncol)
-          state%u(:ncol,k) = state%u(:ncol,k  ) / fdq(:ncol)
-          state%v(:ncol,k) = state%v(:ncol,k  ) / fdq(:ncol)
-          ! compute adjusted u,v tendencies
-          tend%dudt(:ncol,k) = (state%u(:ncol,k) - utmp(:ncol)) / dt
-          tend%dvdt(:ncol,k) = (state%v(:ncol,k) - vtmp(:ncol)) / dt
-
-          ! compute adjusted static energy
-          state%s(:ncol,k) = te(:ncol) - 0.5_r8*(state%u(:ncol,k)**2 + state%v(:ncol,k)**2)
-       end if
-
 ! compute new total pressure variables
        state%pdel  (:ncol,k  ) = state%pdel(:ncol,k  ) * fdq(:ncol)
        state%ps(:ncol)         = state%ps(:ncol)       + state%pdel(:ncol,k)
@@ -1232,34 +1254,364 @@ end subroutine physics_ptend_copy
       zvirv(:,:) = zvir
     endif
 
-! compute new T,z from new s,q,dp
-    if (adjust_te) then
+  end subroutine physics_dme_adjust_BAB
+!-----------------------------------------------------------------------
 
-! cpairv_loc needs to be allocated to a size which matches state and ptend
-! If psetcols == pcols, cpairv is the correct size and just copy into cpairv_loc
-! If psetcols > pcols and all cpairv match cpair, then assign the constant cpair
+  subroutine physics_dme_adjust_THT(state, tend, qini, dt, eflx, ent_tnd, ohf_adjust, ocnfrac, sst, ts)
+    !----------------------------------------------------------------------- 
+    ! 
+    ! Purpose: Adjust the dry mass in each layer back to the value of physics input state
+    !          Adjust air specific enthalpy accordingly. Diagnose boundart enthalpy flux.
+    ! 
+    ! Method
+    !     Revised adjustment towards consistency with local energy conservation.
+    !     Hydrostatic pressure work, de = alpha * dp, where alpha is the specific volume
+    !     pressure adjustment, is added locally as an source of enthalpy. An enthalpy of
+    !     mass (water) exchange with the surface is also defined, which should be passed
+    !     to the surface model components (ocean/land/ice etc).
+    !     If moist thermodynamics where handled correctly in CAM, the two terms would
+    !     match, guaranteeing local energy conservation.
+    !     With the present CAM formulation (constant dry heat capacity, constant latent
+    !     heat of condensation valid for 0 degree C), consistency demands one of these
+    !     choices:
+    !        1. no pressure work and no boundary enthalpy flux (CESM)
+    !        2. correct local pressure work and boundary enthalpy flux equal to (S dp/g)
+    !          where S=local *dry* static energy of air
+    !        3. same as 2., but with different specific enthalpy of boundary mass exchange,
+    !          CONDEPS, and a matching heat exchange betweeen air and condensated
+    !          = (S - CONDEPS) dp/g (sign is for a heat source for air).
+    !     Choice 3. is taken here which will allow adaptation once moist thermodynamics
+    !     is introduced in the CAM in some hopeful future. For CONDEPS the following
+    !     choice is made: CONDEPS = cpcond *ocnfrac *SST + cpcond *(1-ocnfrac) *TS
+    !     cpcond is a parameter representing the heat capacity of the condensate phase.
+    !     The boundary enthalpy flux is at present not passed to other model components,
+    !     so it is treated as internal CAM non-conservation and folded into fix_energy.
+    !     Consistently, cpcond is at present set to be =cpair, resulting in a mild
+    !     (stability-dependent) heat source for (dry) air during precipitation.
+    !     An option to return fields valid on the initial hybrid levels is included.
+    !
+    ! Author: Thomas Toniazzo (17.07.21)
+    !
+    !-----------------------------------------------------------------------
 
-       allocate(cpairv_loc(state%psetcols,pver))
-       if (state%psetcols == pcols) then
-          cpairv_loc(:,:) = cpairv(:,:,state%lchnk)
-       else if (state%psetcols > pcols .and. all(cpairv(:,:,:) == cpair)) then
-          cpairv_loc(:,:) = cpair
-       else
-          call endrun('physics_dme_adjust: cpairv is not allowed to vary when subcolumns are turned on')
-       end if
+    use constituents, only : cnst_get_type_byind
+    use ppgrid,       only : begchunk, endchunk
+    use hycoef,       only : hyai, hybi, ps0, hyam, hybm
 
-       call geopotential_dse(state%lnpint, state%lnpmid, state%pint,  &
-            state%pmid  , state%pdel    , state%rpdel,  &
-            state%s     , state%q(:,:,1), state%phis , rairv(:,:,state%lchnk), &
-            gravit, cpairv_loc(:,:), zvirv, &
-            state%t     , state%zi      , state%zm   , ncol)
+    implicit none
+    !
+    ! Arguments
+    !
+    type(physics_state), intent(inout) :: state
+    type(physics_tend ), intent(inout) :: tend
+    real(r8),            intent(in   ) :: qini(pcols,pver)    ! initial specific humidity
+    real(r8),            intent(in   ) :: dt                  ! model physics timestep
+    real(r8), intent(out), optional :: eflx   (pcols)         ! diagnostic: boundary enthalpy flux 
+    real(r8), intent(out), optional :: ent_tnd(pcols)         ! diagnostic: column-integrated enthalpy tendency
+    logical , intent(in) , optional :: ohf_adjust             ! flag to set temperature of water condensates 
+    real(r8), intent(in) , optional :: ocnfrac(pcols)         ! Ocean fraction (fraction)
+    real(r8), intent(in) , optional :: sst    (pcols)         ! Sea surface temperature
+    real(r8), intent(in) , optional :: ts     (pcols)         ! Surface temperature
 
-       deallocate(cpairv_loc)
+    !---------------------------Local workspace-----------------------------
 
+    integer  :: lchnk         ! chunk identifier
+    integer  :: ncol          ! number of atmospheric columns
+    integer  :: i,k,m         ! Longitude, level indices
+    integer  :: ierr          ! error flag
+
+    real(r8) :: fdq   (pcols)  ! mass adjustment factor
+    real(r8) :: fdq_ke(pcols)  ! mass adjustment factor to conserve momentum or kinetic energy
+
+    real(r8) :: te    (pcols)  ! total energy in a layer
+    real(r8) :: utmp  (pcols)  ! temp variable for recalculating the initial u values
+    real(r8) :: vtmp  (pcols)  ! temp variable for recalculating the initial v values
+
+    real(r8) :: zvirv(pcols,pver)    ! Local zvir array pointer
+
+    real(r8) :: ps_old(pcols)   ! old surface pressure 
+    real(r8) :: pdel_new(pcols) ! Layer thickness (pint(k+1) - pint(k))
+    real(r8) :: mdq(pcols,pver) ! mass adjustment
+
+    real(r8) :: pdot   (pcols)  ! total (lagrangian) pressure adjustment
+    real(r8) :: edot   (pcols)  ! advective pressure adjustment
+
+    real(r8) :: condeps(pcols)  ! specific enthalpy of moist reservoir with which q is exchanged
+    real(r8) :: htx    (pcols)  ! heat exchange with condensates
+
+    real(r8) :: qf(pcols,pcnst), qtmp(pcols,pcnst), uf(pcols), vf(pcols) ! work arrays
+
+    logical,parameter  :: hybrid_coord=.false. ! Flag for hybrid (=T) or lagrangian (=F) coord
+
+!+tht 17.11.2015 option to use virtual temperature for T update
+    logical, parameter :: l_virtual = .true.     ! convert T to T_v, run adjustment loop, then convert back
+    real(r8) :: tp(pcols,pver)                   ! work array for T/Tv
+    real(r8) :: rr(pcols)                        ! dry/moist R
+
+    real(r8), parameter :: Tcond = 291.16_r8   ! 18C= preindustrial global average SST
+!+tht 
+! N.B.: RCP=1 -> use T, RCP.ne.1 -> use a virtual (heat) temperature
+ ! OPTION 0
+   ! reference temperature of condensates (=0, cp_wv set to cpair )
+   !real(r8), parameter :: condTr = 0._r8
+   !real(r8), parameter :: cpcond =cpair
+   !real(r8), parameter :: rcp=1._r8
+    real(r8) :: condTr, cpcond, rcp
+    condTr = 0._r8
+    cpcond =cpair
+    rcp=1._r8
+ ! OPTION 1
+  !! reference temperature of condensates (=0, cp_wv set to cp_liq)
+  ! real(r8), parameter :: condTr = 0._r8
+  ! real(r8), parameter :: cpcond =cpliq
+  ! real(r8), parameter :: rcp=cpliq/cpair
+ ! OPTION 2
+  !! reference temperature of condensates (=0, cp_liq set to cp_wv)
+  ! real(r8)            :: cpcond, rcp
+  ! real(r8), parameter :: condTr = 0._r8
+  !                        cpcond=cpwv
+  !                        rcp=cpwv/cpair
+ ! OPTION 3
+  !! reference temperature of condensates (=triple point, according to constant value of L adopted elsewhere)
+   !real(r8)            :: rcp
+   !real(r8), parameter :: condTr = 273.16_r8   
+   !real(r8), parameter :: cpcond = cpliq
+   !                       rcp=cpwv/cpair
+!-tht
+
+   !if (.not. dycore_is('LR') ) return
+
+    if (state%psetcols .ne. pcols) then
+       call endrun('physics_dme_adjust: cannot pass in a state which has sub-columns')
     end if
 
-  end subroutine physics_dme_adjust
-!-----------------------------------------------------------------------
+!-------------------- initialise adjustment loop ------------------------------------
+    lchnk = state%lchnk
+    ncol  = state%ncol
+
+   ! virtual temperature
+    do k = 1, pver
+      tp(:ncol,k) = state%t(:ncol,k) *((1._r8+rcp*qini(:ncol,k))/(1._r8+qini(:ncol,k)))
+    enddo
+
+   ! old surface pressure
+    ps_old  (:ncol) = state%ps(:ncol)
+
+    state%ps(:ncol) = state%pint(:ncol,1)
+    do k = 1, pver
+   ! specific enthalpy before adjustment
+       state%s(:ncol,k)=      tp(:ncol,k)*cpairv(:ncol,k,lchnk)  &
+                        +0.5_r8*(state%u(:ncol,k)**2 + state%v(:ncol,k)**2)
+   ! Dp'/Dp
+       mdq    (:ncol,k)= state%q(:ncol,k,1) - qini(:ncol,k) ! only water-vapor mass change considered 
+   ! new surface pressure 
+       state%ps(:ncol) = state%ps(:ncol) + state%pdel(:ncol,k)*(1._r8 + mdq(:ncol,k))
+    end do
+
+   ! lagrangian & advective pressure change at top interface
+    pdot  (:ncol) = 0._r8
+    edot  (:ncol) = 0._r8
+
+   ! heat exchange with condensates
+    htx   (:ncol) = 0._r8 !+tht 07.11.2015
+
+   ! energy change due to mass sources
+    if (present(eflx)) eflx(:ncol) = 0._r8
+
+   ! store old enthalpy integral
+    if (present(ent_tnd)) then
+     ent_tnd(:ncol)=0._r8
+     do k=1,pver
+      ent_tnd(:ncol)=ent_tnd(:ncol)-(state%t(:ncol,k)*cpairv(:ncol,k,lchnk) &
+                    +0.5_r8*(state%u(:ncol,k)**2+state%v(:ncol,k)**2))*state%pdel(:ncol,k)
+     enddo
+    endif
+
+!------------------- start adjustment loop ------------------------------------------
+    do k = 1, pver
+
+       if (rcp.eq.1._r8) then
+        rr(:ncol) = (1._r8+(zvir+1._r8)*.5_r8*(qini(:ncol,k)+state%q(:ncol,k,1))) &
+                     /(1._r8+.5_r8*(qini(:ncol,k)+state%q(:ncol,k,1)))
+       else
+        rr(:ncol) = 1._r8
+       endif
+
+     ! new Dp (=:Dp") for either lagrangian or hybrid-coordinate adjustment
+       if (hybrid_coord) then ! hybrid-level adjustment (Dp".ne.Dp')
+        pdel_new(:ncol)  = (hyai(k+1)-hyai(k))*ps0 &
+                          +(hybi(k+1)-hybi(k))*state%ps(:ncol)
+       else                    ! lagrangian adjustment  (Dp".eq.Dp')
+        pdel_new(:ncol)  = state%pdel(:ncol,k)*(1._r8 + mdq(:ncol,k))
+       endif
+
+       fdq(:ncol)        = pdel_new(:ncol)/state%pdel(:ncol,k)       ! this is Dp"/Dp
+
+     ! humidity adjustment: remapping flux from previous interface, /Dp"
+       if (hybrid_coord .and. k.gt.1) then
+        do m=1,pcnst
+         qf (:ncol,m) =  .5_r8*(state%q(:ncol,k,m)+qtmp(:ncol,m))*edot(:ncol)/pdel_new(:ncol)
+        enddo
+       else
+        do m=1,pcnst
+         qf (:ncol,m) =  0._r8
+        enddo
+       endif
+
+     ! wind adjustment increments
+       if (hybrid_coord .and. k.gt.1) then ! here u,vtmp = u,v(k-1) 
+        uf (:ncol) =  .5_r8*(state%u(:ncol,k)+utmp(:ncol))*edot(:ncol)/pdel_new(:ncol)
+        vf (:ncol) =  .5_r8*(state%v(:ncol,k)+vtmp(:ncol))*edot(:ncol)/pdel_new(:ncol)
+       else
+        uf (:ncol) = 0.
+        vf (:ncol) = 0.
+       endif
+     ! u,vtmp set to pre-physics u,v from the updated values and the tendencies
+       utmp(:ncol) = state%u(:ncol,k) - dt * tend%dudt(:ncol,k)
+       vtmp(:ncol) = state%v(:ncol,k) - dt * tend%dvdt(:ncol,k)
+
+     ! adjust specific enthalpy
+       if (hybrid_coord .and. k.gt.1) then    ! remapping flux from previous interface, /Dp"
+         te (:ncol) =  .5_r8*(state%s(:ncol,k)+state%s(:ncol,k-1))*edot(:ncol)/pdel_new(:ncol)
+       else
+         te (:ncol) = 0._r8
+       endif
+
+     ! lagrangian pressure change at mid-level
+       pdot(:ncol) = pdot(:ncol) + .5_r8*state%pdel(:ncol,k)*mdq(:ncol,k)
+     ! enthalpy change by hydrost. pressure work in full adjustment
+       te  (:ncol) = te(:ncol) + state%s(:ncol,k)/(fdq(:ncol)/(1._r8+mdq(:ncol,k)))           & ! te *(Dp'/Dp")
+                    + rairv(:ncol,k,lchnk)*rr(:ncol)*state%t(:ncol,k)/state%pmid(:ncol,k)     & ! alpha (use Tv)
+                     *pdot(:ncol)/fdq(:ncol)                                                  & ! *dp*(Dp/Dp")
+                    -(.5_r8*(state%zi(:ncol,k+1)+state%zi(:ncol,k))-state%zm(:ncol,k))*gravit & ! probably =0.
+                     *mdq(:ncol,k)/fdq(:ncol)                                                   ! *dq*(Dp/Dp")
+     ! lagrangian pressure change at next interface
+       pdot(:ncol) = pdot(:ncol) + .5_r8*state%pdel(:ncol,k)*mdq(:ncol,k)
+
+
+     ! specific enthalpy of condensates
+       condeps(:ncol) = cpcond*(state%t(:ncol,k)-condtr)+cpwv*condtr  &
+                        +0.5_r8*(state%u(:ncol,k)**2+state%v(:ncol,k)**2) +gravit*state%zm(:ncol,k)
+       if (present(ohf_adjust)) then
+        if (ohf_adjust) then
+         if ( present(ocnfrac) .and. present(sst) .and. present(ts) ) then
+          condeps(:ncol) =       ocnfrac(:ncol)   *(cpcond*(sst(:ncol)-condtr)+cpwv*condtr) &
+                          + (1._r8-ocnfrac(:ncol))*(cpcond*(ts (:ncol)-condtr)+cpwv*condtr)
+         else
+          if ( present(sst) ) then
+           condeps(:ncol) = cpcond*(sst(:ncol)-condtr)+cpwv*condtr
+          else if ( present(ts) ) then
+           condeps(:ncol) = cpcond*(ts (:ncol)-condtr)+cpwv*condtr
+          else ! fixed temperature of all condensates
+           condeps(:ncol) = cpcond*(tcond-condtr)+cpwv *condtr
+          endif
+         endif
+        endif  ! if ohf_adjust=F, keep local specific enthalpy
+       endif   ! if ohf_adjust not present, treated as F
+
+     ! boundary-flux diagnostic associated with water exchanged (column water-vapour gained/lost)
+       if (present(eflx)) &
+        eflx (:ncol) = eflx(:ncol) + mdq(:ncol,k)/dt*state%pdel(:ncol,k)/gravit *condeps(:ncol)
+
+     ! sensible heat exchange between atm. column and water reservoire
+       if (present(ohf_adjust)) then
+        if (ohf_adjust) then
+        ! the heat here is exchanged in the column between the local level and the surface,
+        ! i.e. over indices j with (k.le.j.le.pver)
+         htx (:ncol) = htx(:ncol) + &
+                       pdel_new(:ncol)/(state%ps(:ncol)-state%pint(:ncol,k)) &
+                      * mdq(:ncol,k)/fdq(:ncol) &
+                      *(condeps(:ncol)-(state%s(:ncol,k)+gravit*state%zm(:ncol,k)))
+        ! local heating would be just:
+        !htx (:ncol) =  mdq(:ncol,k)/fdq(:ncol) & 
+        !             *(condeps(:ncol)-(state%s(:ncol,k)+gravit*state%zm(:ncol,k))) 
+         te  (:ncol) = te(:ncol) + htx(:ncol)
+        endif ! nothing to be done if OHF_ADJUST either .false. ...
+       endif  ! ... or not present
+
+       if (hybrid_coord .and. k.lt.pver) then ! remapping flux from next interface, /Dp"
+        edot(:ncol) = pdot(:ncol) - hybi(k+1)*(state%ps(:ncol)-ps_old(:ncol))
+        te  (:ncol) = te(:ncol) - .5_r8*(state%s(:ncol,k)+state%s(:ncol,k+1))*edot(:ncol)/pdel_new(:ncol)
+       endif
+
+       if (hybrid_coord .and. k.lt.pver) then ! remapping flux from next interface, /Dp"
+        do m=1,pcnst
+         qf (:ncol,m) =  qf(:ncol,m) &
+                           - .5_r8*(state%q(:ncol,k,m)+state%q(:ncol,k+1,m))*edot(:ncol)/pdel_new(:ncol)
+        enddo
+        uf (:ncol) = uf(:ncol) - .5_r8*(state%u(:ncol,k)+state%u(:ncol,k+1))*edot(:ncol)/pdel_new(:ncol)
+        vf (:ncol) = vf(:ncol) - .5_r8*(state%v(:ncol,k)+state%v(:ncol,k+1))*edot(:ncol)/pdel_new(:ncol)
+       endif
+
+       ! adjust constituents to conserve mass in each layer
+       do m = 1, pcnst
+         ! store unadjusted q for use in next k
+          qtmp   (:ncol  ,m) = state%q(:ncol,k,m)
+          state%q(:ncol,k,m) = state%q(:ncol,k,m) / fdq(:ncol) + qf(:ncol,m)
+       end do
+
+      ! compute adjusted u,v 
+       uf(:ncol) = state%u(:ncol,k  ) / fdq(:ncol) + uf(:ncol)
+       vf(:ncol) = state%v(:ncol,k  ) / fdq(:ncol) + vf(:ncol)
+      ! adjusted u,v tendencies
+       tend%dudt(:ncol,k) = (uf(:ncol) - utmp(:ncol)) / dt
+       tend%dvdt(:ncol,k) = (vf(:ncol) - vtmp(:ncol)) / dt
+      ! store unadjusted u,v for use in next k
+       utmp(:ncol) = state%u(:ncol,k)
+       vtmp(:ncol) = state%v(:ncol,k)
+      ! write adjusted u,v
+       state%u(:ncol,k) = uf(:ncol)
+       state%v(:ncol,k) = vf(:ncol)
+
+      ! compute adjusted temperature
+            tp(:ncol,k) =(te(:ncol) - 0.5_r8*(state%u(:ncol,k)**2 + state%v(:ncol,k)**2)) &
+                         /cpairv(:ncol,k,lchnk)
+
+! compute new total pressure variables
+       state%pint  (:ncol,k+1) = state%pint(:ncol,k  ) + pdel_new(:ncol)
+       state%lnpint(:ncol,k+1) = log(state%pint(:ncol,k+1))
+       state%pdel  (:ncol,k  ) = pdel_new(:ncol)
+       state%rpdel (:ncol,k  ) = 1._r8/ state%pdel(:ncol,k  )
+
+    end do
+!------------------- end adjustment loop --------------------------------------------
+
+
+    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then
+      zvirv(:,:) = shr_const_rwv / rairv(:,:,state%lchnk) - 1._r8
+    else
+      zvirv(:,:) = zvir
+    endif
+
+  ! update T 
+    do k = 1, pver
+      state%t(:ncol,k) = tp(:ncol,k) /((1._r8+rcp*state%q(:ncol,k,1))/(1._r8+state%q(:ncol,k,1)))
+    enddo
+
+  ! diagnose total internal enthalpy change: will *not* match EFLX if RCP.ne.1
+    if (present(ent_tnd)) then
+     do k=1,pver
+      ent_tnd(:ncol) = ent_tnd(:ncol) + state%pdel(:ncol,k) &
+                      *(state%t(:ncol,k)*cpairv(:ncol,k,lchnk)  &
+                        +0.5_r8*(state%u(:ncol,k)**2 + state%v(:ncol,k)**2) )
+     enddo
+     ent_tnd(:ncol)=ent_tnd(:ncol)/dt/gravit
+    endif
+    call geopotential_t  (                                                                    &
+         state%lnpint, state%lnpmid, state%pint  , state%pmid  , state%pdel  , state%rpdel  , &
+         state%t     , state%q(:,:,1), rairv(:,:,state%lchnk), gravit  , zvirv              , &
+         state%zi    , state%zm      , ncol         )
+
+  ! update original dry static energy
+    do k = 1, pver
+      state%s(:ncol,k) = state%t(:ncol,k  )*cpairv(:ncol,k,lchnk) &
+                        + gravit*state%zm(:ncol,k) + state%phis(:ncol)
+    enddo
+
+  ! update dry pressure (OK after set_dry_to_wet was called in tphysac).
+    call set_state_pdry(state)
+
+  end subroutine physics_dme_adjust_THT
 
 !===============================================================================
   subroutine physics_state_copy(state_in, state_out)

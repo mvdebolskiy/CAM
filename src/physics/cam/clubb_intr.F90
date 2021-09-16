@@ -1145,6 +1145,8 @@ end subroutine clubb_init_cnst
     call addfld ('WM_ZT_CLUBB',      (/ 'ilev' /), 'A', 'm/s',      'Vertical Velocity')
     call addfld ('THETAL',           (/ 'lev' /),  'A', 'K',        'Liquid Water Potential Temperature')
     call addfld ('PBLH',             horiz_only,   'A', 'm',        'PBL height')
+    call addfld( 'PBLHMX',           horiz_only,   'X', 'm',        'Maximum PBL height over output period')
+    call addfld( 'PBLHMN',           horiz_only,   'M', 'm',        'Minimum PBL height over output period')
     call addfld ('QT',               (/ 'lev' /),  'A', 'kg/kg',    'Total water mixing ratio')
     call addfld ('SL',               (/ 'lev' /),  'A', 'J/kg',     'Liquid water static energy')
     call addfld ('CLDST',            (/ 'lev' /),  'A', 'fraction', 'Stratus cloud fraction')
@@ -3154,6 +3156,8 @@ end subroutine clubb_init_cnst
 
    !  Output the PBL depth
    call outfld('PBLH', pblh, pcols, lchnk)
+   call outfld('PBLHMX', pblh, pcols, lchnk)
+   call outfld('PBLHMN', pblh, pcols, lchnk)
  
    ! Assign the first pver levels of cloud_frac back to cld
    cld(:,1:pver) = cloud_frac(:,1:pver)

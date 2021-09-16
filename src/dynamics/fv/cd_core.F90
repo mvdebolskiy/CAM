@@ -1422,7 +1422,7 @@ subroutine cd_core(grid,   nx,     u,   v,   pt,                  &
                   do i = 1, im
                      don(j,k) = don(j,k) + (cosp(j) + cosp(j-1))*cose(j) &
                                 *(uc(i,j,k)*dpn(i,j,k)                   &
-                                + (u(i,j,k) + cose(j)*oma)*(dpn(i,j,k) - dpo(i,j,k)))
+                                 +(u(i,j,k) + cose(j)*oma)*(dpn(i,j,k) - dpo(i,j,k)))
                      dod(j,k) = dod(j,k) + (cosp(j) + cosp(j-1))*cose(j)**2*dpn(i,j,k)
                   end do
                end do

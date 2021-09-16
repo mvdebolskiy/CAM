@@ -67,7 +67,7 @@ OPTIONS
                           trop_strat_mam4_ts2 | trop_strat_mam4_vbs | trop_strat_mam4_vbsext |
                           waccm_ma | waccm_mad | waccm_mad_mam4 | waccm_ma_mam4 |
                           waccm_ma_sulfur | waccm_sc | waccm_sc_mam4 | waccm_tsmlt_mam4 |
-                          terminator | none ].
+                          terminator | trop_mam_oslo | none ].
                         Default: trop_mam4 for cam6 and trop_mam3 for cam5.
      -[no]clubb_sgs     Switch on [off] CLUBB_SGS.  Default: on for cam6, otherwise off.
      -clubb_opts <list> Comma separated list of CLUBB options to turn on/off.  By default they are all off.
@@ -1376,6 +1376,10 @@ if ($chem_pkg =~ '_mam3') {
     $chem_cppdefs = ' -DMODAL_AERO -DMODAL_AERO_7MODE ';
 }
 
+if ($chem_pkg =~ '_oslo') {
+ $chem_cppdefs = ' -DOSLO_AERO -DDIRIND'
+}
+
 # CARMA sectional microphysics
 #
 # New CARMA models need to define the number of advected constituents.
@@ -2060,7 +2064,17 @@ sub write_filepath
     my $CASEROOT = "$ENV{'CASEROOT'}";
     print $fh "$CASEROOT/SourceMods/src.cam\n";
 
-    # offline unit driver (defaults to stub)
+   #NorESM-specific: 
+   #Any files in "NorESM"-folder go before the original CAM-files
+   #These files MUST give back standard CAM5.3 if a standard CAM5.3 compset is chosen
+   #Un-commenting this line will give back standard CAM 5.3 (unmodified).
+   #This is used for testing.
+   #++djlo (should be switched off when pure NCAR version is desired)
+   print $fh "$camsrcdir/src/NorESM\n";
+   print $fh "$camsrcdir/src/NorESM/$dyn\n";
+   #--djlo
+
+   # offline unit driver (defaults to stub)
     print $fh "$camsrcdir/src/unit_drivers\n";
     print $fh "$camsrcdir/src/unit_drivers/${offline_drv}\n";
 
@@ -2085,10 +2099,16 @@ sub write_filepath
     if ($chem_src_dir) {
         print $fh "$chem_src_dir\n";
     }
-    if ($chem =~ /_mam/) {
-        print $fh "$camsrcdir/src/chemistry/modal_aero\n";
-    } else {
-        print $fh "$camsrcdir/src/chemistry/bulk_aero\n";
+    if ($chem =~/_oslo/) {
+         print $fh "$camsrcdir/src/chemistry/oslo_aero\n";
+         print $fh "$camsrcdir/src/physics/cam_oslo\n";
+    }
+    else{
+	 if ($chem =~ /_mam/) {
+	    print $fh "$camsrcdir/src/chemistry/modal_aero\n";
+	 } else {
+	   print $fh "$camsrcdir/src/chemistry/bulk_aero\n";
+	}
     }
     print $fh "$camsrcdir/src/chemistry/aerosol\n";
 

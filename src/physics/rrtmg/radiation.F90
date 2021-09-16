@@ -860,6 +860,8 @@ subroutine radiation_tend( &
    real(r8) :: freqclr(pcols)          ! Frequency of occurrence of clear sky columns
    real(r8) :: flntclr(pcols)          ! Clearsky only columns (zero if cloudy)
 
+   logical, parameter :: cosz_rad_call=.true. !+tht
+
    character(*), parameter :: name = 'radiation_tend'
    !--------------------------------------------------------------------------------------
 
@@ -891,7 +893,7 @@ subroutine radiation_tend( &
       end do
    else
       do i = 1, ncol
-         coszrs(i) = shr_orb_cosz(calday, clat(i), clon(i), delta, dt_avg)
+         coszrs(i) = shr_orb_cosz(calday, clat(i), clon(i), delta, dt_avg, rad_call=cosz_rad_call) !+tht rad_call
       end do
    end if
 

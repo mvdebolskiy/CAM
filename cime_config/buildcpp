@@ -126,10 +126,7 @@ def buildcpp(case):
         os.makedirs(camconf)
 
     # Construct the command itself.
-    testpath = os.path.join(srcroot, "components", "cam")
-    if os.path.exists(testpath):
-        srcroot = testpath
-    cmd = os.path.join(srcroot, "bld", "configure") + \
+    cmd = os.path.join(srcroot, "components", "cam", "bld", "configure") + \
           " " + " ".join(config_opts)
     run_cmd_no_fail(cmd, from_dir=camconf)
 

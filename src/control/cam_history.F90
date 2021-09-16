@@ -2247,6 +2247,7 @@ CONTAINS
     character(len=2) :: avg_suffix
     character(len=max_fieldname_len) :: vec_comp_names(nvecmax)
     character(len=1)                 :: vec_comp_avgflag(nvecmax)
+    logical, parameter :: be_an_arse=.false. !tht: if T, use CAM default and be an arse 
     !--------------------------------------------------------------------------
 
     ! First ensure contents of fincl, fexcl, and fwrtpr are all valid names
@@ -2271,7 +2272,11 @@ fincls: do while (f < pflds .and. fincl(f,t) /= ' ')
                     write(iulog,*) trim(errormsg)
                     call shr_sys_flush(iulog)
                  end if
-                 f = f + 1
+!+tht just drop entry
+                !f = f + 1
+                 fincl(f:pflds-1,t)=fincl(f+1:pflds,t)
+                 fincl(pflds,t)=' '
+!-tht
                  cycle fincls
               end if
            end do
@@ -2286,7 +2291,13 @@ fincls: do while (f < pflds .and. fincl(f,t) /= ' ')
              write(iulog,*) trim(errormsg)
              call shr_sys_flush(iulog)
           end if
+          fincl(f:pflds-1,t)=fincl(f+1:pflds,t)
+          fincl(pflds,t)=' '
           errors_found = errors_found + 1
+!+tht 
+          fincl(f:pflds-1,t)=fincl(f+1:pflds,t)
+          fincl(pflds,t)=' '
+!-tht
         else
            if (len_trim(mastername)>0 .and. interpolate_output(t)) then
               if (n_vec_comp >= nvecmax) call endrun('FLDLST: need to increase nvecmax')
@@ -2302,8 +2313,11 @@ fincls: do while (f < pflds .and. fincl(f,t) /= ' ')
                  vec_comp_avgflag(n_vec_comp) = avgflag
               end if
            end if
+!+tht
+           f = f + 1
         end if
-        f = f + 1
+       !f = f + 1
+!-tht
       end do fincls
 
       ! Interpolation of vector components requires that both be present.  If the fincl
@@ -2340,7 +2354,6 @@ fincls: do while (f < pflds .and. fincl(f,t) /= ' ')
         mastername=''
         listentry => get_entry_by_name(masterlinkedlist, fexcl(f,t))
         if(associated(listentry)) mastername = listentry%field%name
-
         if (fexcl(f,t) /= mastername) then
           write(errormsg,'(3a,2(i0,a))')'FLDLST: ', trim(fexcl(f,t)), ' in fexcl(', f,', ',t, ') not found'
           if (masterproc) then
@@ -2348,43 +2361,57 @@ fincls: do while (f < pflds .and. fincl(f,t) /= ' ')
              call shr_sys_flush(iulog)
           end if
           errors_found = errors_found + 1
+          fexcl(f:pflds-1,t)=fexcl(f+1:pflds,t)
+          fexcl(pflds,t)=' '
+        else
+          f = f + 1
         end if
-        f = f + 1
+       !f = f + 1
       end do
 
       f = 1
       do while (f < pflds .and. fwrtpr(f,t) /= ' ')
         name = getname (fwrtpr(f,t))
         mastername=''
-        listentry => get_entry_by_name(masterlinkedlist, name)
-        if(associated(listentry)) mastername = listentry%field%name
-        if (name /= mastername) then
-          write(errormsg,'(3a,i0,a)')'FLDLST: ', trim(name), ' in fwrtpr(', f, ') not found'
+       !do ff=1,f-1                 ! If duplicate entry is found, stop
+        ff=f-1                      !tht: don't be silly
+        do while (ff.gt.0 .and. trim(name) /= trim(getname(fwrtpr(ff,t)))) 
+         ff=ff-1
+        enddo
+        if (ff.gt.0) then
+          write(errormsg,'(3a)')'FLDLST: Duplicate field ', trim(name), ' in fwrtpr'
           if (masterproc) then
-             write(iulog,*) trim(errormsg)
-             call shr_sys_flush(iulog)
+            write(iulog,*) trim(errormsg)
+            call shr_sys_flush(iulog)
           end if
           errors_found = errors_found + 1
-        end if
-        do ff=1,f-1                 ! If duplicate entry is found, stop
-          if (trim(name) == trim(getname(fwrtpr(ff,t)))) then
-            write(errormsg,'(3a)')'FLDLST: Duplicate field ', trim(name), ' in fwrtpr'
+          fwrtpr(f:pflds-1,t)=fwrtpr(f+1:pflds,t)
+          fwrtpr(pflds,t)=' '
+        else  
+          listentry => get_entry_by_name(masterlinkedlist, name)
+          if(associated(listentry)) mastername = listentry%field%name
+          if (name /= mastername) then
+            write(errormsg,'(3a,i0,a)')'FLDLST: ', trim(name), ' in fwrtpr(', f, ') not found'
             if (masterproc) then
-               write(iulog,*) trim(errormsg)
-               call shr_sys_flush(iulog)
+              write(iulog,*) trim(errormsg)
+              call shr_sys_flush(iulog)
             end if
             errors_found = errors_found + 1
+            fwrtpr(f:pflds-1,t)=fwrtpr(f+1:pflds,t)
+            fwrtpr(pflds,t)=' '
+          else
+             f = f + 1
           end if
-        end do
-        f = f + 1
+        end if
       end do
-    end do
+
+    end do ! ptapes
 
     if (errors_found > 0) then
        ! Give masterproc a chance to write all the log messages
        call mpi_barrier(mpicom, t)
        write(errormsg, '(a,i0,a)') 'FLDLST: ',errors_found,' errors found, see log'
-       call endrun(trim(errormsg))
+       if (be_an_arse) call endrun(trim(errormsg))
     end if
 
     nflds(:) = 0

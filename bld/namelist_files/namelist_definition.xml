@@ -956,6 +956,13 @@ Relaxation time (hours) applied to specified meteorology.
 Default: 0.0
 </entry>
 
+<entry id="met_nudge_only_uvps" type="logical"  category="dyn_fv_off"
+       group="metdata_nl" valid_values="" >
+if true, nudge only u, v and ps. If false, nudge other fields as well
+(T, Q, TS, SHOWH, TAUX, TAUY, SHFLX, QFLX)
+Default: true
+</entry>
+
 <entry id="met_fix_mass" type="logical"  category="dyn_fv_off"
        group="metdata_nl" valid_values="" >
 switch to turn on/off mass fixer for offline driver
@@ -4218,7 +4225,7 @@ Default: set by build-namelist
 <entry id="cam_chempkg" type="char*32" category="build"
        group="phys_ctl_nl" valid_values="trop_mam3,trop_mam4,trop_mam7,trop_mozart,trop_strat_mam4_vbs,trop_strat_mam4_vbsext,
                                          waccm_ma,waccm_mad_mam4,waccm_ma_mam4,waccm_ma_sulfur,waccm_sc,waccm_sc_mam4,waccm_tsmlt_mam4,
-                                         terminator,none" >
+                                         terminator,trop_mam_oslo,none" >
 Name of the CAM chemistry package.  N.B. this variable may not be set by
 the user.  It is set by build-namelist via information in the configure
 cache file to be consistent with how CAM was built.
@@ -4316,6 +4323,15 @@ Default: NONE.
        group="ionosphere_nl" valid_values="" >
 Full pathname of AMIE inputs for southern hemisphere.
 Default: NONE.
+</entry>
+
+<!-- Hydrostatic pressure work in mass adjustment -->
+
+<entry id="dme_energy_adjust" type="logical"  category="NorESM"
+       group="phys_ctl_nl" valid_values="" >
+Switch to use appropriate energy adjustment in dry-mass adjustment at the
+end of tphysac.
+Default: .true.
 </entry>
 
 <!-- Reference Pressures -->
@@ -8229,6 +8245,126 @@ Default: 0.0
        group="dyn_fv3_inparm" valid_values="" >
 If TRUE perform temp tendency scaling before send to fv3 dynamics
 Default: FALSE
+</entry>
+
+<!-- CAM-Oslo variables  -->
+
+<entry id="volc_fraction_coarse" type="real" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+Fraction of volcanic aerosols which will end up in coarse mode 
+Default: 0.0
+</entry>
+<entry id="aerotab_table_dir" type="char*256" input_pathname="abs" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+Directory where we will expect to find the CAM-Oslo tables
+created from AeroTab
+</entry>
+
+<entry id="aerocomk0_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk1_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk2_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk3_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk4_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk5_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk6_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk7_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk8_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk9_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerocomk10_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+
+<entry id="aerodryk0_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk1_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk2_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk3_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk4_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk5_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk6_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk7_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk8_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk9_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="aerodryk10_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+
+<entry id="kcomp0_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp1_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp2_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp3_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp4_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp5_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp6_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp7_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp8_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp9_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="kcomp10_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+
+<entry id="logntilp1_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="logntilp2_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="logntilp3_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="logntilp4_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="logntilp5_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="logntilp6_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="logntilp7_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="logntilp8_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="logntilp9_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="logntilp10_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+
+<entry id="lwkcomp0_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp1_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp2_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp3_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp4_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp5_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp6_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp7_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp8_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp9_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+<entry id="lwkcomp10_file" type="char*256" input_pathname="abs" category="cam_oslo" group="aerotab_ctl_nl" valid_values="" > AeroTab file</entry>
+
+<entry id="dms_source" type="char*20" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+Type of DMS data source
+Default: emission_file
+</entry>
+
+<entry id="dms_source_type" type="char*32" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+Type of DMS data source type
+Default: CYCLICAL
+</entry>
+
+<entry id="dms_cycle_year" type="integer" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+DMS cycle year
+Default: 2000
+</entry>
+
+<entry id="opom_source" type="char*20" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+Type of ocean POM data source
+Default: no_file
+</entry>
+
+<entry id="opom_source_type" type="char*32" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+Type of ocean POM data source type
+Default: CYCLICAL
+</entry>
+
+<entry id="opom_cycle_year" type="integer" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+Ocean POM cycle year
+Default: 2000
+</entry>
+
+<entry id="ocean_filename" type="char*256" input_pathname="rel:ocean_filepath" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+Filename for ocean concentration of DMS, chlorophyll and poc
+Default: name
+</entry>
+
+<entry id="ocean_filepath" type="char*256" input_pathname="abs" category="cam_oslo"
+       group="oslo_ctl_nl" valid_values="" >
+Path to ocean file
+Default: path
 </entry>
 
 </namelist_definition>

@@ -865,6 +865,8 @@ subroutine radiation_tend( &
    integer, dimension(pcols) :: IdxDay  ! Indicies of daylight coumns
    integer, dimension(pcols) :: IdxNite ! Indicies of night coumns
 
+   logical, parameter :: cosz_rad_call=.true. !+tht
+
    character(*), parameter :: name = 'radiation_tend'
 
    ! tropopause diagnostic
@@ -916,7 +918,7 @@ subroutine radiation_tend( &
    if (use_rad_uniform_angle) then
       call zenith (calday, clat, clon, coszrs, ncol, dt_avg, uniform_angle=rad_uniform_angle)
    else
-      call zenith (calday, clat, clon, coszrs, ncol, dt_avg)
+      call zenith (calday, clat, clon, coszrs, ncol, dt_avg, rad_call=cosz_rad_call) !+tht rad_call
    end if
 
    ! Gather night/day column indices.
