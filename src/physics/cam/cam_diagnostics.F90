@@ -2034,10 +2034,6 @@ contains
     real(r8)           , intent(in), optional ::dsema(pcols    ) ! column enthalpy tendency assoc. with mass adj.
 !-tht
 
-    real(r8)           , intent(inout) :: tmp_t     (pcols,pver) !tht: holds last physics_updated T (FV)
-    real(r8)           , intent(in), optional ::eflx (pcols    ) !tht: surface sensible heat flux assoc.with mass adj.
-    real(r8)           , intent(in), optional ::dsema(pcols    ) !tht: column enthalpy tendency assoc. with mass adj.
-
     !---------------------------Local workspace-----------------------------
 
     integer  :: lchnk             ! chunk index
@@ -2227,7 +2223,6 @@ tmp_q, tmp_t, tmp_cldliq, tmp_cldice, qini, cldliqini, cldiceini, eflx, dsema) !
     type(physics_tend ), intent(in)    :: tend
     real(r8),            intent(in)    :: ztodt                  ! physics timestep
     real(r8)           , intent(inout) :: tmp_q     (pcols,pver) ! As input, holds pre-adjusted tracers (FV)
-    real(r8)           , intent(inout) :: tmp_t     (pcols,pver) !tht: holds last physics_updated T (FV)
     real(r8),            intent(inout) :: tmp_cldliq(pcols,pver) ! As input, holds pre-adjusted tracers (FV)
     real(r8),            intent(inout) :: tmp_cldice(pcols,pver) ! As input, holds pre-adjusted tracers (FV)
     real(r8),            intent(in)    :: qini      (pcols,pver) ! tracer fields at beginning of physics
