@@ -2291,8 +2291,6 @@ fincls: do while (f < pflds .and. fincl(f,t) /= ' ')
              write(iulog,*) trim(errormsg)
              call shr_sys_flush(iulog)
           end if
-          fincl(f:pflds-1,t)=fincl(f+1:pflds,t)
-          fincl(pflds,t)=' '
           errors_found = errors_found + 1
 !+tht 
           fincl(f:pflds-1,t)=fincl(f+1:pflds,t)
