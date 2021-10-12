@@ -2759,8 +2759,15 @@ if ($chem =~ /waccm_ma/ or $chem =~ /waccm_tsmlt/) {
 
 # Determine the source of the prescribed GHG values.
 
-my $lbc_file = $nl->get_value('flbc_file');
 my $scenario_ghg = $nl->get_value('scenario_ghg');
+my $lbc_file = $nl->get_value('null');
+
+if (defined $scenario_ghg) {
+    my $lbc_file = $nl->get_value('null');
+}
+else {
+    my $lbc_file = $nl->get_value('flbc_file');
+}
 
 if (defined  $lbc_file) {
 
