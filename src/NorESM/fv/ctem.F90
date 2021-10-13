@@ -301,24 +301,21 @@ lat_loop3 : &
        do k = ip_b+1, plevp
           if( has_zm(k,j) ) then
              rdiv(k)   = 1._r8/count( ip_gm1g(:,j) >= k )
+!+tht define zonal mean winds taking zero for below-ground value
+             u2d(k,j)   = um(k) * rplon
+             v2d(k,j)   = vm(k) * rplon
+             w2d(k,j)   = wm(k) * rplon
+!-tht
              um(k)     = um(k) * rdiv(k)
              vm(k)     = vm(k) * rdiv(k)
              wm(k)     = wm(k) * rdiv(k)
              thm(k)    = thm(k) * rdiv(k)
-!+tht define zonal mean winds by taking zero for below-ground values
-            !u2d(k,j)  = um(k) ! c'd out
-            !v2d(k,j)  = vm(k) ! c'd out
              th2d(k,j) = thm(k)
-            !w2d(k,j)  = wm(k) ! c'd out
-             u2d(k,j)   = um(k) * rplon
-             v2d(k,j)   = vm(k) * rplon
-             w2d(k,j)   = wm(k) * rplon
           else
              u2d(k,j)  = 0._r8 ! navp
              v2d(k,j)  = 0._r8 ! navp
              th2d(k,j) = navp
              w2d(k,j)  = 0._r8 ! navp
-!-tht
           end if
        end do
 
