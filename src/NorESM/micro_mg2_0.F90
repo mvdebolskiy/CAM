@@ -114,6 +114,7 @@ use wv_sat_methods, only: &
      qsat_water => wv_sat_qsat_water, &
      qsat_ice => wv_sat_qsat_ice
 
+
 ! Parameters from the utilities module.
 use micro_mg_utils, only: &
      r8, &
@@ -2082,11 +2083,20 @@ subroutine micro_mg_tend ( &
         ! note that currently mtime = deltat
         !================================================================
 
-        if (do_cldice .and. nitend(i,k).gt.0._r8.and.ni(i,k)+nitend(i,k)*deltat.gt.nimax(i,k)) then
-          nitncons(i,k) = nitncons(i,k) + nitend(i,k)-max(0._r8,(nimax(i,k)-ni(i,k))/deltat) !AL
+        ! if (do_cldice .and. nitend(i,k).gt.0._r8.and.ni(i,k)+nitend(i,k)*deltat.gt.nimax(i,k)) then
+        !  nitncons(i,k) = nitncons(i,k) + nitend(i,k)-max(0._r8,(nimax(i,k)-ni(i,k))/deltat) !AL
+        !   nitend(i,k)=max(0._r8,(nimax(i,k)-ni(i,k))/deltat)
+        ! end if
+        !shofer---
+        if (nnucct(i,k)+nnuccc(i,k)+nnudep(i,k).gt.0._r8) then
+           nimax(i,k) = nimax(i,k)+(nnucct(i,k)+nnuccc(i,k)+nnudep(i,k))*lcldm(i,k)*deltat
+        end if
+        
+        if (do_cldice.and.nitend(i,k).gt.0._r8.and.ni(i,k)+nitend(i,k)*deltat.gt.nimax(i,k)) then
+           nitncons(i,k) = nitncons(i,k) + nitend(i,k)-max(0._r8,(nimax(i,k)-ni(i,k))/deltat)
            nitend(i,k)=max(0._r8,(nimax(i,k)-ni(i,k))/deltat)
         end if
-
+        !shofer---
      end do
 
      ! End of "administration" loop
