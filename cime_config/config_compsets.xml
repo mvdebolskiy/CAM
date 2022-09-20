@@ -141,6 +141,14 @@
     <lname>HIST_CAM60%NORESM%NORPDDMSBC%SDYN_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
     <science_support grid="f09_f09_mg17"/>
   </compset>
+  <!-- sectional fSST : evolving from observations ; upper-ocean DMS : present-day constant NorESM derived ; nudged meteorology -->
+  <!-- smb++-->
+  <compset>
+    <alias>NFHISTnorsecpddmsbcsdyn</alias>
+    <lname>HIST_CAM60%NORESM%SEC%NORPDDMSBC%SDYN_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
+    <science_support grid="f09_f09_mg17"/>
+  </compset>
+
 
   <compset>
     <alias>NFHISTfrc2norpddmsbc</alias>
