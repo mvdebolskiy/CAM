@@ -2969,55 +2969,47 @@ subroutine ccncalc_oslo(state &
    do m=1,nmodes
       do k=top_lev,pver
 
-         do i=1,ncol
-
-!+tht
-          if (hasAerosol(i,k,m)) then
-!-tht
+          do i=1,ncol
+            if (hasAerosol(i,k,m)) then
             !Curvature-parameter "A" in ARGI (eqn 5)
-            a = surften_coef/tair(i,k)
+               a = surften_coef/tair(i,k)
 
             !standard factor for transforming size distr
             !volume ==> number (google psd.pdf by zender)
-            exp45logsig_var = & 
-               exp(4.5_r8*lnsigma(i,k,m)*lnsigma(i,k,m))
+               exp45logsig_var = & 
+                  exp(4.5_r8*lnsigma(i,k,m)*lnsigma(i,k,m))
 
             !Numbe rmedian radius (power of three)
             !By definition of lognormal distribution
-            amcube =(3._r8*volumeConcentration(i,k,m) & 
-               /(4._r8*pi*exp45logsig_var*numberConcentration(i,k,m)))  ! only if variable size dist
+               amcube =(3._r8*volumeConcentration(i,k,m) & 
+                  /(4._r8*pi*exp45logsig_var*numberConcentration(i,k,m)))  ! only if variable size dist
 
 
             !This is part of eqn 9 in ARGII 
             !where A smcoefcoef is 2/3^(3/2) 
-            smcoef = smcoefcoef * a * sqrt(a)
+               smcoef = smcoefcoef * a * sqrt(a)
 
             !This is finally solving eqn 9 
             !(solve for critical supersat of mode)
-            sm=smcoef   &
+               sm=smcoef   &
                / sqrt(hygroscopicity(i,k,m)*amcube) ! critical supersaturation
 
             !Solve eqn 13 in ARGII
-            do lsat = 1,psat
+               do lsat = 1,psat
    
                !eqn 15 in ARGII
-               argfactor=twothird/(sq2*lnSigma(i,k,m))
+                  argfactor=twothird/(sq2*lnSigma(i,k,m))
 
                !eqn 15 in ARGII
-               arg=argfactor*log(sm/super(lsat))
+                  arg=argfactor*log(sm/super(lsat))
 
                !eqn 13 i ARGII
-               ccn(i,k,lsat)=ccn(i,k,lsat) &
-                  +numberConcentration(i,k,m)&
-                  *0.5_r8*(1._r8-erf(arg))
-            end do
-!+tht
-          else
-            do lsat = 1, psat
-               ccn(i,k,lsat)=0._r8
-            enddo
-          endif
-!-tht
+                  ccn(i,k,lsat)=ccn(i,k,lsat) &
+                     +numberConcentration(i,k,m)&
+                     *0.5_r8*(1._r8-erf(arg))
+
+               end do
+            end if
          end do
       end do
    end do

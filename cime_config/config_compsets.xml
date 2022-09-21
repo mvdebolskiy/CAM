@@ -281,6 +281,11 @@
   </compset>
 
   <compset>
+    <alias>NF1850norbcnucsec</alias>
+    <lname>1850_CAM60%NORESM%SEC%NORBC_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
+  </compset>
+
+  <compset>
     <alias>NF1850frc2norbc</alias>
     <lname>1850_CAM60%NORESM%NORBC%FRC2_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
     <science_support grid="f09_f09"/>
