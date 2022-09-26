@@ -332,6 +332,7 @@
       <value compset="1850_CAM60%NORESM%NORBC%OC2014"  >1850_cam6_noresm_oc2014</value>
       <value compset="1850_CAM60%NORESM%NORBC%SO22014" >1850_cam6_noresm_so22014</value>
       <value compset="1850_CAM60%NORESM%NORBC%AER2014" >1850_cam6_noresm_aer2014</value>
+      <value compset="1850_CAM60%NORESM%SEC%NORBC%AER2014" >1850_cam6_noresm_aer2014</value>
       <value compset="1850_CAM60%NORESM%NORBC%AER2014%FRC2" >1850_cam6_noresm_aer2014_frc2</value>
       <value compset="1850_CAM60%NORESM%NORBC%AEROXID2014" >1850_cam6_noresm_aeroxid2014</value>
       <value compset="1850_CAM60%NORESM%NORBC%AEROXID2014%FRC2" >1850_cam6_noresm_aeroxid2014_frc2</value>

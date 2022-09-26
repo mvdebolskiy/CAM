@@ -370,6 +370,11 @@
   </compset>
 
   <compset>
+    <alias>NF1850norbcnucsec_aer2014</alias>
+    <lname>1850_CAM60%NORESM%SEC%NORBC%AER2014_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
+  </compset>
+
+  <compset>
     <alias>NF1850frc2norbc_aer2014</alias>
     <lname>1850_CAM60%NORESM%NORBC%AER2014%FRC2_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
     <science_support grid="f09_f09"/>
