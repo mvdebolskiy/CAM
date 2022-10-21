@@ -179,7 +179,7 @@
       <value compset="_CAM60%NORESM"              >-chem trop_mam_oslo</value>
       <value compset="_CAM60%NORESM%SEC"          >-chem trop_mam_oslo_sec</value>
       <value compset="_CAM60%NORESM%NORBC"        >-chem trop_mam_oslo -cosp</value>
-      <value compset="_CAM60%NORESM%SEC%NORBC"     >-chem trop_mam_oslo_sec -cosp</value>
+      <value compset="_CAM60%NORESM%NORBC%SEC"     >-chem trop_mam_oslo_sec -cosp</value>
       <value compset="_CAM60%%NORBC"     >-chem trop_mam_oslo_sec -cosp</value>
       <value compset="_CAM60%NORESM%FSST"         >-chem trop_mam_oslo -cosp</value>
       <value compset="_CAM60%NORESM%SEC%FSST"      >-chem trop_mam_oslo_sec -cosp</value>
@@ -332,7 +332,7 @@
       <value compset="1850_CAM60%NORESM%NORBC%OC2014"  >1850_cam6_noresm_oc2014</value>
       <value compset="1850_CAM60%NORESM%NORBC%SO22014" >1850_cam6_noresm_so22014</value>
       <value compset="1850_CAM60%NORESM%NORBC%AER2014" >1850_cam6_noresm_aer2014</value>
-      <value compset="1850_CAM60%NORESM%SEC%NORBC%AER2014" >1850_cam6_noresm_aer2014</value>
+      <value compset="1850_CAM60%NORESM%NORBC%SEC%AER2014" >1850_cam6_noresm_aer2014</value>
       <value compset="1850_CAM60%NORESM%NORBC%AER2014%FRC2" >1850_cam6_noresm_aer2014_frc2</value>
       <value compset="1850_CAM60%NORESM%NORBC%AEROXID2014" >1850_cam6_noresm_aeroxid2014</value>
       <value compset="1850_CAM60%NORESM%NORBC%AEROXID2014%FRC2" >1850_cam6_noresm_aeroxid2014_frc2</value>

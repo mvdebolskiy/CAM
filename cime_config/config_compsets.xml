@@ -282,7 +282,7 @@
 
   <compset>
     <alias>NF1850norbcnucsec</alias>
-    <lname>1850_CAM60%NORESM%SEC%NORBC_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
+    <lname>1850_CAM60%NORESM%NORBC%SEC_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
   </compset>
 
   <compset>
@@ -371,7 +371,7 @@
 
   <compset>
     <alias>NF1850norbcnucsec_aer2014</alias>
-    <lname>1850_CAM60%NORESM%SEC%NORBC%AER2014_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
+    <lname>1850_CAM60%NORESM%NORBC%SEC%AER2014_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
   </compset>
 
   <compset>
