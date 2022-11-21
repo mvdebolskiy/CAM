@@ -34,7 +34,7 @@ module cosp_optics
   USE COSP_KINDS, ONLY: wp,dp
   USE COSP_MATH_CONSTANTS,  ONLY: pi
   USE COSP_PHYS_CONSTANTS,  ONLY: rholiq,km,rd,grav
-  USE MOD_MODIS_SIM,        ONLY: phaseIsLiquid,phaseIsIce,get_g_nir=>get_g_nir_old,get_ssa_nir=>get_ssa_nir_old
+  USE MOD_MODIS_SIM,        ONLY: phaseIsLiquid,phaseIsIce,get_g_nir,get_ssa_nir
   implicit none
   
   real(wp),parameter ::        & !
