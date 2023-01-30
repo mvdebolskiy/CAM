@@ -1658,7 +1658,7 @@ elsif ($carma eq 'tholin') {
 # turn on stratospheric aerosol forcings in CAM6 configurations
 my $chem_has_ocs = chem_has_species($cfg, 'OCS');
 # djlo
-if ($phys =~ /cam6/ and $chem ne 'trop_mam_oslo') {
+if ($phys =~ /cam6/ and ($chem ne 'trop_mam_oslo' and $chem ne 'trop_mam_oslo_sec' )) {
   # turn on volc forcings in cam6 -- prognostic or prescribed
   if ( $chem_has_ocs ) {
       # turn on prognostic stratospheric aerosols
@@ -2232,7 +2232,7 @@ if ($chem eq 'trop_mam3') {
     }
 }
 
-if ($chem eq 'trop_mam_oslo' ) {
+if ($chem eq 'trop_mam_oslo' or $chem eq 'trop_mam_oslo_sec' ) {
 
     my %species;
 

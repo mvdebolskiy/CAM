@@ -659,7 +659,26 @@
 <so4_pr_oslo_ext_file  chem="trop_mam_oslo">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/ar5_mam3_so4_pr_elev_1850-2005_c090804.nc</so4_pr_oslo_ext_file>
 <!-- oslo aerosol package -->
 
-<!-- modal aerosol emissions -->
+    <!-- Oslo aerosol sec package-->
+    <dms_oslo_emis_file chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/aerocom_mam3_dms_surf_1849-2006_c090804.nc</dms_oslo_emis_file>
+    <so2_oslo_emis_file chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/ar5_mam3_so2_surf_1850-2005_c090804.nc</so2_oslo_emis_file>
+    <bc_ax_oslo_emis_file chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/ar5_mam3_BCFFX_surf_1850-2005_c090804.nc</bc_ax_oslo_emis_file>
+    <bc_n_oslo_emis_file chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/ar5_mam3_BCFFN_surf_1850-2005_c090804.nc</bc_n_oslo_emis_file>
+    <bc_ni_oslo_emis_file chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/BCBB_ZERO_dummy_surf.nc</bc_ni_oslo_emis_file>
+    <so4_pr_oslo_emis_file chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/ar5_mam3_so4_pr_surf_1850-2005_c090804.nc</so4_pr_oslo_emis_file>
+    <om_ni_oslo_emis_file chem="trop_mam_oslo_sec">atm/cam/chem/trop_mozart_aero/emis/ar5_mam3_pom_surf_oslo_scaled_1850-2010_c20140421_v12.nc</om_ni_oslo_emis_file>
+    <monoterp_oslo_emis_file chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/soanucl/bvocgcmFV19_monoterp_2000.nc</monoterp_oslo_emis_file>
+    <isoprene_oslo_emis_file chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/soanucl/bvocgcmFV19_isopr_2000.nc</isoprene_oslo_emis_file>
+
+    <so2_oslo_ext_file     chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/ar5_mam3_so2_elev_1850-2005_c090804.nc</so2_oslo_ext_file>
+    <bc_ax_oslo_ext_file   chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/BCFFX_ZERO_dummy_elev.nc</bc_ax_oslo_ext_file>
+    <bc_n_oslo_ext_file    chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/BCFFN_ZERO_dummy_elev.nc</bc_n_oslo_ext_file>
+    <bc_ni_oslo_ext_file   chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/ar5_mam3_bc_elev_1850-2005_c090804.nc</bc_ni_oslo_ext_file>
+    <om_ni_oslo_ext_file   chem="trop_mam_oslo_sec">atm/cam/chem/trop_mozart_aero/emis/ar5_mam3_pom_elev_oslo_scaled_1850-2010_c20140421_v12.nc</om_ni_oslo_ext_file>
+    <so4_pr_oslo_ext_file  chem="trop_mam_oslo_sec">noresm-only/atm/cam/chem/trop_mozart_aero/emis/ipcc_ar5/ar5_mam3_so4_pr_elev_1850-2005_c090804.nc</so4_pr_oslo_ext_file>
+    <!-- oslo aerosol sec package -->
+
+    <!-- modal aerosol emissions -->
 <nh3_emis_file     ver="mam">atm/cam/chem/trop_mozart_aero/emis/emis_NH3_2000_c111014.nc</nh3_emis_file>
 <dms_emis_file	   ver="mam">atm/cam/chem/trop_mozart_aero/emis/aerocom_mam3_dms_surf_2000_c120315.nc</dms_emis_file>
 <so2_emis_file	   ver="mam">atm/cam/chem/trop_mozart_aero/emis/ar5_mam3_so2_surf_2000_c120315.nc</so2_emis_file>
