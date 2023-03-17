@@ -23,6 +23,7 @@ module mo_gas_phase_chemdr
 
   integer :: synoz_ndx, so4_ndx, h2o_ndx, o2_ndx, o_ndx, hno3_ndx, hcl_ndx, dst_ndx, cldice_ndx, snow_ndx
   integer :: o3_ndx, o3s_ndx
+  integer :: no3_ndx, oh_ndx, ho2_ndx
   integer :: het1_ndx
   integer :: ndx_cldfr, ndx_cmfdqr, ndx_nevapr, ndx_cldtop, ndx_prain
   integer :: ndx_h2so4
@@ -141,6 +142,9 @@ contains
 !
     het1_ndx= get_rxt_ndx('het1')
     o3_ndx  = get_spc_ndx('O3')
+    no3_ndx  = get_spc_ndx('NO3')
+    oh_ndx  = get_spc_ndx('OH')
+    ho2_ndx  = get_spc_ndx('HO2')
     o3s_ndx = get_spc_ndx('O3S')
     o_ndx   = get_spc_ndx('O')
     o2_ndx  = get_spc_ndx('O2')
@@ -224,19 +228,19 @@ contains
     call addfld( 'HCL_STS',    (/ 'lev' /), 'I', 'mol/mol', 'STS condensed HCL' )
 
     !++IH: Adding extra fields for oxi-output (before and after diurnal variations.)
-    call addfld ('OH_bef    ',  (/ 'lev' /), 'A','unit', 'OH invariants before adding diurnal variations'           )
-    call addfld ('HO2_bef   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants before adding diurnal variations'          )
-    call addfld ('NO3_bef   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants before adding diurnal variations'          )
-    call addfld ('OH_aft    ',  (/ 'lev' /), 'A','unit', 'OH invariants after adding diurnal variations'            )
-    call addfld ('HO2_aft   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants after adding diurnal variations'           )
-    call addfld ('NO3_aft   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants after adding diurnal variations'           )
+!    call addfld ('OH_bef    ',  (/ 'lev' /), 'A','unit', 'OH invariants before adding diurnal variations'           )
+!    call addfld ('HO2_bef   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants before adding diurnal variations'          )
+!    call addfld ('NO3_bef   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants before adding diurnal variations'          )
+!    call addfld ('OH_aft    ',  (/ 'lev' /), 'A','unit', 'OH invariants after adding diurnal variations'            )
+!    call addfld ('HO2_aft   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants after adding diurnal variations'           )
+!    call addfld ('NO3_aft   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants after adding diurnal variations'           )
 
-    call add_default ('OH_bef       ', 1, ' ')
-    call add_default ('HO2_bef      ', 1, ' ')
-    call add_default ('NO3_bef      ', 1, ' ')
-    call add_default ('OH_aft       ', 1, ' ')
-    call add_default ('HO2_aft      ', 1, ' ')
-    call add_default ('NO3_aft      ', 1, ' ')
+!    call add_default ('OH_bef       ', 1, ' ')
+!    call add_default ('HO2_bef      ', 1, ' ')
+!    call add_default ('NO3_bef      ', 1, ' ')
+!    call add_default ('OH_aft       ', 1, ' ')
+!    call add_default ('HO2_aft      ', 1, ' ')
+!    call add_default ('NO3_aft      ', 1, ' ')
     !--IH
 
     if (het1_ndx>0) then
@@ -353,6 +357,8 @@ contains
     use aero_model,        only : aero_model_gasaerexch
 
     use aero_model,        only : aero_model_strat_surfarea
+
+    use cam_logfile,      only : iulog
 
     implicit none
 
@@ -670,18 +676,18 @@ contains
     !----------------------------------------------------------------------- 
 
     !++IH
-    call outfld('OH_bef',    invariants(:,:,id_oh),  ncol, lchnk)
-    call outfld('HO2_bef',   invariants(:,:,id_ho2), ncol, lchnk)
-    call outfld('NO3_bef',   invariants(:,:,id_no3), ncol, lchnk)
+!    call outfld('OH_bef',    invariants(:,:,id_oh),  ncol, lchnk)
+!    call outfld('HO2_bef',   invariants(:,:,id_ho2), ncol, lchnk)
+!    call outfld('NO3_bef',   invariants(:,:,id_no3), ncol, lchnk)
     !--IH
 
     if (inv_oh.or.inv_ho2.or.inv_no3)  & !++IH: added inv_no3
       call set_diurnal_invariants(invariants,delt,ncol,lchnk,inv_oh,inv_ho2,id_oh,id_ho2,inv_no3,id_no3) !++IH: added inv_no3 and id_no3
   
     !++IH
-    call outfld('OH_aft',    invariants(:,:,id_oh),  ncol, lchnk)
-    call outfld('HO2_aft',   invariants(:,:,id_ho2), ncol, lchnk)
-    call outfld('NO3_aft',   invariants(:,:,id_no3), ncol, lchnk)
+!    call outfld('OH_aft',    invariants(:,:,id_oh),  ncol, lchnk)
+!    call outfld('HO2_aft',   invariants(:,:,id_ho2), ncol, lchnk)
+!    call outfld('NO3_aft',   invariants(:,:,id_no3), ncol, lchnk)
     !--IH
 
 #endif
@@ -1121,7 +1127,18 @@ contains
 
     !-----------------------------------------------------------------------      
     !         ... Xform from vmr to mmr
-    !-----------------------------------------------------------------------      
+    !-----------------------------------------------------------------------     
+!    vmr(:ncol,:,o3_ndx)=1.e-6
+!    vmr(:ncol,:,no3_ndx)=1.e-12
+!    vmr(:ncol,:,ho2_ndx)=1.e-12
+!    vmr(:ncol,:,oh_ndx)=1.e-15
+
+!    write(iulog,fmt='(a6,x,e12.3,x,e12.3)') 'O3  : ', minval(vmr(:ncol,:,o3_ndx)),  maxval(vmr(:ncol,:,o3_ndx))
+!    write(iulog,fmt='(a6,x,e12.3,x,e12.3)') 'NO3 : ', minval(vmr(:ncol,:,no3_ndx)), maxval(vmr(:ncol,:,no3_ndx))
+!    write(iulog,fmt='(a6,x,e12.3,x,e12.3)') 'OH  : ', minval(vmr(:ncol,:,oh_ndx)),  maxval(vmr(:ncol,:,oh_ndx))
+!    write(iulog,fmt='(a6,x,e12.3,x,e12.3)') 'HO2 : ', minval(vmr(:ncol,:,ho2_ndx)), maxval(vmr(:ncol,:,ho2_ndx))
+!    write(iulog,fmt='(a6,x,e12.3,x,e12.3)') 'ALL : ', minval(vmr(:ncol,:,:gas_pcnst)), maxval(vmr(:ncol,:,:gas_pcnst))
+
     call vmr2mmr( vmr(:ncol,:,:), mmr_tend(:ncol,:,:), mbar(:ncol,:), ncol )
 
     call set_short_lived_species( mmr_tend, lchnk, ncol, pbuf )

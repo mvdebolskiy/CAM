@@ -319,13 +319,15 @@ subroutine oslo_dms_emis_intr(state, cam_in)
          kwdms(:ncol) = open_ocn(:ncol) * Xconvxa *u10m(:ncol)**2*(660./scdms(:ncol))**0.5 
          flux (:ncol) = 62.13*kwdms(:ncol)*1e-9*odms(:ncol)
       endif
-      cam_in%cflx(:ncol, pndx_fdms  )  = flux(:ncol) 
+!     cam_in%cflx(:ncol, pndx_fdms  )  = flux(:ncol) 
+      cam_in%cflx(:ncol, pndx_fdms  )  = cam_in%cflx(:ncol, pndx_fdms  ) + flux(:ncol) 
 
       call outfld('odms', odms(:ncol), ncol, lchnk)
 
    ! IF OCEAN FLUX
    elseif(dms_source=='ocean_flux') then 
-      cam_in%cflx(:ncol, pndx_fdms)  =  cam_in%fdms(:ncol)
+!     cam_in%cflx(:ncol, pndx_fdms)  =  cam_in%fdms(:ncol)
+      cam_in%cflx(:ncol, pndx_fdms)  =  cam_in%cflx(:ncol, pndx_fdms) + cam_in%fdms(:ncol)
    endif
 
    ! IF EMISSION FILE

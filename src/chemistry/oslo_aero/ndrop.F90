@@ -3012,10 +3012,6 @@ subroutine ccncalc_oslo(state &
                   *0.5_r8*(1._r8-erf(arg))
             end do
 !+tht
-          else
-            do lsat = 1, psat
-               ccn(i,k,lsat)=0._r8
-            enddo
           endif
 !-tht
          end do

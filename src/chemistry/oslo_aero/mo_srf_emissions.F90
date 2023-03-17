@@ -381,11 +381,11 @@ contains
 
     !Remove DMS emissions if option is not "from file"
     !Online emissions are treated in seasalt module
-    if(oslo_dms_inq() .eqv. .FALSE.)then !Returns "True" if "emissions from file"
-       if(dms_ndx .gt. 0)then
-          sflx(:,dms_ndx) = 0.0_r8
-       end if
-    end if
+!    if(oslo_dms_inq() .eqv. .FALSE.)then !Returns "True" if "emissions from file"
+!       if(dms_ndx .gt. 0)then
+!          sflx(:,dms_ndx) = 0.0_r8
+!       end if
+!    end if
 
     do i = 1,ncol
        !

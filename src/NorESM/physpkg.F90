@@ -249,6 +249,7 @@ contains
        ! Determine whether its a 'modal' aerosol simulation  or not
        call rad_cnst_get_info(0, nmodes=nmodes)
        clim_modal_aero = (nmodes > 0)
+       if (masterproc) write(iulog,*) 'phys_register : clim_modal_aero = ', clim_modal_aero
 
        if (clim_modal_aero) then
           call modal_aero_calcsize_reg()
@@ -2328,7 +2329,10 @@ contains
        ! -------------------------------------------------------------------------------
 
        call t_startf('bc_aerosols')
-       if (clim_modal_aero .and. .not. prog_modal_aero) then
+       if (masterproc) write(iulog,*) 'tphysbc : clim_modal_aero = ', clim_modal_aero
+       if (masterproc) write(iulog,*) 'tphysbc : prog_modal_aero = ', prog_modal_aero
+  
+       if (clim_modal_aero .and. .not. prog_modal_aero) then 
           call modal_aero_calcsize_diag(state, pbuf)
           call modal_aero_wateruptake_dr(state, pbuf)
        endif

@@ -433,6 +433,11 @@ contains
 
        if (history_dust .and. (index(spc_name,'dst_') > 0))  call add_default( spc_name, 1, ' ')
 
+       !..and column burden in clean air
+       call addfld('cb_'//trim(spc_name),horiz_only, 'A', 'kg/m2', &
+              'cb_'//trim(spc_name)//' in column')
+       call add_default('cb_'//trim(spc_name),1,' ' )
+
     enddo
 
     call addfld( 'MASS', (/ 'lev' /), 'A', 'kg', 'mass of grid box' )
@@ -469,6 +474,8 @@ contains
     use cam_history,  only : outfld
     use phys_grid,    only : get_area_all_p
     use species_sums_diags, only : species_sums_output
+
+    use constituents, only : cnst_get_ind
 !
 ! CCMI
 !
@@ -493,10 +500,12 @@ contains
     real(r8), intent(out) :: nhx_nitrogen_flx(ncol) ! kgN/m2/sec
     real(r8), intent(out) :: noy_nitrogen_flx(ncol) ! kgN/m2/sec
 
+    real(r8)          :: mass_tmp(ncol,pver)
+    real(r8)          :: cb(ncol)
     !--------------------------------------------------------------------
     !	... local variables
     !--------------------------------------------------------------------
-    integer     :: i, k, m
+    integer     :: i, k, m, n
     real(r8)    :: wrk(ncol,pver)
     !      real(r8)    :: tmp(ncol,pver)
     !      real(r8)    :: m(ncol,pver)
@@ -511,6 +520,7 @@ contains
 
     real(r8) :: area(ncol), mass(ncol,pver)
     real(r8) :: wgt
+    character(len=16) :: spc_name
 
     !--------------------------------------------------------------------
     !	... "diagnostic" groups
@@ -626,6 +636,10 @@ contains
        if ( any( hox_species == m ) ) then
           vmr_hox(:ncol,:) = vmr_hox(:ncol,:) +  wgt * vmr(:ncol,:,m)
        endif
+
+       spc_name = trim(solsym(m))
+       call cnst_get_ind(spc_name, n, abort=.false.)
+
        
        if ( any( aer_species == m ) ) then
           call outfld( solsym(m), mmr(:ncol,:,m), ncol ,lchnk )
@@ -634,6 +648,11 @@ contains
           call outfld( solsym(m), vmr(:ncol,:,m), ncol ,lchnk )
           call outfld( trim(solsym(m))//'_SRF', vmr(:ncol,pver,m), ncol ,lchnk )
        endif
+
+       !Treat column burden (normal tracer)
+       mass_tmp(:ncol,:) = mmr(:ncol,:,m) * pdel(:ncol,:) * rgrav
+       cb(:ncol) = sum(mass_tmp(:ncol,:),2)
+       call outfld(trim('cb_'//trim(spc_name)), cb, ncol, lchnk)
 
        call outfld( depvel_name(m), depvel(:ncol,m), ncol ,lchnk )
        call outfld( depflx_name(m), depflx(:ncol,m), ncol ,lchnk )
