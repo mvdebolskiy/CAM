@@ -56,6 +56,7 @@ OPTIONS
      -analytic_ic       Enables the (namelist controlled) dycore testing infrastructure
      -aquaplanet        Switch on aqua-planet mode.
      -build_chem_proc   Switch forces the build of the chemistry preprocessor (primarily for testing).
+     -camnor            Build CAM with CAM-Nor modifications
      -carma <name>      Build CAM with specified CARMA microphysics model
                         [ none | bc_strat | cirrus | cirrus_dust | dust | meteor_impact |
                           meteor_smoke | mixed_sulfate | pmc | pmc_sulfate | sea_salt | sulfate | tholin |
@@ -238,6 +239,7 @@ GetOptions(
     "cam_exe=s"                 => \$opts{'cam_exe'},
     "cam_exedir=s"              => \$opts{'cam_exedir'},
     "camiop"                    => \$opts{'camiop'},
+    "camnor!"                   => \$opts{'camnor'},
     "cc=s"                      => \$opts{'cc'},
     "cflags=s"                  => \$opts{'cflags'},
     "chem=s"                    => \$opts{'chem'},
@@ -545,11 +547,30 @@ if (defined $opts{'phys'}) {
     $phys_pkg = lc($opts{'phys'});
 }
 
+# Special configuration for CAM-Nor options
+# Currently, each CAM-Nor selection only works with the CAM6 or CAM_DEV
+#    ESCOMP/CAM physics suites
+my $camnor = 0;
+# user or compset override is only way to turn on this feature
+if (defined $opts{'camnor'}) {
+    $camnor = $opts{'camnor'};
+}
+# Check supported physics suite
+if ($phys_pkg ne 'cam6' and $phys_pkg ne 'cam_dev') {
+  die "ERROR: CAM-Nor (-camnor) is only available for CAM6 and cam_dev.$eol";
+}
+
 # Add to the config object.
 $cfg_ref->set('phys', $phys_pkg);
+$cfg_ref->set('camnor', $camnor);
 
-if ($print>=2) { print "Physics package: $phys_pkg$eol"; }
-
+if ($print>=2) {
+  if ($camnor) {
+    print "Physics package: $phys_pkg with CAM-Nor modifications$eol";
+  } else {
+    print "Physics package: $phys_pkg$eol";
+  }
+}
 
 # Set flag to indicate a simple physics option
 my $simple_phys = 0;
@@ -2010,6 +2031,7 @@ sub write_filepath
     my $spmd          = $cfg_ref->get('spmd');
     my $offline_drv   = $cfg_ref->get('offline_drv');
     my $inic_val      = $cfg_ref->get('analytic_ic');
+    my $camnor        = $cfg_ref->get('camnor');
 
     # Root directory
     my $camsrcdir = $cfg_ref->get('cam_dir');
@@ -2029,6 +2051,21 @@ sub write_filepath
     # CESM has a standard source mods location.
     my $CASEROOT = "$ENV{'CASEROOT'}";
     print $fh "$CASEROOT/SourceMods/src.cam\n";
+
+    # CAM-Nor has precedence over everything except SourceMods
+    #   Only active in NF or NB compsets
+    if ($camnor) {
+      if ($phys_pkg eq 'cam_dev') {
+        print $fh "$camsrcdir/src/physics/camnor_phys/physics\n";
+      } else {
+        print $fh "$camsrcdir/src/physics/camnor_phys/physics_cam6\n";
+        die "CAM6 not currently supported for NorESM configurations.\n";
+      }
+      print $fh "$camsrcdir/src/physics/camnor_phys/control\n";
+      if ($dyn eq 'fv') {
+        print $fh "$camsrcdir/src/physics/camnor_phys/fv\n";
+      }
+    }
 
     # offline unit driver (defaults to stub)
     print $fh "$camsrcdir/src/unit_drivers\n";
