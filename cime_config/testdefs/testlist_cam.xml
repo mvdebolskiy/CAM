@@ -12,7 +12,7 @@
 
   <test compset="NFLTHIST_v0c" grid="ne3pg3_ne3pg3_mg37" name="ERP_D_Ln9_P36_Vnuopc" testmods="cam/outfrq9s">
     <machines>
-      <machine name="betzy" compiler="intel" category="aux_cam"/>
+      <machine name="betzy" compiler="intel" category="aux_cam_noresm"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -21,7 +21,7 @@
 
   <test compset="NF2000dev" grid="ne3pg3_ne3pg3_mg37" name="SMS_D_Ln9_P36_Vnuopc" testmods="cam/outfrq9s">
     <machines>
-      <machine name="betzy" compiler="intel" category="aux_cam"/>
+      <machine name="betzy" compiler="intel" category="aux_cam_noresm"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -50,7 +50,7 @@
 
   <test compset="NF2000climo" grid="ne3pg3_ne3pg3_mg37" name="ERP_D_Ln9_P36_Vnuopc" testmods="cam/outfrq9s">
     <machines>
-      <machine name="betzy" compiler="intel" category="aux_cam"/>
+      <machine name="betzy" compiler="intel" category="aux_cam_noresm"/>
     </machines>
     <options>
       <option name="wallclock">00:20:00</option>
@@ -59,7 +59,7 @@
 
   <test compset="NQPC2000climo" grid="ne3pg3_ne3pg3_mg37" name="ERP_D_Ln9_P36_Vnuopc" testmods="cam/outfrq9s">
     <machines>
-      <machine name="betzy" compiler="intel" category="aux_cam"/>
+      <machine name="betzy" compiler="intel" category="aux_cam_noresm"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -73,7 +73,7 @@
 
   <test compset="F1850" grid="f19_f19_mtn14" name="ERP_D_Ln9_P256_Vnuopc" testmods="cam/outfrq9s">
     <machines>
-      <machine name="betzy" compiler="intel" category="aux_cam"/>
+      <machine name="betzy" compiler="intel" category="aux_cam_noresm"/>
       <machine name="betzy" compiler="intel" category="prealpha"/>
     </machines>
     <options>
@@ -83,7 +83,7 @@
 
   <test compset="F2000climo" grid="f19_f19_mtn14" name="SMS_D_Ln9_P256_Vnuopc" testmods="cam/outfrq9s">
     <machines>
-      <machine name="betzy" compiler="intel" category="aux_cam"/>
+      <machine name="betzy" compiler="intel" category="aux_cam_noresm"/>
       <machine name="betzy" compiler="intel" category="prealpha"/>
     </machines>
     <options>
@@ -93,7 +93,7 @@
 
   <test compset="F2000climo" grid="f10_f10_mg37" name="ERP_D_Ln9_P36_Vnuopc" testmods="cam/outfrq9s">
     <machines>
-      <machine name="betzy" compiler="intel" category="aux_cam"/>
+      <machine name="betzy" compiler="intel" category="aux_cam_noresm"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -102,7 +102,7 @@
 
   <test compset="FLTHIST_v0c" grid="ne3pg3_ne3pg3_mg37" name="ERP_D_Ln9_P36_Vnuopc" testmods="cam/outfrq9s">
     <machines>
-      <machine name="betzy" compiler="intel" category="aux_cam"/>
+      <machine name="betzy" compiler="intel" category="aux_cam_noresm"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
