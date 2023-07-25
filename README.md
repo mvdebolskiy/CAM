@@ -1,15 +1,8 @@
-# CAM: The Community Atmosphere Model
+# CAM-Nor: The NorESM version of the Community Atmosphere Model (CAM)
 
-CAM code is stored in this repository on branches other than master.  The details are explained below.
+CAM code is stored in this repository on branches other than main.  The details are explained below.
 
-Please see the [wiki](https://github.com/ESCOMP/CAM/wiki) for complete documentation on CAM, getting started with git and how to contribute to CAM's development.
-
-This repository has three CAM branches:
-* **master** - contains this readme and the Code of Conduct information
-* **cam_cesm2_1_release** - contains the current CESM2.1 CAM code
-* **cam_development** - contains the current CAM development code (see the important note below before using this branch)
-
-# CAM-Nor: CAM version in the Norwegian Earth System Model
+Please see the [NorESM documentation](https://noresm-docs.readthedocs.io/en/noresm2/) for complete documentation on NorESM, getting started with git and how to contribute to CAM-Nor's development.
 
 This repository has the following CAM-Nor branches:
 
@@ -25,7 +18,11 @@ This repository has the following CAM-Nor branches:
 
 * **cam-Nor-dev** - based on cam_cesm2_1_rel_05-Nor (branched off at tag cam_cesm2_1_rel_05-Nor_v1.0.2) : post-CMIP6 development version of CAM6-Nor (including bugfixes, new developments, answer-changes modifications, ...)
 
-* **feature-hamocc-vsls** - based on cam_cesm2_1_rel_05-Nor (branched off at tag cam_cesm2_1_rel_05-Nor_v1.0.2) : related to version developed in project KeyClim for simulation of Very Short Lived Spiecies (VSLS) in ocean and atmosphere.  
+* **feature-hamocc-vsls** - based on cam_cesm2_1_rel_05-Nor (branched off at tag cam_cesm2_1_rel_05-Nor_v1.0.2) : related to version developed in project KeyClim for simulation of Very Short Lived Spiecies (VSLS) in ocean and atmosphere.
+
+* **noresm_develop** - main development branch for future release versions of NorESM
+
+* **main** - contains this README, basic guidelines, and some special GitHub scripts.
 
 ### CAM-Nor and NorESM documentation https://noresm-docs.readthedocs.io/en/noresm2/
 
@@ -33,25 +30,24 @@ This repository has the following CAM-Nor branches:
 
 The instructions below assume you have cloned this repository and are in the repository directory. For example:
 ```
-git clone https://github.com/ESCOMP/CAM
+git clone https://github.com/NorESMhub/CAM
 cd CAM
 ```
 
-### To run CAM compatible with the CESM2.1 release:
+### To run CAM compatible with the NorESM2 release:
 ```
-git checkout cam_cesm2_1_rel_33
+git checkout cam_cesm2_1_rel_05-Nor_v1.0.5
 ./manage_externals/checkout_externals
 ```
-### To view the release branch in github, go to the "Branch:master" pulldown menu and select cam_cesm2_1_rel
+### To view the release branch in github, go to the "Branch:main" pulldown menu and select cam_cesm2_1_rel_05-Nor
 
 ### To use unsupported CAM **development** code:
 
-## NOTE: This is **unsupported** development code and is subject to the [CESM developer's agreement](http://www.cgd.ucar.edu/cseg/development-code.html).
+## NOTE: This is **unsupported** development code and is subject to the [CESM developer's agreement](https://www.cgd.ucar.edu/sections/cseg/policies).
 ```
-git checkout cam6_2_000
+git checkout noresm_v4_cam6_3_112
 ./manage_externals/checkout_externals
 ```
-### CAM Documentation - https://ncar.github.io/CAM/doc/build/html/index.html
+### CAM6-Nor Documentation - https://noresm-docs.readthedocs.io/en/noresm2/model-description/atm_model.html
 
-### CAM6 namelist settings - http://www.cesm.ucar.edu/models/cesm2/settings/current/cam_nml.html
-
+### CAM6 namelist settings - https://docs.cesm.ucar.edu/models/cesm2/settings/current/cam_nml.html
