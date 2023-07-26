@@ -6,11 +6,19 @@ Please see the [NorESM documentation](https://noresm-docs.readthedocs.io/en/nore
 
 This repository has the following CAM-Nor branches:
 
-* **cam_cesm2_1_rel_05-Nor** - contains the CAM6-Nor code, based on CESM2.1 CAM code. Contains aerotab and further changes as described by Seland et al. 2020, with tags
+* **cam_cesm2_1_rel_05-Nor** - contains the CAM6-Nor code, based on CESM2.1 CAM code. Contains aerotab and further changes as described by [Seland et al. 2020](https://gmd.copernicus.org/articles/13/6165/2020/), with tags
 
-  - cam_cesm2_1_rel_05-Nor_v1.0.1 -- CAM6-Nor version, initial preliminary release of CMIP6 version, May 11 2020
+  - cam_cesm2_1_rel_05-Nor_v1.0.0 -- CAM6-Nor version (NorESM tag [release-noresm2.0.1](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-1)), initial preliminary release of CMIP6 version, 18 March 2020
 
-  - cam_cesm2_1_rel_05-Nor_v1.0.2 -- CAM6-Nor version, CMIP6 bit-identical version (if used on fram, and as MM), June 2020
+  - cam_cesm2_1_rel_05-Nor_v1.0.1 -- CAM6-Nor version, not used in a NorESM tag, 11 May 2020
+
+  - cam_cesm2_1_rel_05-Nor_v1.0.2 -- CAM6-Nor version (NorESM tag [release-noresm2.0.2](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-2)), CMIP6 bit-identical version (if used on fram, and as MM), 17 July 2020
+
+  - cam_cesm2_1_rel_05-Nor_v1.0.3 -- CAM6-Nor version (NorESM tag [release-noresm2.0.3](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-3)), ??, 1 April 2021
+
+  - cam_cesm2_1_rel_05-Nor_v1.0.4 -- CAM6-Nor version (NorESM tag [release-noresm2.0.4](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-4)), ??, 8 May 2021
+
+  - cam_cesm2_1_rel_05-Nor_v1.0.5 -- CAM6-Nor version (NorESM tags [release-noresm2.0.5](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-5) and [release-noresm2.0.6](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-6)), ??, 9 December 2022
 
 * **cam_cesm2_1_rel_05-Nor-SpAer** - based on cam_cesm2_1_rel_05-Nor, about to contain simple plume aerosol model code
 
