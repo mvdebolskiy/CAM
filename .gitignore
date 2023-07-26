@@ -1,0 +1,9 @@
+# Externals from other branches to ignore
+ccs_config
+chem_proc
+cime
+components
+libraries
+manage_externals
+share
+src
