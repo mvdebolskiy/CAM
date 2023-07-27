@@ -14,11 +14,11 @@ This repository has the following CAM-Nor branches:
 
   - cam_cesm2_1_rel_05-Nor_v1.0.2 -- CAM6-Nor version (NorESM tag [release-noresm2.0.2](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-2)), CMIP6 bit-identical version (if used on fram, and as MM), 17 July 2020
 
-  - cam_cesm2_1_rel_05-Nor_v1.0.3 -- CAM6-Nor version (NorESM tag [release-noresm2.0.3](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-3)), ??, 1 April 2021
+  - cam_cesm2_1_rel_05-Nor_v1.0.3 -- CAM6-Nor version (NorESM tag [release-noresm2.0.3](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-3)), automatic download of AeroTab files for PTAERO compsets, 1 April 2021
 
-  - cam_cesm2_1_rel_05-Nor_v1.0.4 -- CAM6-Nor version (NorESM tag [release-noresm2.0.4](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-4)), ??, 8 May 2021
+  - cam_cesm2_1_rel_05-Nor_v1.0.4 -- CAM6-Nor version (NorESM tag [release-noresm2.0.4](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-4)), allow configuration of coupled N2000_CAM6%NORESM compsets, 8 May 2021
 
-  - cam_cesm2_1_rel_05-Nor_v1.0.5 -- CAM6-Nor version (NorESM tags [release-noresm2.0.5](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-5) and [release-noresm2.0.6](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-6)), ??, 9 December 2022
+  - cam_cesm2_1_rel_05-Nor_v1.0.5 -- CAM6-Nor version (NorESM tags [release-noresm2.0.5](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-5) and [release-noresm2.0.6](https://noresm-docs.readthedocs.io/en/noresm2/access/releases_noresm20.html#noresm2-0-6)), add SSP5-3.4 and emission driven SSP compsets, 9 December 2022
 
 * **cam_cesm2_1_rel_05-Nor-SpAer** - based on cam_cesm2_1_rel_05-Nor, about to contain simple plume aerosol model code
 
