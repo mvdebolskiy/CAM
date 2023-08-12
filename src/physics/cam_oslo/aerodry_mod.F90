@@ -1,4 +1,4 @@
-module init_dryp
+module aero_dry
 
   use shr_kind_mod, only: r8 => shr_kind_r8
   use oslo_control, only: oslo_getopts, dir_string_length
@@ -18,41 +18,11 @@ module init_dryp
   real(r8) :: a4var(19,6,16,6,6)
   real(r8) :: a5to10var(19,6,6,6,6,5:10)
 
-  type, public :: dry_aerosol_size_type
-
-     real(r8) :: cintbg(pcols,pver,0:nbmodes),
-     real(r8) :: cintbg05(pcols,pver,0:nbmodes)
-     real(r8) :: cintbg125(pcols,pver,0:nbmodes)
-     real(r8) :: cintbc(pcols,pver,0:nbmodes)
-     real(r8) :: cintbc05(pcols,pver,0:nbmodes)
-     real(r8) :: cintbc125(pcols,pver,0:nbmodes)
-     real(r8) :: cintoc(pcols,pver,0:nbmodes)
-     real(r8) :: cintoc05(pcols,pver,0:nbmodes)
-     real(r8) :: cintoc125(pcols,pver,0:nbmodes)
-     real(r8) :: cintsc(pcols,pver,0:nbmodes)
-     real(r8) :: cintsc05(pcols,pver,0:nbmodes)
-     real(r8) :: cintsc125(pcols,pver,0:nbmodes)
-     real(r8) :: cintsa(pcols,pver,0:nbmodes)
-     real(r8) :: cintsa05(pcols,pver,0:nbmodes)
-     real(r8) :: cintsa125(pcols,pver,0:nbmodes)
-     real(r8) :: aaeros(pcols,pver,0:nbmodes)
-     real(r8) :: aaerol(pcols,pver,0:nbmodes)
-     real(r8) :: vaeros(pcols,pver,0:nbmodes)
-     real(r8) :: vaerol(pcols,pver,0:nbmodes)
-
-   contains
-
-     procedure :: zero_coeffs
-     procedure :: update_coeffs
-
-  end type dry_aerosol_size_type
-
-
 contains
 
-  subroutine initdryp(
+  subroutine initdryp
 
-    ! Purpose: To read in the AeroCom look-up tables for calculation of dry
+    !Purpose: To read in the AeroCom look-up tables for calculation of dry
     !     aerosol size and mass distribution properties. The grid for discrete 
     !     input-values in the look-up tables is defined in opptab. 
 
@@ -66,6 +36,8 @@ contains
     !     - Alf Kirkevaag, May 2016. 
     !     Modified for optimized added masses and mass fractions for concentrations from 
     !     condensation, coagulation or cloud-processing - Alf Kirkevaag, May 2016. 
+
+
 
     integer  :: iv, kcomp, ifombg, ifbcbg, ictot, ifac, ifbc, ifaq
     integer  :: ic, ifil, lin
@@ -97,37 +69,26 @@ contains
     do ifil = 11,21
        call checkTableHeader (ifil)
     enddo
-
-
-    !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
-    !       Mode 0, BC(ax)
-    !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
-
+    !
+    ! Mode 0, BC(ax)
+    !
     ifil = 11
-
-    read (9+ifil,996) kcomp, cintbg, cintbg05, cintbg125, &
-         aaeros, aaerol, vaeros, vaerol
+    read(9+ifil,996) kcomp, cintbg, cintbg05, cintbg125,  aaeros, aaerol, vaeros, vaerol
 
     ! no ictot-, ifac-, ifbc- or ifaq-dependency for this mode,
     ! since BC(ax) is purely externally mixed 
-
     a0cintbg=cintbg
     a0cintbg05=cintbg05
     a0cintbg125=cintbg125
-
     a0aaeros=aaeros
     a0aaerol=aaerol
     a0vaeros=vaeros
     a0vaerol=vaerol
-
     write(iulog,*)'mode 0 ok'
 
-
-
-    !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
-    !       Mode 1 (H2SO4 and SOA + condensate from H2SO4 and SOA)
-    !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
-
+    !
+    ! Mode 1 (H2SO4 and SOA + condensate from H2SO4 and SOA)
+    !
     ifil = 1
     do lin = 1,576     ! 6x16x6
 
@@ -139,54 +100,46 @@ contains
        do ic=1,6
           if(abs(frombg-fombg(ic))<eps4) then
              ifombg=ic
-             goto 50
+             exit
           endif
        end do
-50     continue
-
        do ic=1,16
-          !	   if(abs(catot-cate(kcomp,ic))<eps7) then
           if(abs((catot-cate(kcomp,ic))/cate(kcomp,ic))<eps2) then
              ictot=ic
-             goto 52
+             exit
           endif
        end do
-52     continue
-
        do ic=1,6
           if(abs(frac-fac(ic))<eps4) then
              ifac=ic
-             goto 53
+             exit
           endif
        end do
-53     continue
 
        ! no ifombg-dependency for this mode, since all catot 
-       ! comes from condensate or from wet-phase sulfate 
+       !comes from condensate or from wet-phase sulfate 
 
-       a1var(1,ifombg,ictot,ifac)=cintbg
-       a1var(2,ifombg,ictot,ifac)=cintbg05
-       a1var(3,ifombg,ictot,ifac)=cintbg125
-       a1var(4,ifombg,ictot,ifac)=cintbc
-       a1var(5,ifombg,ictot,ifac)=cintbc05
-       a1var(6,ifombg,ictot,ifac)=cintbc125
-       a1var(7,ifombg,ictot,ifac)=cintoc
-       a1var(8,ifombg,ictot,ifac)=cintoc05
-       a1var(9,ifombg,ictot,ifac)=cintoc125
-       a1var(10,ifombg,ictot,ifac)=cintsc
-       a1var(11,ifombg,ictot,ifac)=cintsc05
-       a1var(12,ifombg,ictot,ifac)=cintsc125
-       a1var(13,ifombg,ictot,ifac)=cintsa
-       a1var(14,ifombg,ictot,ifac)=cintsa05
-       a1var(15,ifombg,ictot,ifac)=cintsa125
-       a1var(16,ifombg,ictot,ifac)=aaeros
-       a1var(17,ifombg,ictot,ifac)=aaerol
-       a1var(18,ifombg,ictot,ifac)=vaeros
-       a1var(19,ifombg,ictot,ifac)=vaerol          
+       a1var(1,ifombg,ictot,ifac)  =cintbg
+       a1var(2,ifombg,ictot,ifac)  =cintbg05
+       a1var(3,ifombg,ictot,ifac)  =cintbg125
+       a1var(4,ifombg,ictot,ifac)  =cintbc
+       a1var(5,ifombg,ictot,ifac)  =cintbc05
+       a1var(6,ifombg,ictot,ifac)  =cintbc125
+       a1var(7,ifombg,ictot,ifac)  =cintoc
+       a1var(8,ifombg,ictot,ifac)  =cintoc05
+       a1var(9,ifombg,ictot,ifac)  =cintoc125
+       a1var(10,ifombg,ictot,ifac) =cintsc
+       a1var(11,ifombg,ictot,ifac) =cintsc05
+       a1var(12,ifombg,ictot,ifac) =cintsc125
+       a1var(13,ifombg,ictot,ifac) =cintsa
+       a1var(14,ifombg,ictot,ifac) =cintsa05
+       a1var(15,ifombg,ictot,ifac) =cintsa125
+       a1var(16,ifombg,ictot,ifac) =aaeros
+       a1var(17,ifombg,ictot,ifac) =aaerol
+       a1var(18,ifombg,ictot,ifac) =vaeros
+       a1var(19,ifombg,ictot,ifac) =vaerol          
 
-       if(cintsa<cintsa05) &
-            write(*,*) 'cintsatot =', ictot, ifac, ifaq, cintsa, cintsa05, cintsa125
-
+       if(cintsa<cintsa05)  write(*,*) 'cintsatot =', ictot, ifac, ifaq, cintsa, cintsa05, cintsa125
     end do  ! lin
 
     do iv=1,19
@@ -202,15 +155,12 @@ contains
           enddo
        enddo
     enddo
-
     write(iulog,*)'new aerodry mode 1 ok'
 
 
-    !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
+    !
     !       Modes 2 to 3 (BC/OC + condesate from H2SO4 and SOA)
-    !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
 
-    !      do ifil = 2,3
     do ifil = 2,2
        do lin = 1,96     ! 16x6
 
@@ -220,24 +170,20 @@ contains
                cintsa, cintsa05, cintsa125, aaeros, aaerol, vaeros, vaerol
 
  	  do ic=1,16
-       !	   if(abs(catot-cate(kcomp,ic))<eps7) then
              if(abs((catot-cate(kcomp,ic))/cate(kcomp,ic))<eps2) then
                 ictot=ic
-                goto 61
+                exit
              endif
 	  end do
-61        continue
-
  	  do ic=1,6
              if(abs(frac-fac(ic))<eps4) then
                 ifac=ic
-                goto 62
+                exit
              endif
 	  end do
-62        continue
 
-          !         no ifbc- or ifaq-dependency for these modes,
-          !         since all catot comes from condensed SOA and H2SO4
+          ! no ifbc- or ifaq-dependency for these modes,
+          ! since all catot comes from condensed SOA and H2SO4
 
           a2to3var(1,ictot,ifac,kcomp)=cintbg
           a2to3var(2,ictot,ifac,kcomp)=cintbg05
@@ -381,13 +327,11 @@ contains
           enddo
        enddo
     enddo
-
     write(iulog,*)'aerodry mode 4 ok'
 
-    !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
-    !       Modes 5 to 10 (mineral and seasalt-modes + cond./coag./aq.)
-    !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
-
+    !
+    ! Modes 5 to 10 (mineral and seasalt-modes + cond./coag./aq.)
+    !
     do ifil = 5,10
        do lin = 1,1296     ! 6x6x6x6
 
@@ -397,58 +341,49 @@ contains
                cintsa, cintsa05, cintsa125, aaeros, aaerol, vaeros, vaerol
 
  	  do ic=1,6
-       !	   if(abs(catot-cat(kcomp,ic))<eps6) then
              if(abs((catot-cat(kcomp,ic))/cat(kcomp,ic))<eps2) then
                 ictot=ic
-                goto 21
+                exit
              endif
 	  end do
-21        continue
-
  	  do ic=1,6
              if(abs(frac-fac(ic))<eps4) then
                 ifac=ic
-                goto 31
+                exit
              endif
 	  end do
-31        continue
-
  	  do ic=1,6
-       !	   if(abs(fabc-fbc(ic))<eps4) then
              if(abs((fabc-fbc(ic))/fbc(ic))<eps2) then
                 ifbc=ic
-                goto 41
+                exit
              endif
 	  end do
-41        continue
-
 	  do ic=1,6
              if(abs(fraq-faq(ic))<eps4) then
                 ifaq=ic
-                goto 51
+                exit
              endif
 	  end do
-51        continue
 
-          a5to10var(1,ictot,ifac,ifbc,ifaq,kcomp)=cintbg
-          a5to10var(2,ictot,ifac,ifbc,ifaq,kcomp)=cintbg05
-          a5to10var(3,ictot,ifac,ifbc,ifaq,kcomp)=cintbg125
-          a5to10var(4,ictot,ifac,ifbc,ifaq,kcomp)=cintbc
-          a5to10var(5,ictot,ifac,ifbc,ifaq,kcomp)=cintbc05
-          a5to10var(6,ictot,ifac,ifbc,ifaq,kcomp)=cintbc125
-          a5to10var(7,ictot,ifac,ifbc,ifaq,kcomp)=cintoc
-          a5to10var(8,ictot,ifac,ifbc,ifaq,kcomp)=cintoc05
-          a5to10var(9,ictot,ifac,ifbc,ifaq,kcomp)=cintoc125
-          a5to10var(10,ictot,ifac,ifbc,ifaq,kcomp)=cintsc
-          a5to10var(11,ictot,ifac,ifbc,ifaq,kcomp)=cintsc05
-          a5to10var(12,ictot,ifac,ifbc,ifaq,kcomp)=cintsc125
-          a5to10var(13,ictot,ifac,ifbc,ifaq,kcomp)=cintsa
-          a5to10var(14,ictot,ifac,ifbc,ifaq,kcomp)=cintsa05
-          a5to10var(15,ictot,ifac,ifbc,ifaq,kcomp)=cintsa125
-          a5to10var(16,ictot,ifac,ifbc,ifaq,kcomp)=aaeros
-          a5to10var(17,ictot,ifac,ifbc,ifaq,kcomp)=aaerol
-          a5to10var(18,ictot,ifac,ifbc,ifaq,kcomp)=vaeros
-          a5to10var(19,ictot,ifac,ifbc,ifaq,kcomp)=vaerol
+          a5to10var(1,ictot,ifac,ifbc,ifaq,kcomp)  =cintbg
+          a5to10var(2,ictot,ifac,ifbc,ifaq,kcomp)  =cintbg05
+          a5to10var(3,ictot,ifac,ifbc,ifaq,kcomp)  =cintbg125
+          a5to10var(4,ictot,ifac,ifbc,ifaq,kcomp)  =cintbc
+          a5to10var(5,ictot,ifac,ifbc,ifaq,kcomp)  =cintbc05
+          a5to10var(6,ictot,ifac,ifbc,ifaq,kcomp)  =cintbc125
+          a5to10var(7,ictot,ifac,ifbc,ifaq,kcomp)  =cintoc
+          a5to10var(8,ictot,ifac,ifbc,ifaq,kcomp)  =cintoc05
+          a5to10var(9,ictot,ifac,ifbc,ifaq,kcomp)  =cintoc125
+          a5to10var(10,ictot,ifac,ifbc,ifaq,kcomp) =cintsc
+          a5to10var(11,ictot,ifac,ifbc,ifaq,kcomp) =cintsc05
+          a5to10var(12,ictot,ifac,ifbc,ifaq,kcomp) =cintsc125
+          a5to10var(13,ictot,ifac,ifbc,ifaq,kcomp) =cintsa
+          a5to10var(14,ictot,ifac,ifbc,ifaq,kcomp) =cintsa05
+          a5to10var(15,ictot,ifac,ifbc,ifaq,kcomp) =cintsa125
+          a5to10var(16,ictot,ifac,ifbc,ifaq,kcomp) =aaeros
+          a5to10var(17,ictot,ifac,ifbc,ifaq,kcomp) =aaerol
+          a5to10var(18,ictot,ifac,ifbc,ifaq,kcomp) =vaeros
+          a5to10var(19,ictot,ifac,ifbc,ifaq,kcomp) =vaerol
 
        end do  ! lin
     end do    ! ifil
@@ -468,11 +403,7 @@ contains
           enddo
        enddo
     enddo
-
     write(iulog,*)'aerodry mode 5-10 ok'
-
-    !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
-
 
 993 format(I2,23e10.3)
 994 format(I2,21e10.3)
@@ -484,6 +415,6 @@ contains
        close (ifil)
     end do
 
-    return
   end subroutine initdryp
 
+end module aero_dry
