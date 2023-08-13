@@ -2,9 +2,7 @@
 subroutine opticsAtConstRh (lchnk, ncol, pint, rhoda, Nnatk, xrh, irh1, irf, &
      xct, ict1, xfaq, ifaq1, xfbcbg, ifbcbg1,           &
      xfbcbgn, ifbcbgn1, xfac, ifac1, xfbc, ifbc1,       &
-     xfombg, ifombg1, vnbc, vaitbc, v_soana,            &
-     extinction_coeffs, extinction_coeffsn)
-
+     xfombg, ifombg1, vnbc, vaitbc, v_soana)
 
   !     Extra AeroCom diagnostics requiring table look-ups with constant/fixed RH,
   !     i.e. for RH = (/"00","40","55","65","75","85" /) (see opttab.F90)
@@ -20,7 +18,7 @@ subroutine opticsAtConstRh (lchnk, ncol, pint, rhoda, Nnatk, xrh, irh1, irf, &
   use physics_types,   only: physics_state
   use interp_aeropt_mod, only : extinction_coeffs_type
   use interp_aeropt_mod, only : intaeropt0, intaeropt1
-
+  use aeropt_mod, only : extinction_coeffs, extinction_coeffsn
 
   implicit none
   !
@@ -51,8 +49,6 @@ subroutine opticsAtConstRh (lchnk, ncol, pint, rhoda, Nnatk, xrh, irh1, irf, &
   integer,  intent(in) :: ifbc1(pcols,pver,nbmodes)
   real(r8), intent(in) :: xfaq(pcols,pver,nbmodes)   ! faqm for use in the interpolations 
   integer,  intent(in) :: ifaq1(pcols,pver,nbmodes)
-  type(extinction_coeffs_type) , intent(inout) :: extinction_coeffs
-  type(extinction_coeffs_type) , intent(inout) :: extinction_coeffsn
   !
   !---------------------------Local variables-----------------------------
   !
@@ -191,9 +187,9 @@ subroutine opticsAtConstRh (lchnk, ncol, pint, rhoda, Nnatk, xrh, irh1, irf, &
            basu550tot(icol,k)   = basu550tot(icol,k)   + Nnatk(icol,k,i)*extinction_coeffs%basu550(icol,k,i)
            babc550tot(icol,k)   = babc550tot(icol,k)   + Nnatk(icol,k,i)*extinction_coeffs%babc550(icol,k,i)
            baoc550tot(icol,k)   = baoc550tot(icol,k)   + Nnatk(icol,k,i)*extinction_coeffs%baoc550(icol,k,i)
-           bes4lt1t(icol,k)     = bes4lt1t(icol,k)     + Nnatk(icol,k,i)*extinction_coeffs%bes4lt1(icol,k,i)
-           bebclt1t(icol,k)     = bebclt1t(icol,k)     + Nnatk(icol,k,i)*extinction_coeffs%bebclt1(icol,k,i)
-           beoclt1t(icol,k)     = beoclt1t(icol,k)     + Nnatk(icol,k,i)*extinction_coeffs%beoclt1(icol,k,i)
+           bes4lt1t(icol,k)     = bes4lt1t(icol,k)     + Nnatk(icol,k,i)*extinction_coeffs%besu550lt1(icol,k,i)
+           bebclt1t(icol,k)     = bebclt1t(icol,k)     + Nnatk(icol,k,i)*extinction_coeffs%bebc550lt1(icol,k,i)
+           beoclt1t(icol,k)     = beoclt1t(icol,k)     + Nnatk(icol,k,i)*extinction_coeffs%beoc550lt1(icol,k,i)
         enddo
         do i=11,14
            ec550rh_aer(icol,k)  = ec550rh_aer(icol,k)  + Nnatk(icol,k,i)*extinction_coeffsn%bext550(icol,k,i-10)
@@ -203,14 +199,14 @@ subroutine opticsAtConstRh (lchnk, ncol, pint, rhoda, Nnatk, xrh, irh1, irf, &
            ec870rh_aer(icol,k)  = ec870rh_aer(icol,k)  + Nnatk(icol,k,i)*extinction_coeffsn%bext870(icol,k,i-10)
            abs870rh_aer(icol,k) = abs870rh_aer(icol,k) + Nnatk(icol,k,i)*extinction_coeffsn%babs870(icol,k,i-10)
            ba550x(icol,k,i)     = extinction_coeffsn%babs550(icol,k,i-10)
-           belt1x(icol,k,i)     = bebglt1(icol,k,i-10) !???
+           belt1x(icol,k,i)     = extinction_coeffs%bebg550lt1(icol,k,i-10) !???
         enddo
 
         do i=6,7
-           bedustlt1(icol,k) = bedustlt1(icol,k) + Nnatk(icol,k,i)*bebglt1(icol,k,i)
+           bedustlt1(icol,k) = bedustlt1(icol,k) + Nnatk(icol,k,i)*extinction_coeffs%bebg550lt1(icol,k,i)
         enddo
         do i=8,10
-           besslt1(icol,k) = besslt1(icol,k) + Nnatk(icol,k,i)*bebglt1(icol,k,i)
+           besslt1(icol,k) = besslt1(icol,k) + Nnatk(icol,k,i)*extinction_coeffs%bebg550lt1(icol,k,i)
         enddo
         ec550rhlt1_du(icol,k) = bedustlt1(icol,k)
         ec550rhlt1_ss(icol,k) = besslt1(icol,k)
@@ -224,17 +220,18 @@ subroutine opticsAtConstRh (lchnk, ncol, pint, rhoda, Nnatk, xrh, irh1, irf, &
 
         !soa: *(1-v_soana) for the sulfate volume fraction of mode 1
         ec550rhlt1_su(icol,k) = bes4lt1t(icol,k)                         &  ! condensate
-             + Nnatk(icol,k,1)*bebglt1(icol,k,1)*(1.0_r8-v_soana(icol,k))&  ! background, SO4(Ait) mode (1)
-             + Nnatk(icol,k,5)*bebglt1(icol,k,5)                            ! background, SO4(Ait75) mode (5)
+             + Nnatk(icol,k,1)*extinction_coeffs%bebg550lt1(icol,k,1)*(1.0_r8-v_soana(icol,k))&  ! background, SO4(Ait) mode (1)
+             + Nnatk(icol,k,5)*extinction_coeffs%bebg550lt1(icol,k,5)                            ! background, SO4(Ait75) mode (5)
         ec550rhlt1_bc(icol,k) = bebclt1t(icol,k)+bbclt1xt(icol,k)        &  ! coagulated + n-mode BC (12)
-             + Nnatk(icol,k,2)*bebglt1(icol,k,2)                        &  ! background, BC(Ait) mode (2)
-             + Nnatk(icol,k,4)*bebglt1(icol,k,4)*vaitbc(icol,k)         &  ! background in OC&BC(Ait) mode (4)
-             + Nnatk(icol,k,0)*bebglt1(icol,k,0)                           ! background, BC(ax) mode (0)
+             + Nnatk(icol,k,2)*extinction_coeffs%bebg550lt1(icol,k,2)                        &  ! background, BC(Ait) mode (2)
+             + Nnatk(icol,k,4)*extinction_coeffs%bebg550lt1(icol,k,4)*vaitbc(icol,k)         &  ! background in OC&BC(Ait) mode (4)
+             + Nnatk(icol,k,0)*extinction_coeffs%bebg550lt1(icol,k,0)                           ! background, BC(ax) mode (0)
+
         !soa + v_soan part of mode 11 for the OC volume fraction of that mode
         ec550rhlt1_oc(icol,k) = beoclt1t(icol,k)+boclt1xt(icol,k)        &  ! coagulated + n-mode OC (13)
-             + Nnatk(icol,k,3)*bebglt1(icol,k,3)                        &  ! background, OC(Ait) mode (3)
-             + Nnatk(icol,k,4)*bebglt1(icol,k,4)*(1.0_r8-vaitbc(icol,k))&  ! background in OC&BC(Ait) mode (4)
-             + Nnatk(icol,k,1)*bebglt1(icol,k,1)*v_soana(icol,k)
+             + Nnatk(icol,k,3)*extinction_coeffs%bebg550lt1(icol,k,3)                        &  ! background, OC(Ait) mode (3)
+             + Nnatk(icol,k,4)*extinction_coeffs%bebg550lt1(icol,k,4)*(1.0_r8-vaitbc(icol,k))&  ! background in OC&BC(Ait) mode (4)
+             + Nnatk(icol,k,1)*extinction_coeffs%bebg550lt1(icol,k,1)*v_soana(icol,k)
 
         ec550rhlt1_aer(icol,k) = ec550rhlt1_su(icol,k)+ec550rhlt1_bc(icol,k) &
                                + ec550rhlt1_oc(icol,k) + ec550rhlt1_ss(icol,k)+ec550rhlt1_du(icol,k)
@@ -245,6 +242,7 @@ subroutine opticsAtConstRh (lchnk, ncol, pint, rhoda, Nnatk, xrh, irh1, irf, &
         abs550rh_ss(icol,k) = Nnatk(icol,k,8)*babg550(icol,k,8) &
                             + Nnatk(icol,k,9)*babg550(icol,k,9) &
                             + Nnatk(icol,k,10)*babg550(icol,k,10)
+
         !soa: *(1-v_soana) for the sulfate volume fraction of mode 1
         abs550rh_su(icol,k) = basu550tot(icol,k)                   &  ! condensate:w
              + (1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*babg550(icol,k,1) &  ! background, SO4(Ait) mode (1)

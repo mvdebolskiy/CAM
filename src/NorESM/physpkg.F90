@@ -11,9 +11,7 @@ module physpkg
   ! Nov 2010    A. Gettelman   Put micro/macro physics into separate routines
   !-----------------------------------------------------------------------
 
-#ifdef OSLO_AERO
 #include <preprocessorDefinitions.h>
-#endif
 
   use shr_kind_mod,     only: r8 => shr_kind_r8
   use spmd_utils,       only: masterproc
@@ -35,6 +33,7 @@ module physpkg
   use perf_mod
   use cam_logfile,     only: iulog
   use camsrfexch,      only: cam_export
+  use intfrh_mod,      only: intfrh  
 
   use modal_aero_calcsize,    only: modal_aero_calcsize_init, modal_aero_calcsize_diag, modal_aero_calcsize_reg
   use modal_aero_wateruptake, only: modal_aero_wateruptake_init, modal_aero_wateruptake_dr, modal_aero_wateruptake_reg
