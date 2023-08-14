@@ -28,27 +28,27 @@ subroutine opticsAtConstRh (lchnk, ncol, pint, rhoda, Nnatk, xrh, irh1, irf, &
   integer,  intent(in) :: ncol                       ! number of atmospheric columns
   real(r8), intent(in) :: pint(pcols,pverp)          ! Model interface pressures (10*Pa)
   real(r8), intent(in) :: rhoda(pcols,pver)          ! Density of dry air (kg/m^3)
+  real(r8), intent(in) :: Nnatk(pcols,pver,0:nmodes) ! aerosol mode number concentration  
   real(r8), intent(in) :: xrh(pcols,pver)            ! level relative humidity (fraction)
   integer,  intent(in) :: irh1(pcols,pver)
   integer,  intent(in) :: irf
-  real(r8), intent(in) :: Nnatk(pcols,pver,0:nmodes) ! aerosol mode number concentration  
-  real(r8), intent(in) :: vnbc(pcols,pver)
-  real(r8), intent(in) :: vaitbc(pcols,pver)
-  real(r8), intent(in) :: v_soana(pcols,pver)
-  real(r8), intent(in) :: xfombg(pcols,pver)
-  integer,  intent(in) :: ifombg1(pcols,pver)
+  real(r8), intent(in) :: xct(pcols,pver,nmodes)     ! modal internally mixed SO4+BC+OC conc.
+  integer,  intent(in) :: ict1(pcols,pver,nmodes)        
+  real(r8), intent(in) :: xfaq(pcols,pver,nbmodes)   ! faqm for use in the interpolations 
+  integer,  intent(in) :: ifaq1(pcols,pver,nbmodes)
   real(r8), intent(in) :: xfbcbg(pcols,pver)
   integer,  intent(in) :: ifbcbg1(pcols,pver)
   real(r8), intent(in) :: xfbcbgn(pcols,pver)
   integer,  intent(in) :: ifbcbgn1(pcols,pver)
-  real(r8), intent(in) :: xct(pcols,pver,nmodes)     ! modal internally mixed SO4+BC+OC conc.
-  integer,  intent(in) :: ict1(pcols,pver,nmodes)        
   real(r8), intent(in) :: xfac(pcols,pver,nbmodes)   ! facm for use in the interpolations 
   integer,  intent(in) :: ifac1(pcols,pver,nbmodes)
   real(r8), intent(in) :: xfbc(pcols,pver,nbmodes)   ! fbcm for use in the interpolations 
   integer,  intent(in) :: ifbc1(pcols,pver,nbmodes)
-  real(r8), intent(in) :: xfaq(pcols,pver,nbmodes)   ! faqm for use in the interpolations 
-  integer,  intent(in) :: ifaq1(pcols,pver,nbmodes)
+  real(r8), intent(in) :: xfombg(pcols,pver)
+  integer,  intent(in) :: ifombg1(pcols,pver)
+  real(r8), intent(in) :: vnbc(pcols,pver)
+  real(r8), intent(in) :: vaitbc(pcols,pver)
+  real(r8), intent(in) :: v_soana(pcols,pver)
   !
   !---------------------------Local variables-----------------------------
   !

@@ -98,34 +98,34 @@ contains
 
   subroutine init_aeropt
 
-    !Purpose: To read in the AeroCom look-up tables for aerosol optical properties. 
-    !     The grid for discrete input-values in the look-up tables is defined in opptab. 
+    !Purpose: To read in the AeroCom look-up tables for aerosol optical properties.
+    !     The grid for discrete input-values in the look-up tables is defined in opptab.
 
     !     Tabulating the 'aerocomk'-files to save computing time.
     !     Updated for new kcomp1.out including condensed SOA - Alf Kirkevåg, May 2013
     !     Extended for new SOA treatment - Alf Kirkevaag, September 2015.
-    !     Modified for optimized added masses and mass fractions for 
-    !     concentrations from condensation, coagulation or cloud-processing 
-    !     - Alf Kirkevaag, May 2016. 
-    !     Modified for optimized added masses and mass fractions for concentrations from 
-    !     condensation, coagulation or cloud-processing - Alf Kirkevaag, May 2016. 
+    !     Modified for optimized added masses and mass fractions for
+    !     concentrations from condensation, coagulation or cloud-processing
+    !     - Alf Kirkevaag, May 2016.
+    !     Modified for optimized added masses and mass fractions for concentrations from
+    !     condensation, coagulation or cloud-processing - Alf Kirkevaag, May 2016.
 
     integer  :: ic, ifil, lin, iv
     integer  :: kcomp, irelh, ictot, ifac, ifbc, ifaq
     integer  :: ifombg, ifbcbg
-    real(r8) :: catot, relh, frbcbg, frac, fabc, fraq   
-    real(r8) :: bext440, babs440, bext500, babs500, babs550    
-    real(r8) :: bext670, babs670, bext870, babs870             
-    real(r8) :: bebg440, babg440, bebg500, babg500, babg550    
-    real(r8) :: bebg670, babg670, bebg870, babg870             
-    real(r8) :: bebc440, babc440, bebc500, babc500, babc550    
-    real(r8) :: bebc670, babc670, bebc870, babc870             
-    real(r8) :: beoc440, baoc440, beoc500, baoc500, baoc550    
-    real(r8) :: beoc670, baoc670, beoc870, baoc870             
-    real(r8) :: besu440, basu440, besu500, basu500, basu550    
-    real(r8) :: besu670, basu670, besu870, basu870             
-    real(r8) :: bebg550lt1, bebg550gt1, bebc550lt1, bebc550gt1 
-    real(r8) :: beoc550lt1, beoc550gt1, besu550lt1, besu550gt1 
+    real(r8) :: catot, relh, frbcbg, frac, fabc, fraq
+    real(r8) :: bext440, babs440, bext500, babs500, babs550
+    real(r8) :: bext670, babs670, bext870, babs870
+    real(r8) :: bebg440, babg440, bebg500, babg500, babg550
+    real(r8) :: bebg670, babg670, bebg870, babg870
+    real(r8) :: bebc440, babc440, bebc500, babc500, babc550
+    real(r8) :: bebc670, babc670, bebc870, babc870
+    real(r8) :: beoc440, baoc440, beoc500, baoc500, baoc550
+    real(r8) :: beoc670, baoc670, beoc870, baoc870
+    real(r8) :: besu440, basu440, besu500, basu500, basu550
+    real(r8) :: besu670, basu670, besu870
+    real(r8) :: bebg550lt1, bebg550gt1, bebc550lt1, bebc550gt1
+    real(r8) :: beoc550lt1, beoc550gt1, besu550lt1, besu550gt1
     real(r8) :: backscat550
     real(r8) :: eps2 = 1.e-2_r8
     real(r8) :: eps4 = 1.e-4_r8
@@ -213,7 +213,7 @@ contains
 
        bep1(1,irelh,ifombg,ictot,ifac) = bext440 ! unit km^-1
        bep1(2,irelh,ifombg,ictot,ifac) = bext500
-       bep1(3,irelh,ifombg,ictot,ifac) = bext670 
+       bep1(3,irelh,ifombg,ictot,ifac) = bext670
        bep1(4,irelh,ifombg,ictot,ifac) = bext870
        bep1(5,irelh,ifombg,ictot,ifac) = bebg440
        bep1(6,irelh,ifombg,ictot,ifac) = bebg500
@@ -265,8 +265,8 @@ contains
           enddo
        enddo
     enddo
-    write(iulog,*)'aerocom mode 1 ok' 
-    ! 
+    write(iulog,*)'aerocom mode 1 ok'
+    !
     !-------------------------------------------
     ! Mode 2  (BC/OC + condesate from H2SO4 and SOA)
     ! Note that mode 3 is no longer active
@@ -306,7 +306,7 @@ contains
 
        bep2to3(1,irelh,ictot,ifac,kcomp) = bext440 ! unit km^-1
        bep2to3(2,irelh,ictot,ifac,kcomp) = bext500
-       bep2to3(3,irelh,ictot,ifac,kcomp) = bext670 
+       bep2to3(3,irelh,ictot,ifac,kcomp) = bext670
        bep2to3(4,irelh,ictot,ifac,kcomp) = bext870
        bep2to3(5,irelh,ictot,ifac,kcomp) = bebg440
        bep2to3(6,irelh,ictot,ifac,kcomp) = bebg500
@@ -369,7 +369,7 @@ contains
           enddo
        enddo
     enddo
-    write(iulog,*)'aerocom mode 2-3 ok' 
+    write(iulog,*)'aerocom mode 2-3 ok'
     !
     !-------------------------------------------
     ! Mode 4 (BC&OC + condesate from H2SO4 and SOA + wetphase (NH4)2SO4)
@@ -422,7 +422,7 @@ contains
 
        bep4(1,irelh,ifbcbg,ictot,ifac,ifaq) = bext440 ! unit km^-1
        bep4(2,irelh,ifbcbg,ictot,ifac,ifaq) = bext500
-       bep4(3,irelh,ifbcbg,ictot,ifac,ifaq) = bext670 
+       bep4(3,irelh,ifbcbg,ictot,ifac,ifaq) = bext670
        bep4(4,irelh,ifbcbg,ictot,ifac,ifaq) = bext870
        bep4(5,irelh,ifbcbg,ictot,ifac,ifaq) = bebg440
        bep4(6,irelh,ifbcbg,ictot,ifac,ifaq) = bebg500
@@ -477,7 +477,7 @@ contains
        enddo
     enddo
     write(iulog,*)'aerocom mode 4 ok'
-    ! 
+    !
     !-------------------------------------------
     ! Modes 5 to 10 (SO4(Ait75) and mineral and seasalt-modes + cond./coag./aq.)
     !-------------------------------------------
@@ -529,7 +529,7 @@ contains
 
           bep5to10(1,irelh,ictot,ifac,ifbc,ifaq,kcomp) = bext440 ! unit km^-1
           bep5to10(2,irelh,ictot,ifac,ifbc,ifaq,kcomp) = bext500
-          bep5to10(3,irelh,ictot,ifac,ifbc,ifaq,kcomp) = bext670 
+          bep5to10(3,irelh,ictot,ifac,ifbc,ifaq,kcomp) = bext670
           bep5to10(4,irelh,ictot,ifac,ifbc,ifaq,kcomp) = bext870
           bep5to10(5,irelh,ictot,ifac,ifbc,ifaq,kcomp) = bebg440
           bep5to10(6,irelh,ictot,ifac,ifbc,ifaq,kcomp) = bebg500
@@ -608,7 +608,7 @@ contains
     kcomp=0
     extinction_coeffs%zero_coeffs(kcomp, ncol)
 
-    ! Mode 0 BC(ax) 
+    ! Mode 0 BC(ax)
     do k = 1,pver
        do icol = 1,ncol
           if(Nnatk(icol,k,kcomp).gt.0) then
@@ -683,7 +683,7 @@ contains
        stop
     endif
 
-     do k=1,pver 
+     do k=1,pver
         do icol=1,ncol
 
            if(Nnatk(icol,k,kc10).gt.0) then
@@ -714,7 +714,7 @@ contains
               t_xfac = xfac(icol,k,kcomp)
               t_xfombg = xfombg(icol,k)
 
-              ! partial lengths along each dimension (1-4) for interpolation 
+              ! partial lengths along each dimension (1-4) for interpolation
               d2mx(1) = (t_rh2-t_xrh)
               dxm1(1) = (t_xrh-t_rh1)
               invd(1) = 1.0_r8/(t_rh2-t_rh1)
@@ -729,7 +729,7 @@ contains
               invd(4) = 1.0_r8/(t_fac2-t_fac1)
 
               do iv=1,38  ! variable number
-                 ! end points as basis for multidimentional linear interpolation  
+                 ! end points as basis for multidimentional linear interpolation
                  opt4d(1,1,1,1) = bep1(iv,t_irh1,t_ifo1,t_ict1,t_ifc1)
                  opt4d(1,1,1,2) = bep1(iv,t_irh1,t_ifo1,t_ict1,t_ifc2)
                  opt4d(1,1,2,1) = bep1(iv,t_irh1,t_ifo1,t_ict2,t_ifc1)
@@ -750,9 +750,9 @@ contains
                  ! interpolation in the fac, cat and fombg dimensions
                  call lininterpol4dim (d2mx, dxm1, invd, opt4d, opt1, opt2)
 
-                 ! finally, interpolation in the rh dimension 
-                 opt(iv)=((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) / (t_rh2-t_rh1)    
-              end do ! iv=1,38 
+                 ! finally, interpolation in the rh dimension
+                 opt(iv)=((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) / (t_rh2-t_rh1)
+              end do ! iv=1,38
 
               ! determine extinction coefficient
               extinction_coeffs%update_coeffs(icol, k, kcomp, opt)
@@ -775,11 +775,11 @@ contains
     integer  , intent(in) :: mplus10                     ! mode number (0) or number + 10 (1)
     real(r8) , intent(in) :: xrh(pcols,pver)            ! level relative humidity (fraction)
     integer  , intent(in) :: irh1(pcols,pver)
-    real(r8) , intent(in) :: Nnatk(pcols,pver,0:nmodes) ! modal aerosol number concentration  
+    real(r8) , intent(in) :: Nnatk(pcols,pver,0:nmodes) ! modal aerosol number concentration
     real(r8) , intent(in) :: xct(pcols,pver,nmodes)     ! modal internally mixed SO4+BC+OC conc.
-    integer  , intent(in) :: ict1(pcols,pver,nmodes)        
+    integer  , intent(in) :: ict1(pcols,pver,nmodes)
     real(r8) , intent(in) :: xfac(pcols,pver,nbmodes)   ! condensed SOA/(SOA+H2SO4) (1-4) or added carbonaceous fraction (5-10)
-    integer  , intent(in) :: ifac1(pcols,pver,nbmodes)        
+    integer  , intent(in) :: ifac1(pcols,pver,nbmodes)
 
     ! Local variables
     real(r8) :: a, b, e, eps
@@ -795,12 +795,12 @@ contains
 
     ! SO4(Ait), BC(Ait) and OC(Ait) modes:
 
-    do kcomp=2,3        
+    do kcomp=2,3
        extinction_coeffs%zero_coeffs(kcomp, ncol)
     end do
 
-    kcomp = 2 ! kcomp=3 is no longer used        
-    do k=1,pver 
+    kcomp = 2 ! kcomp=3 is no longer used
+    do k=1,pver
        do icol=1,ncol
 
           if(Nnatk(icol,k,kc10).gt.0) then
@@ -824,7 +824,7 @@ contains
              t_xct  = xct(icol,k,kc10)
              t_xfac = xfac(icol,k,kcomp)
 
-             !     partial lengths along each dimension (1-4) for interpolation 
+             !     partial lengths along each dimension (1-4) for interpolation
              d2mx(1) = (t_rh2-t_xrh)
              dxm1(1) = (t_xrh-t_rh1)
              invd(1) = 1.0_r8/(t_rh2-t_rh1)
@@ -837,7 +837,7 @@ contains
 
              do iv=1,38  ! variable number
 
-                !  end points as basis for multidimentional linear interpolation  
+                !  end points as basis for multidimentional linear interpolation
                 opt3d(1,1,1)=bep2to3(iv,t_irh1,t_ict1,t_ifc1,kcomp)
                 opt3d(1,1,2)=bep2to3(iv,t_irh1,t_ict1,t_ifc2,kcomp)
                 opt3d(1,2,1)=bep2to3(iv,t_irh1,t_ict2,t_ifc1,kcomp)
@@ -851,9 +851,9 @@ contains
                 call lininterpol3dim (d2mx, dxm1, invd, opt3d, opt1, opt2)
 
                 !     finally, interpolation in the rh dimension
-                opt(iv)=((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) /(t_rh2-t_rh1)    
+                opt(iv)=((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) /(t_rh2-t_rh1)
 
-             end do ! iv=1,38 
+             end do ! iv=1,38
 
              ! determine extinction coefficient
              extinction_coeffs%update_coeffs(icol, k, kcomp, opt)
@@ -874,13 +874,13 @@ contains
     integer  , intent(in) :: mplus10                    ! mode number (0) or number + 10 (1)
     real(r8) , intent(in) :: xrh(pcols,pver)            ! level relative humidity (fraction)
     integer  , intent(in) :: irh1(pcols,pver)
-    real(r8) , intent(in) :: Nnatk(pcols,pver,0:nmodes) ! modal aerosol number concentration  
+    real(r8) , intent(in) :: Nnatk(pcols,pver,0:nmodes) ! modal aerosol number concentration
     real(r8) , intent(in) :: xfbcbg(pcols,pver)
     integer  , intent(in) :: ifbcbg1(pcols,pver)
     real(r8) , intent(in) :: xct(pcols,pver,nmodes)     ! modal internally mixed SO4+BC+OC conc.
-    integer  , intent(in) :: ict1(pcols,pver,nmodes)        
+    integer  , intent(in) :: ict1(pcols,pver,nmodes)
     real(r8) , intent(in) :: xfac(pcols,pver,nbmodes)   ! condensed SOA/(SOA+H2SO4) (1-4) or added carbonaceous fraction (5-10)
-    integer  , intent(in) :: ifac1(pcols,pver,nbmodes)        
+    integer  , intent(in) :: ifac1(pcols,pver,nbmodes)
     real(r8) , intent(in) :: xfaq(pcols,pver,nbmodes)   ! modal SO4(aq)/SO4
     integer  , intent(in) :: ifaq1(pcols,pver,nbmodes)
     type(extinction_coeffs), intent(inout) :: extinction_coeffs
@@ -889,7 +889,7 @@ contains
     real(r8) :: a, b, e, eps
     integer  :: i, iv, kcomp, k, icol, kc10
     integer  :: t_irh1, t_irh2, t_ict1, t_ict2, t_ifc1, t_ifc2,  t_ifa1, t_ifa2
-    real(r8) :: t_fbcbg1, t_fbcbg2  
+    real(r8) :: t_fbcbg1, t_fbcbg2
     integer  :: t_ifb1, t_ifb2
     real(r8) :: t_faq1, t_faq2, t_xfaq
     real(r8) :: t_fac1, t_fac2, t_xfac
@@ -901,7 +901,7 @@ contains
     real(r8) :: opt1, opt2, opt(38)
     parameter (e=2.718281828_r8, eps=1.0e-60_r8)
 
-    ! BC&OC(Ait) mode: 
+    ! BC&OC(Ait) mode:
     kcomp = 4
     extinction_coeffs%zero_coeffs(kcomp, ncol)
 
@@ -911,7 +911,7 @@ contains
        kc10=kcomp+10
     endif
 
-    do k=1,pver 
+    do k=1,pver
        do icol=1,ncol
           if(Nnatk(icol,k,kc10).gt.0) then
              ! Collect all the vector elements into temporary storage
@@ -945,7 +945,7 @@ contains
              t_xfac = xfac(icol,k,kcomp)
              t_xfaq = xfaq(icol,k,kcomp)
 
-             ! partial lengths along each dimension (1-5) for interpolation 
+             ! partial lengths along each dimension (1-5) for interpolation
              d2mx(1) = (t_rh2-t_xrh)
              dxm1(1) = (t_xrh-t_rh1)
              invd(1) = 1.0_r8/(t_rh2-t_rh1)
@@ -1001,10 +1001,10 @@ contains
                 ! interpolation in the faq, fac, cat and fbcbg dimensions
                 call lininterpol5dim (d2mx, dxm1, invd, opt5d, opt1, opt2)
 
-                ! finally, interpolation in the rh dimension 
-                opt(iv) = ((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) /(t_rh2-t_rh1)    
+                ! finally, interpolation in the rh dimension
+                opt(iv) = ((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) /(t_rh2-t_rh1)
 
-             end do ! iv=1,38 
+             end do ! iv=1,38
 
              ! determine extinction coefficient
              extinction_coeffs%update_coeffs(icol, k, kcomp, opt)
@@ -1025,9 +1025,9 @@ contains
     integer  , intent(in) :: ncol                       ! number of atmospheric columns
     real(r8) , intent(in) :: xrh(pcols,pver)            ! level relative humidity (fraction)
     integer  , intent(in) :: irh1(pcols,pver)
-    real(r8) , intent(in) :: Nnatk(pcols,pver,0:nmodes) ! modal aerosol number concentration  
+    real(r8) , intent(in) :: Nnatk(pcols,pver,0:nmodes) ! modal aerosol number concentration
     real(r8) , intent(in) :: xct(pcols,pver,nmodes)     ! modal internally mixed SO4+BC+OC conc.
-    integer  , intent(in) :: ict1(pcols,pver,nmodes)        
+    integer  , intent(in) :: ict1(pcols,pver,nmodes)
     real(r8) , intent(in) :: xfac(pcols,pver,nbmodes)   ! modal (OC+BC)/(SO4+BC+OC)
     integer  , intent(in) :: ifac1(pcols,pver,nbmodes)
     real(r8) , intent(in) :: xfbc(pcols,pver,nbmodes)   ! modal BC/(OC+BC)
@@ -1052,11 +1052,11 @@ contains
 
     ! Modes 5 to 10 (SO4(Ait75) and mineral and seasalt-modes + cond./coag./aq.):
 
-    do kcomp=5,10        
+    do kcomp=5,10
        ! zero extinction coefficients for this kcomp
        extinction_coeffs%zero_coeffs(kcomp, ncol)
 
-       do k=1,pver 
+       do k=1,pver
           do icol=1,ncol
              if(Nnatk(icol,k,kcomp).gt.0) then
                 ! Collect all the vector elements into temporary storage
@@ -1090,8 +1090,8 @@ contains
                 t_xfac = xfac(icol,k,kcomp)
                 t_xfbc = xfbc(icol,k,kcomp)
                 t_xfaq = xfaq(icol,k,kcomp)
-                
-                ! partial lengths along each dimension (1-5) for interpolation 
+
+                ! partial lengths along each dimension (1-5) for interpolation
                 d2mx(1) = (t_rh2-t_xrh)
                 dxm1(1) = (t_xrh-t_rh1)
                 invd(1) = 1.0_r8/(t_rh2-t_rh1)
@@ -1146,10 +1146,10 @@ contains
                    ! interpolation in the faq, fbc, fac and cat dimensions
                    call lininterpol5dim (d2mx, dxm1, invd, opt5d, opt1, opt2)
 
-                   ! finally, interpolation in the rh dimension 
-                   opt(iv) = ((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) /(t_rh2-t_rh1)    
+                   ! finally, interpolation in the rh dimension
+                   opt(iv) = ((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) /(t_rh2-t_rh1)
 
-                end do ! iv=1,38 
+                end do ! iv=1,38
 
                 ! determine extinction coefficient
                 extinction_coeffs%update_coeffs(icol, k, kcomp, opt)
@@ -1278,4 +1278,3 @@ contains
   end subroutine update_coeffs
 
 end module aeroopt_mod
-
