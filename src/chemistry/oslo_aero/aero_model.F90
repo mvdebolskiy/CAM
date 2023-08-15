@@ -3,8 +3,6 @@
 !===============================================================================
 module aero_model
 
-#include <preprocessorDefinitions.h>
-
   use shr_kind_mod,   only: r8 => shr_kind_r8
   use constituents,   only: pcnst, cnst_name, cnst_get_ind
   use ppgrid,         only: pcols, pver, pverp
@@ -14,25 +12,21 @@ module aero_model
   use perf_mod,       only: t_startf, t_stopf
   use camsrfexch,     only: cam_in_t, cam_out_t
   use aerodep_flx,    only: aerodep_flx_prescribed
-  use init_aeropt_mod,only: initaeropt
+  use aeroopt_mod,    only: initaeropt
+  use aerodry_mod,    only: initdryp
   use physics_types,  only: physics_state, physics_ptend, physics_ptend_init
   use physics_buffer, only: physics_buffer_desc
   use physics_buffer, only: pbuf_get_field, pbuf_get_index, pbuf_set_field
   use physconst,      only: gravit, rair, rhoh2o
   use spmd_utils,     only: masterproc
   use infnan,         only: nan, assignment(=)
-
   use cam_history,    only: outfld, fieldname_len
   use chem_mods,      only: gas_pcnst, adv_mass
   use mo_tracname,    only: solsym
-  use aerosoldef, only: chemistryIndex, physicsIndex &
-                        , getCloudTracerIndexDirect &
-                        , getCloudTracerName
-  use condtend, only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4 &
-                      , condtend_sub
-  use koagsub, only: coagtend, clcoag 
+  use aerosoldef,     only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
+  use condtend,       only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
+  use koagsub,        only: coagtend, clcoag 
   use sox_cldaero_mod, only: sox_cldaero_init
-
 
   !use modal_aero_data,only: cnst_name_cw, lptr_so4_cw_amode
   !use modal_aero_data,only: ntot_amode, modename_amode, nspec_max
@@ -56,7 +50,7 @@ module aero_model
   public :: aero_model_surfarea  ! tropopspheric aerosol wet surface area for chemistry
   public :: aero_model_strat_surfarea ! stratospheric aerosol wet surface area for chemistry
 
- ! Misc private data 
+  ! Misc private data 
 
   ! number of modes
   integer :: nmodes
@@ -107,6 +101,12 @@ module aero_model
 
 
   logical :: convproc_do_aer
+
+#ifdef AEROCOM
+  logical :: do_aerocom = .true.
+#else
+  logical :: do_aerocom = .false.
+#endif
 
 contains
   
@@ -237,10 +237,10 @@ contains
    call initopt
    call initlogn
    call initopt_lw
-#ifdef AEROCOM
-       call initaeropt()
-       call initdryp
-#endif ! aerocom
+   if (do_aerocom) then
+      call initaeropt()
+      call initdryp()
+   end if
 
     call initializeCondensation()
     call oslo_ocean_init()

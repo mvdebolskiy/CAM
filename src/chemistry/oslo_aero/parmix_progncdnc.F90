@@ -9,9 +9,7 @@ module parmix_progncdnc
    use aerosoldef
    use physconst, only: pi
    use constituents, only: pcnst, cnst_name
-   use intlog1to3, only: intlog1to3_sub
-   use intlog4, only: intlog4_sub
-   use intlog5to10, only: intlog5to10_sub
+   use intlog, only : intlog1to3_sub, intlog4_sub, intlog5to10_sub
    use constituents, only: cnst_name
 
    implicit none

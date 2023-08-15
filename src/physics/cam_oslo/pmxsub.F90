@@ -16,11 +16,7 @@ contains
        per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, & 
        volc_ext_sun, volc_omega_sun, volc_g_sun, &
        volc_ext_earth, volc_omega_earth, & 
-#ifdef AEROCOM
        aodvis, absvis, dod440, dod550, dod870, abs550, abs550alt)
-#else
-       aodvis, absvis)
-#endif
 
     ! Optical parameters for a composite aerosol is calculated by interpolation  
     ! from the tables kcomp1.out-kcomp14.out.
@@ -50,27 +46,27 @@ contains
     use optinterpol,   only: interpol0,interpol1,interpol2to3,interpol4,interpol5to10
     use physics_types, only: physics_state
     use wv_saturation, only: qsat_water
-
+    use aeroopt_mod,   only: extinction_coeffs, extinction_coeffsn
+    use aerodry_mod,   only: aerodry_prop  
+    use optinterpol,   only: inputForInterpol
+                             
     !
     ! Input arguments
-
-    integer, intent(in) :: lchnk                   ! chunk identifier
-    integer, intent(in) :: ncol                    ! number of atmospheric columns
-    real(r8), intent(in) :: coszrs(pcols)          ! Cosine solar zenith angle
-    real(r8), intent(in) :: pint(pcols,pverp)      ! Model interface pressures (10*Pa)
-    real(r8), intent(in) :: pmid(pcols,pver)       ! Model level pressures (Pa)
-    real(r8), intent(in) :: t(pcols,pver)          ! Model level temperatures (K)
-    real(r8), intent(in) :: cld(pcols,pver)        ! cloud fraction
-    real(r8), intent(in) :: qm1(pcols,pver,pcnst)  ! Specific humidity and tracers (kg/kg)
-    real(r8), intent(in) :: volc_ext_sun(pcols,pver,nbands) ! volcanic aerosol extinction for solar bands, CMIP6
-    real(r8), intent(in) :: volc_omega_sun(pcols,pver,nbands) ! volcanic aerosol SSA for solar bands, CMIP6
-    real(r8), intent(in) :: volc_g_sun(pcols,pver,nbands) ! volcanic aerosol g for solar bands, CMIP6
-    real(r8), intent(in) :: volc_ext_earth(pcols,pver,nlwbands) ! volcanic aerosol extinction for terrestrial bands, CMIP6
+    integer, intent(in) :: lchnk                                  ! chunk identifier
+    integer, intent(in) :: ncol                                   ! number of atmospheric columns
+    real(r8), intent(in) :: coszrs(pcols)                         ! Cosine solar zenith angle
+    real(r8), intent(in) :: pint(pcols,pverp)                     ! Model interface pressures (10*Pa)
+    real(r8), intent(in) :: pmid(pcols,pver)                      ! Model level pressures (Pa)
+    real(r8), intent(in) :: t(pcols,pver)                         ! Model level temperatures (K)
+    real(r8), intent(in) :: cld(pcols,pver)                       ! cloud fraction
+    real(r8), intent(in) :: qm1(pcols,pver,pcnst)                 ! Specific humidity and tracers (kg/kg)
+    real(r8), intent(in) :: volc_ext_sun(pcols,pver,nbands)       ! volcanic aerosol extinction for solar bands, CMIP6
+    real(r8), intent(in) :: volc_omega_sun(pcols,pver,nbands)     ! volcanic aerosol SSA for solar bands, CMIP6
+    real(r8), intent(in) :: volc_g_sun(pcols,pver,nbands)         ! volcanic aerosol g for solar bands, CMIP6
+    real(r8), intent(in) :: volc_ext_earth(pcols,pver,nlwbands)   ! volcanic aerosol extinction for terrestrial bands, CMIP6
     real(r8), intent(in) :: volc_omega_earth(pcols,pver,nlwbands) ! volcanic aerosol SSA for terrestrial bands, CMIP6
-    !  real(r8) batotsw13(pcols,pver), batotlw01(pcols,pver)  ! for testing bare
     !
     ! Input-output arguments
-
     real(r8), intent(inout) :: Nnatk(pcols,pver,0:nmodes)! aerosol mode number concentration  
 
     ! Output arguments
@@ -84,14 +80,12 @@ contains
     !  Note that aodvis and absvis output should be devided by dayfoc to give physical (A)AOD values  
     real(r8), intent(out) :: aodvis(pcols)             ! AOD vis
     real(r8), intent(out) :: absvis(pcols)             ! AAOD vis
-#ifdef AEROCOM
+    ! AEROCOM
     real(r8), intent(out) :: dod440(pcols) 
     real(r8), intent(out) :: dod550(pcols) 
     real(r8), intent(out) :: dod870(pcols)
     real(r8), intent(out) :: abs550(pcols)
     real(r8), intent(out) :: abs550alt(pcols)
-#endif
-    !
     !---------------------------Local variables-----------------------------
     !
     integer  i, k, ib, icol, mplus10
@@ -161,162 +155,165 @@ contains
 
     ! -------begin do_aerocom-----------
     real(r8) Ctotdry(pcols,pver), Cwater(pcols,pver), mmr_aerh2o(pcols,pver), &
-         dod550dry(pcols), abs550dry(pcols)
+             dod550dry(pcols), abs550dry(pcols)
     real(r8) daerh2o(pcols),  dload(pcols,0:nmodes), dload3d(pcols,pver,0:nmodes), &
-         dload_mi(pcols), dload_ss(pcols), &
-         dload_s4(pcols), dload_oc(pcols), dload_bc(pcols), &
-         dload_s4_a(pcols), dload_s4_1(pcols), dload_s4_5(pcols)
+             dload_mi(pcols), dload_ss(pcols), &
+             dload_s4(pcols), dload_oc(pcols), dload_bc(pcols), &
+             dload_s4_a(pcols), dload_s4_1(pcols), dload_s4_5(pcols)
     real(r8) dload_bc_0(pcols), dload_bc_ac(pcols), dload_oc_ac(pcols), &
-         dload_bc_2(pcols), dload_bc_4(pcols), dload_bc_12(pcols), dload_bc_14(pcols), &    
-         dload_oc_4(pcols), dload_oc_14(pcols)
+             dload_bc_2(pcols), dload_bc_4(pcols), dload_bc_12(pcols), dload_bc_14(pcols), &    
+             dload_oc_4(pcols), dload_oc_14(pcols)
     real(r8) cmin(pcols,pver), cseas(pcols,pver)
     real(r8) nnat_1(pcols,pver), nnat_2(pcols,pver), nnat_3(pcols,pver), &
-         nnat_4(pcols,pver), nnat_5(pcols,pver), nnat_6(pcols,pver), &
-         nnat_7(pcols,pver), nnat_8(pcols,pver), nnat_9(pcols,pver), &
-         nnat_10(pcols,pver), nnat_12(pcols,pver), &
-         nnat_14(pcols,pver), nnat_0(pcols,pver)
+             nnat_4(pcols,pver), nnat_5(pcols,pver), nnat_6(pcols,pver), &
+             nnat_7(pcols,pver), nnat_8(pcols,pver), nnat_9(pcols,pver), &
+             nnat_10(pcols,pver), nnat_12(pcols,pver), &
+             nnat_14(pcols,pver), nnat_0(pcols,pver)
     real(r8) ck(pcols,pver,0:nmodes), cknorm(pcols,pver,0:nmodes), &
-         cknlt05(pcols,pver,0:nmodes), ckngt125(pcols,pver,0:nmodes)
+             cknlt05(pcols,pver,0:nmodes), ckngt125(pcols,pver,0:nmodes)
     real(r8) aaerosn(pcols,pver,nbmp1:nmodes), aaeroln(pcols,pver,nbmp1:nmodes), &
-         vaerosn(pcols,pver,nbmp1:nmodes), vaeroln(pcols,pver,nbmp1:nmodes), &
-         aaeros(pcols,pver,0:nbmodes), aaerol(pcols,pver,0:nbmodes), & 
-         vaeros(pcols,pver,0:nbmodes), vaerol(pcols,pver,0:nbmodes) 
+             vaerosn(pcols,pver,nbmp1:nmodes), vaeroln(pcols,pver,nbmp1:nmodes), &
+             aaeros(pcols,pver,0:nbmodes), aaerol(pcols,pver,0:nbmodes), & 
+             vaeros(pcols,pver,0:nbmodes), vaerol(pcols,pver,0:nbmodes) 
     real(r8) cintbg(pcols,pver,0:nbmodes), &
-         cintbg05(pcols,pver,0:nbmodes), cintbg125(pcols,pver,0:nbmodes), &
-         cintbc(pcols,pver,0:nbmodes), &
-         cintbc05(pcols,pver,0:nbmodes), cintbc125(pcols,pver,0:nbmodes), &  
-         cintoc(pcols,pver,0:nbmodes), &
-         cintoc05(pcols,pver,0:nbmodes), cintoc125(pcols,pver,0:nbmodes), &
-         cintsc(pcols,pver,0:nbmodes), &
-         cintsc05(pcols,pver,0:nbmodes), cintsc125(pcols,pver,0:nbmodes), &        
-         cintsa(pcols,pver,0:nbmodes), &
-         cintsa05(pcols,pver,0:nbmodes), cintsa125(pcols,pver,0:nbmodes)
+             cintbg05(pcols,pver,0:nbmodes), cintbg125(pcols,pver,0:nbmodes), &
+             cintbc(pcols,pver,0:nbmodes), &
+             cintbc05(pcols,pver,0:nbmodes), cintbc125(pcols,pver,0:nbmodes), &  
+             cintoc(pcols,pver,0:nbmodes), &
+             cintoc05(pcols,pver,0:nbmodes), cintoc125(pcols,pver,0:nbmodes), &
+             cintsc(pcols,pver,0:nbmodes), &
+             cintsc05(pcols,pver,0:nbmodes), cintsc125(pcols,pver,0:nbmodes), &        
+             cintsa(pcols,pver,0:nbmodes), &
+             cintsa05(pcols,pver,0:nbmodes), cintsa125(pcols,pver,0:nbmodes)
     real(r8) c_mi(pcols,pver), c_mi05(pcols,pver), c_mi125(pcols,pver), &
-         c_ss(pcols,pver), c_ss05(pcols,pver), c_ss125(pcols,pver), &
-         c_bc(pcols,pver), c_bc05(pcols,pver), c_bc125(pcols,pver), &
-         c_oc(pcols,pver), c_oc05(pcols,pver), c_oc125(pcols,pver), &
-         c_sa(pcols,pver), c_sa05(pcols,pver), c_sa125(pcols,pver), &
-         c_sc(pcols,pver), c_sc05(pcols,pver), c_sc125(pcols,pver), &
-         c_s4(pcols,pver), c_s405(pcols,pver), c_s4125(pcols,pver), &
-         c_s4_a(pcols,pver), c_s4_1(pcols,pver), c_s4_5(pcols,pver)
+             c_ss(pcols,pver), c_ss05(pcols,pver), c_ss125(pcols,pver), &
+             c_bc(pcols,pver), c_bc05(pcols,pver), c_bc125(pcols,pver), &
+             c_oc(pcols,pver), c_oc05(pcols,pver), c_oc125(pcols,pver), &
+             c_sa(pcols,pver), c_sa05(pcols,pver), c_sa125(pcols,pver), &
+             c_sc(pcols,pver), c_sc05(pcols,pver), c_sc125(pcols,pver), &
+             c_s4(pcols,pver), c_s405(pcols,pver), c_s4125(pcols,pver), &
+             c_s4_a(pcols,pver), c_s4_1(pcols,pver), c_s4_5(pcols,pver)
     real(r8) c_bc_0(pcols,pver), c_bc_ac(pcols,pver), c_oc_ac(pcols,pver), &
-         c_bc_2(pcols,pver), c_bc_4(pcols,pver), c_bc_12(pcols,pver), c_bc_14(pcols,pver), &  
-         c_oc_4(pcols,pver), c_oc_14(pcols,pver)   
+             c_bc_2(pcols,pver), c_bc_4(pcols,pver), c_bc_12(pcols,pver), c_bc_14(pcols,pver), &  
+             c_oc_4(pcols,pver), c_oc_14(pcols,pver)   
     real(r8) c_tots(pcols), c_tot125s(pcols), c_pm25s(pcols) ! = PM all sizes, PM>2.5um and PM<2.5um (PM2.5)
-    !akc6+
     real(r8) c_tot(pcols,pver), c_tot125(pcols,pver), c_pm25(pcols,pver), &
-         mmr_pm25(pcols,pver), c_tot05(pcols,pver), c_pm1(pcols,pver), mmr_pm1(pcols,pver)  
-    !akc6-
+             mmr_pm25(pcols,pver), c_tot05(pcols,pver), c_pm1(pcols,pver), mmr_pm1(pcols,pver)  
     real(r8) aaeros_tot(pcols,pver), aaerol_tot(pcols,pver), vaeros_tot(pcols,pver), &
-         vaerol_tot(pcols,pver), aaercols(pcols), aaercoll(pcols), vaercols(pcols), & 
-         vaercoll(pcols), derlt05(pcols), dergt05(pcols), der(pcols), &
-         erlt053d(pcols,pver), ergt053d(pcols,pver), er3d(pcols,pver)
+             vaerol_tot(pcols,pver), aaercols(pcols), aaercoll(pcols), vaercols(pcols), & 
+             vaercoll(pcols), derlt05(pcols), dergt05(pcols), der(pcols), &
+             erlt053d(pcols,pver), ergt053d(pcols,pver), er3d(pcols,pver)
     real(r8) bebglt1(pcols,pver,0:nbmodes), bebggt1(pcols,pver,0:nbmodes), &
-         bebclt1(pcols,pver,0:nbmodes), bebcgt1(pcols,pver,0:nbmodes), & 
-         beoclt1(pcols,pver,0:nbmodes), beocgt1(pcols,pver,0:nbmodes), & 
-         bes4lt1(pcols,pver,0:nbmodes), bes4gt1(pcols,pver,0:nbmodes), &
-         backsc550(pcols,pver,0:nbmodes), backsc550x(pcols,pver,nbmp1:nmodes), &
-         backsc550tot(pcols,pver), ec550_aer(pcols,pver), abs550_aer(pcols,pver), &
-         bs550_aer(pcols,pver)
+             bebclt1(pcols,pver,0:nbmodes), bebcgt1(pcols,pver,0:nbmodes), & 
+             beoclt1(pcols,pver,0:nbmodes), beocgt1(pcols,pver,0:nbmodes), & 
+             bes4lt1(pcols,pver,0:nbmodes), bes4gt1(pcols,pver,0:nbmodes), &
+             backsc550(pcols,pver,0:nbmodes), backsc550x(pcols,pver,nbmp1:nmodes), &
+             backsc550tot(pcols,pver), ec550_aer(pcols,pver), abs550_aer(pcols,pver), &
+             bs550_aer(pcols,pver)
 
     ! Additional AeroCom Phase III output:   
     real(r8) asydry_aer(pcols,pver)    ! dry asymtot in the visible band
     !  
     real(r8) ec550_so4(pcols,pver),ec550_bc(pcols,pver), ec550_pom(pcols,pver), &
-         ec550_ss(pcols,pver), ec550_du(pcols,pver)
+             ec550_ss(pcols,pver), ec550_du(pcols,pver)
 
     real(r8) bebglt1n(pcols,pver,0:nbmodes), bebggt1n(pcols,pver,0:nbmodes), &
-         bebclt1n(pcols,pver,0:nbmodes), bebcgt1n(pcols,pver,0:nbmodes), & 
-         beoclt1n(pcols,pver,0:nbmodes), beocgt1n(pcols,pver,0:nbmodes), & 
-         bes4lt1n(pcols,pver,0:nbmodes), bes4gt1n(pcols,pver,0:nbmodes), &
-         backsc550n(pcols,pver,0:nbmodes) 
+             bebclt1n(pcols,pver,0:nbmodes), bebcgt1n(pcols,pver,0:nbmodes), & 
+             beoclt1n(pcols,pver,0:nbmodes), beocgt1n(pcols,pver,0:nbmodes), & 
+             bes4lt1n(pcols,pver,0:nbmodes), bes4gt1n(pcols,pver,0:nbmodes), &
+             backsc550n(pcols,pver,0:nbmodes) 
 
     real(r8) bext440tot(pcols,pver), babs440tot(pcols,pver), &
-         bext500tot(pcols,pver), babs500tot(pcols,pver), &
-         bext550tot(pcols,pver), babs550tot(pcols,pver), &
-         bext670tot(pcols,pver), babs670tot(pcols,pver), &
-         bext870tot(pcols,pver), babs870tot(pcols,pver), &
-         bebg440tot(pcols,pver), &
-         bebg500tot(pcols,pver), &
-         bebg550tot(pcols,pver), babg550tot(pcols,pver), &
-         bebg670tot(pcols,pver), &
-         bebg870tot(pcols,pver), &
-         bebc440tot(pcols,pver), &
-         bebc500tot(pcols,pver), &
-         bebc550tot(pcols,pver), babc550tot(pcols,pver), &
-         bebc670tot(pcols,pver), &
-         bebc870tot(pcols,pver), &
-         beoc440tot(pcols,pver), &
-         beoc500tot(pcols,pver), &
-         beoc550tot(pcols,pver), baoc550tot(pcols,pver), &
-         beoc670tot(pcols,pver), &
-         beoc870tot(pcols,pver), &
-         besu440tot(pcols,pver), &
-         besu500tot(pcols,pver), &
-         besu550tot(pcols,pver), basu550tot(pcols,pver), &
-         besu670tot(pcols,pver), &
-         besu870tot(pcols,pver)
+             bext500tot(pcols,pver), babs500tot(pcols,pver), &
+             bext550tot(pcols,pver), babs550tot(pcols,pver), &
+             bext670tot(pcols,pver), babs670tot(pcols,pver), &
+             bext870tot(pcols,pver), babs870tot(pcols,pver), &
+             bebg440tot(pcols,pver), &
+             bebg500tot(pcols,pver), &
+             bebg550tot(pcols,pver), babg550tot(pcols,pver), &
+             bebg670tot(pcols,pver), &
+             bebg870tot(pcols,pver), &
+             bebc440tot(pcols,pver), &
+             bebc500tot(pcols,pver), &
+             bebc550tot(pcols,pver), babc550tot(pcols,pver), &
+             bebc670tot(pcols,pver), &
+             bebc870tot(pcols,pver), &
+             beoc440tot(pcols,pver), &
+             beoc500tot(pcols,pver), &
+             beoc550tot(pcols,pver), baoc550tot(pcols,pver), &
+             beoc670tot(pcols,pver), &
+             beoc870tot(pcols,pver), &
+             besu440tot(pcols,pver), &
+             besu500tot(pcols,pver), &
+             besu550tot(pcols,pver), basu550tot(pcols,pver), &
+             besu670tot(pcols,pver), &
+             besu870tot(pcols,pver)
 
     real(r8) bebglt1t(pcols,pver), bebggt1t(pcols,pver), bebclt1t(pcols,pver), & 
-         bebcgt1t(pcols,pver), beoclt1t(pcols,pver), beocgt1t(pcols,pver), &
-         bes4lt1t(pcols,pver), bes4gt1t(pcols,pver)
+             bebcgt1t(pcols,pver), beoclt1t(pcols,pver), beocgt1t(pcols,pver), &
+             bes4lt1t(pcols,pver), bes4gt1t(pcols,pver)
 
     real(r8) be440x(pcols,pver,nbmp1:nmodes), ba440x(pcols,pver,nbmp1:nmodes), &
-         be500x(pcols,pver,nbmp1:nmodes), ba500x(pcols,pver,nbmp1:nmodes), &
-         be550x(pcols,pver,nbmp1:nmodes), ba550x(pcols,pver,nbmp1:nmodes), &
-         be670x(pcols,pver,nbmp1:nmodes), ba670x(pcols,pver,nbmp1:nmodes), &
-         be870x(pcols,pver,nbmp1:nmodes), ba870x(pcols,pver,nbmp1:nmodes), &
-         belt1x(pcols,pver,nbmp1:nmodes), begt1x(pcols,pver,nbmp1:nmodes)
+             be500x(pcols,pver,nbmp1:nmodes), ba500x(pcols,pver,nbmp1:nmodes), &
+             be550x(pcols,pver,nbmp1:nmodes), ba550x(pcols,pver,nbmp1:nmodes), &
+             be670x(pcols,pver,nbmp1:nmodes), ba670x(pcols,pver,nbmp1:nmodes), &
+             be870x(pcols,pver,nbmp1:nmodes), ba870x(pcols,pver,nbmp1:nmodes), &
+             belt1x(pcols,pver,nbmp1:nmodes), begt1x(pcols,pver,nbmp1:nmodes)
+    
+    real(r8) bebc440xt(pcols,pver),babc440xt(pcols,pver), &
+             bebc500xt(pcols,pver),babc500xt(pcols,pver), &
+             bebc550xt(pcols,pver),babc550xt(pcols,pver), &
+             bebc670xt(pcols,pver),babc670xt(pcols,pver), &
+             bebc870xt(pcols,pver),babc870xt(pcols,pver), &
+             beoc440xt(pcols,pver),baoc440xt(pcols,pver), &
+             beoc500xt(pcols,pver),baoc500xt(pcols,pver), &
+             beoc550xt(pcols,pver),baoc550xt(pcols,pver), &
+             beoc670xt(pcols,pver),baoc670xt(pcols,pver), &
+             beoc870xt(pcols,pver),baoc870xt(pcols,pver) 
 
-    real(r8) bebc440xt(pcols,pver), &
-         bebc500xt(pcols,pver), &
-         bebc550xt(pcols,pver),babc550xt(pcols,pver), &
-         bebc670xt(pcols,pver), &
-         bebc870xt(pcols,pver), &
-         beoc440xt(pcols,pver), &
-         beoc500xt(pcols,pver), &
-         beoc550xt(pcols,pver),baoc550xt(pcols,pver), &
-         beoc670xt(pcols,pver), &
-         beoc870xt(pcols,pver) 
     real(r8) bbclt1xt(pcols,pver), &
-         bbcgt1xt(pcols,pver), boclt1xt(pcols,pver), bocgt1xt(pcols,pver)
+             bbcgt1xt(pcols,pver), boclt1xt(pcols,pver), bocgt1xt(pcols,pver)
+
     real(r8) bint440du(pcols,pver), bint500du(pcols,pver), bint550du(pcols,pver), &
-         bint670du(pcols,pver), bint870du(pcols,pver), &
-         bint440ss(pcols,pver), bint500ss(pcols,pver), bint550ss(pcols,pver), &
-         bint670ss(pcols,pver), bint870ss(pcols,pver), &
-         baint550du(pcols,pver), baint550ss(pcols,pver)
+             bint670du(pcols,pver), bint870du(pcols,pver), &
+             bint440ss(pcols,pver), bint500ss(pcols,pver), bint550ss(pcols,pver), &
+             bint670ss(pcols,pver), bint870ss(pcols,pver), &
+             baint550du(pcols,pver), baint550ss(pcols,pver)
+
     real(r8) bedustlt1(pcols,pver), bedustgt1(pcols,pver), &
-         besslt1(pcols,pver), bessgt1(pcols,pver)
+             besslt1(pcols,pver), bessgt1(pcols,pver)
+
     real(r8) dod4403d(pcols,pver), abs4403d(pcols,pver), &
-         dod4403d_ss(pcols,pver),   & ! abs4403d_ss(pcols,pver), & 
-         dod4403d_dust(pcols,pver), & ! abs4403d_dust(pcols,pver), &
-         dod4403d_so4(pcols,pver),  & ! abs4403d_so4(pcols,pver), &
-         dod4403d_bc(pcols,pver),   & ! abs4403d_bc(pcols,pver), &
-         dod4403d_pom(pcols,pver),  & ! abs4403d_pom(pcols,pver), &
-         dod5003d(pcols,pver), abs5003d(pcols,pver), &
-         dod5003d_ss(pcols,pver),   & ! abs5003d_ss(pcols,pver), & 
-         dod5003d_dust(pcols,pver), & ! abs5003d_dust(pcols,pver), &
-         dod5003d_so4(pcols,pver),  & ! abs5003d_so4(pcols,pver), &
-         dod5003d_bc(pcols,pver),   & ! abs5003d_bc(pcols,pver), &
-         dod5003d_pom(pcols,pver),  & ! abs5003d_pom(pcols,pver), &
-         dod5503d(pcols,pver), abs5503d(pcols,pver), abs5503dalt(pcols,pver), &
-         dod5503d_ss(pcols,pver), abs5503d_ss(pcols,pver), & 
-         dod5503d_dust(pcols,pver), abs5503d_dust(pcols,pver), &
-         dod5503d_so4(pcols,pver), abs5503d_so4(pcols,pver), &
-         dod5503d_bc(pcols,pver), abs5503d_bc(pcols,pver), &
-         dod5503d_pom(pcols,pver), abs5503d_pom(pcols,pver), &
-         dod6703d(pcols,pver), abs6703d(pcols,pver), &
-         dod6703d_ss(pcols,pver),   & ! abs6703d_ss(pcols,pver), & 
-         dod6703d_dust(pcols,pver), & ! abs6703d_dust(pcols,pver), &
-         dod6703d_so4(pcols,pver),  & ! abs6703d_so4(pcols,pver), &
-         dod6703d_bc(pcols,pver),   & ! abs6703d_bc(pcols,pver), &
-         dod6703d_pom(pcols,pver),  & ! abs6703d_pom(pcols,pver), &
-         dod8703d(pcols,pver), abs8703d(pcols,pver), &
-         dod8703d_ss(pcols,pver),   & ! abs8703d_ss(pcols,pver), & 
-         dod8703d_dust(pcols,pver), & ! abs8703d_dust(pcols,pver), &
-         dod8703d_so4(pcols,pver),  & ! abs8703d_so4(pcols,pver), &
-         dod8703d_bc(pcols,pver),   & ! abs8703d_bc(pcols,pver), &
-         dod8703d_pom(pcols,pver) ! abs8703d_pom(pcols,pver)
+             dod4403d_ss(pcols,pver),   & ! abs4403d_ss(pcols,pver), & 
+             dod4403d_dust(pcols,pver), & ! abs4403d_dust(pcols,pver), &
+             dod4403d_so4(pcols,pver),  & ! abs4403d_so4(pcols,pver), &
+             dod4403d_bc(pcols,pver),   & ! abs4403d_bc(pcols,pver), &
+             dod4403d_pom(pcols,pver),  & ! abs4403d_pom(pcols,pver), &
+             dod5003d(pcols,pver), abs5003d(pcols,pver), &
+             dod5003d_ss(pcols,pver),   & ! abs5003d_ss(pcols,pver), & 
+             dod5003d_dust(pcols,pver), & ! abs5003d_dust(pcols,pver), &
+             dod5003d_so4(pcols,pver),  & ! abs5003d_so4(pcols,pver), &
+             dod5003d_bc(pcols,pver),   & ! abs5003d_bc(pcols,pver), &
+             dod5003d_pom(pcols,pver),  & ! abs5003d_pom(pcols,pver), &
+             dod5503d(pcols,pver), abs5503d(pcols,pver), abs5503dalt(pcols,pver), &
+             dod5503d_ss(pcols,pver), abs5503d_ss(pcols,pver), & 
+             dod5503d_dust(pcols,pver), abs5503d_dust(pcols,pver), &
+             dod5503d_so4(pcols,pver), abs5503d_so4(pcols,pver), &
+             dod5503d_bc(pcols,pver), abs5503d_bc(pcols,pver), &
+             dod5503d_pom(pcols,pver), abs5503d_pom(pcols,pver), &
+             dod6703d(pcols,pver), abs6703d(pcols,pver), &
+             dod6703d_ss(pcols,pver),   & ! abs6703d_ss(pcols,pver), & 
+             dod6703d_dust(pcols,pver), & ! abs6703d_dust(pcols,pver), &
+             dod6703d_so4(pcols,pver),  & ! abs6703d_so4(pcols,pver), &
+             dod6703d_bc(pcols,pver),   & ! abs6703d_bc(pcols,pver), &
+             dod6703d_pom(pcols,pver),  & ! abs6703d_pom(pcols,pver), &
+             dod8703d(pcols,pver), abs8703d(pcols,pver), &
+             dod8703d_ss(pcols,pver),   & ! abs8703d_ss(pcols,pver), & 
+             dod8703d_dust(pcols,pver), & ! abs8703d_dust(pcols,pver), &
+             dod8703d_so4(pcols,pver),  & ! abs8703d_so4(pcols,pver), &
+             dod8703d_bc(pcols,pver),   & ! abs8703d_bc(pcols,pver), &
+             dod8703d_pom(pcols,pver) ! abs8703d_pom(pcols,pver)
+
     real(r8) dod5503dlt1_ss(pcols,pver), dod5503dgt1_ss(pcols,pver), &
          dod5503dlt1_dust(pcols,pver), dod5503dgt1_dust(pcols,pver), &
          dod5503dlt1_so4(pcols,pver), dod5503dgt1_so4(pcols,pver), &
@@ -340,7 +337,7 @@ contains
          dod550gt1_so4(pcols), dod550lt1_bc(pcols), dod550gt1_bc(pcols), &
          dod550lt1_pom(pcols), dod550gt1_pom(pcols)
     real(r8) abs550_ss(pcols), abs550_dust(pcols), &
-         abs550_so4(pcols), abs550_bc(pcols), abs550_pom(pcols)
+             abs550_so4(pcols), abs550_bc(pcols), abs550_pom(pcols)
     real(r8) batotsw13(pcols,pver), batotlw01(pcols,pver)
     character(len=10) :: modeString
     character(len=20) :: varname
@@ -1045,17 +1042,9 @@ contains
              dload(icol,i)=0.0_r8
           enddo
        enddo
-       bext550n(:,:,:) = 0._r8
-       babs550n(:,:,:) = 0._r8
-       bext440n(:,:,:) = 0._r8
-       babs440n(:,:,:) = 0._r8
-       bext870n(:,:,:) = 0._r8
-       babs870n(:,:,:) = 0._r8
-       babs500n(:,:,:) = 0._r8
-       babs670n(:,:,:) = 0._r8
-       vnbcarr(:,:) =0.0_r8
-       vaitbcarr(:,:) =0.0_r8
-       cknorm(:,:,:) =0.0_r8
+       vnbcarr(:,:)    = 0.0_r8
+       vaitbcarr(:,:)  = 0.0_r8
+       cknorm(:,:,:)   = 0.0_r8
        !000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
        !     AeroCom diagnostics requiring table look-ups with ambient RH. 
@@ -1132,82 +1121,64 @@ contains
           do k=1,pver
              do icol=1,ncol
                 !      total internal extinction and absorption for 0.44, 0.50, 0.55, 0.68 and 0.87 um
-                bext440tot(icol,k)=bext440tot(icol,k)+Nnatk(icol,k,i)*bext440(icol,k,i)
-                babs440tot(icol,k)=babs440tot(icol,k)+Nnatk(icol,k,i)*babs440(icol,k,i)
-                bext500tot(icol,k)=bext500tot(icol,k)+Nnatk(icol,k,i)*bext500(icol,k,i)
-                babs500tot(icol,k)=babs500tot(icol,k)+Nnatk(icol,k,i)*babs500(icol,k,i)
-                bext550tot(icol,k)=bext550tot(icol,k)+Nnatk(icol,k,i)*bext550(icol,k,i)
-                babs550tot(icol,k)=babs550tot(icol,k)+Nnatk(icol,k,i)*babs550(icol,k,i)
-                bext670tot(icol,k)=bext670tot(icol,k)+Nnatk(icol,k,i)*bext670(icol,k,i)
-                babs670tot(icol,k)=babs670tot(icol,k)+Nnatk(icol,k,i)*babs670(icol,k,i)
-                bext870tot(icol,k)=bext870tot(icol,k)+Nnatk(icol,k,i)*bext870(icol,k,i)
-                babs870tot(icol,k)=babs870tot(icol,k)+Nnatk(icol,k,i)*babs870(icol,k,i)
-                backsc550tot(icol,k)=backsc550tot(icol,k)+Nnatk(icol,k,i)*backsc550(icol,k,i)
+                bext440tot(icol,k)=bext440tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bext440(icol,k,i)
+                babs440tot(icol,k)=babs440tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs440(icol,k,i)
+                bext500tot(icol,k)=bext500tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bext500(icol,k,i)
+                babs500tot(icol,k)=babs500tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs500(icol,k,i)
+                bext550tot(icol,k)=bext550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bext550(icol,k,i)
+                babs550tot(icol,k)=babs550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs550(icol,k,i)
+                bext670tot(icol,k)=bext670tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bext670(icol,k,i)
+                babs670tot(icol,k)=babs670tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs670(icol,k,i)
+                bext870tot(icol,k)=bext870tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bext870(icol,k,i)
+                babs870tot(icol,k)=babs870tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs870(icol,k,i)
+                backsc550tot(icol,k)=backsc550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%backsc550(icol,k,i)
 
                 !      extinction and absorption for 0.44, 0.50, 0.55 (no abs), 0.68 and 0.87 um
                 !      for the whole background aerosol (icluding SO4,BC, and OC for modes 0-5)
-                bebg440tot(icol,k)=bebg440tot(icol,k)+Nnatk(icol,k,i)*bebg440(icol,k,i)
-                bebg500tot(icol,k)=bebg500tot(icol,k)+Nnatk(icol,k,i)*bebg500(icol,k,i)
-                bebg550tot(icol,k)=bebg550tot(icol,k)+Nnatk(icol,k,i)*bebg550(icol,k,i)
-                babg550tot(icol,k)=babg550tot(icol,k)+Nnatk(icol,k,i)*babg550(icol,k,i)
-                bebg670tot(icol,k)=bebg670tot(icol,k)+Nnatk(icol,k,i)*bebg670(icol,k,i)
-                bebg870tot(icol,k)=bebg870tot(icol,k)+Nnatk(icol,k,i)*bebg870(icol,k,i)
-                besu440tot(icol,k)=besu440tot(icol,k)+Nnatk(icol,k,i)*besu440(icol,k,i)
-                besu500tot(icol,k)=besu500tot(icol,k)+Nnatk(icol,k,i)*besu500(icol,k,i)
-                besu550tot(icol,k)=besu550tot(icol,k)+Nnatk(icol,k,i)*besu550(icol,k,i)
-                basu550tot(icol,k)=basu550tot(icol,k)+Nnatk(icol,k,i)*basu550(icol,k,i)
-                besu670tot(icol,k)=besu670tot(icol,k)+Nnatk(icol,k,i)*besu670(icol,k,i)
-                besu870tot(icol,k)=besu870tot(icol,k)+Nnatk(icol,k,i)*besu870(icol,k,i)
+                bebg440tot(icol,k)=bebg440tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebg440(icol,k,i)
+                bebg500tot(icol,k)=bebg500tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebg500(icol,k,i)
+                bebg550tot(icol,k)=bebg550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebg550(icol,k,i)
+                babg550tot(icol,k)=babg550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babg550(icol,k,i)
+                bebg670tot(icol,k)=bebg670tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebg670(icol,k,i)
+                bebg870tot(icol,k)=bebg870tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebg870(icol,k,i)
+                besu440tot(icol,k)=besu440tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%besu440(icol,k,i)
+                besu500tot(icol,k)=besu500tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%besu500(icol,k,i)
+                besu550tot(icol,k)=besu550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%besu550(icol,k,i)
+                basu550tot(icol,k)=basu550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%basu550(icol,k,i)
+                besu670tot(icol,k)=besu670tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%besu670(icol,k,i)
+                besu870tot(icol,k)=besu870tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%besu870(icol,k,i)
                 !
                 !      Condensed OC on modes 1-4 and coagulated BC and OC on modes 5-10:
                 if(i>=1) then
-                   bebc440tot(icol,k)=bebc440tot(icol,k)+Nnatk(icol,k,i)*bebc440(icol,k,i)
-                   !       babc440tot(icol,k)=babc440tot(icol,k)+Nnatk(icol,k,i)*babc440(icol,k,i)
-                   bebc500tot(icol,k)=bebc500tot(icol,k)+Nnatk(icol,k,i)*bebc500(icol,k,i)
-                   !       babc500tot(icol,k)=babc500tot(icol,k)+Nnatk(icol,k,i)*babc500(icol,k,i)
-                   bebc550tot(icol,k)=bebc550tot(icol,k)+Nnatk(icol,k,i)*bebc550(icol,k,i)
-                   babc550tot(icol,k)=babc550tot(icol,k)+Nnatk(icol,k,i)*babc550(icol,k,i)
-                   bebc670tot(icol,k)=bebc670tot(icol,k)+Nnatk(icol,k,i)*bebc670(icol,k,i)
-                   !       babc670tot(icol,k)=babc670tot(icol,k)+Nnatk(icol,k,i)*babc670(icol,k,i)
-                   bebc870tot(icol,k)=bebc870tot(icol,k)+Nnatk(icol,k,i)*bebc870(icol,k,i)
-                   !       babc870tot(icol,k)=babc870tot(icol,k)+Nnatk(icol,k,i)*babc870(icol,k,i)
-                   beoc440tot(icol,k)=beoc440tot(icol,k)+Nnatk(icol,k,i)*beoc440(icol,k,i)
-                   !       baoc440tot(icol,k)=baoc440tot(icol,k)+Nnatk(icol,k,i)*baoc440(icol,k,i)
-                   beoc500tot(icol,k)=beoc500tot(icol,k)+Nnatk(icol,k,i)*beoc500(icol,k,i)
-                   !       baoc500tot(icol,k)=baoc500tot(icol,k)+Nnatk(icol,k,i)*baoc500(icol,k,i)
-                   beoc550tot(icol,k)=beoc550tot(icol,k)+Nnatk(icol,k,i)*beoc550(icol,k,i)
-                   baoc550tot(icol,k)=baoc550tot(icol,k)+Nnatk(icol,k,i)*baoc550(icol,k,i)
-                   beoc670tot(icol,k)=beoc670tot(icol,k)+Nnatk(icol,k,i)*beoc670(icol,k,i)
-                   !       baoc670tot(icol,k)=baoc670tot(icol,k)+Nnatk(icol,k,i)*baoc670(icol,k,i)
-                   beoc870tot(icol,k)=beoc870tot(icol,k)+Nnatk(icol,k,i)*beoc870(icol,k,i)
-                   !       baoc870tot(icol,k)=baoc870tot(icol,k)+Nnatk(icol,k,i)*baoc870(icol,k,i)
+                   bebc440tot(icol,k)=bebc440tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebc440(icol,k,i)
+                   bebc500tot(icol,k)=bebc500tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebc500(icol,k,i)
+                   bebc550tot(icol,k)=bebc550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebc550(icol,k,i)
+                   babc550tot(icol,k)=babc550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babc550(icol,k,i)
+                   bebc670tot(icol,k)=bebc670tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebc670(icol,k,i)
+                   bebc870tot(icol,k)=bebc870tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%bebc870(icol,k,i)
+                   beoc440tot(icol,k)=beoc440tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%beoc440(icol,k,i)
+                   beoc500tot(icol,k)=beoc500tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%beoc500(icol,k,i)
+                   beoc550tot(icol,k)=beoc550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%beoc550(icol,k,i)
+                   baoc550tot(icol,k)=baoc550tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%baoc550(icol,k,i)
+                   beoc670tot(icol,k)=beoc670tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%beoc670(icol,k,i)
+                   beoc870tot(icol,k)=beoc870tot(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%beoc870(icol,k,i)
                 endif  ! i>=1
                 if(i==6.or.i==7) then
-                   bedustlt1(icol,k)=bedustlt1(icol,k) &
-                        +Nnatk(icol,k,i)*bebglt1(icol,k,i)
-                   bedustgt1(icol,k)=bedustgt1(icol,k) &
-                        +Nnatk(icol,k,i)*bebggt1(icol,k,i)
+                   bedustlt1(icol,k)=bedustlt1(icol,k) +Nnatk(icol,k,i)*bebglt1(icol,k,i)
+                   bedustgt1(icol,k)=bedustgt1(icol,k) +Nnatk(icol,k,i)*bebggt1(icol,k,i)
                 elseif(i>=8.and.i<=10) then
-                   besslt1(icol,k)=besslt1(icol,k) &
-                        +Nnatk(icol,k,i)*bebglt1(icol,k,i)
-                   bessgt1(icol,k)=bessgt1(icol,k) &
-                        +Nnatk(icol,k,i)*bebggt1(icol,k,i)
+                   besslt1(icol,k)=besslt1(icol,k) +Nnatk(icol,k,i)*bebglt1(icol,k,i)
+                   bessgt1(icol,k)=bessgt1(icol,k) +Nnatk(icol,k,i)*bebggt1(icol,k,i)
                 endif
                 !      Condensed/coagulated SO4 on all modes 1-10, and wet-phase SO4 on modes 4-10:
-                bes4lt1t(icol,k)=bes4lt1t(icol,k) &
-                     +Nnatk(icol,k,i)*bes4lt1(icol,k,i)
-                bes4gt1t(icol,k)=bes4gt1t(icol,k) &
-                     +Nnatk(icol,k,i)*bes4gt1(icol,k,i)
+                bes4lt1t(icol,k)=bes4lt1t(icol,k) +Nnatk(icol,k,i)*bes4lt1(icol,k,i)
+                bes4gt1t(icol,k)=bes4gt1t(icol,k) +Nnatk(icol,k,i)*bes4gt1(icol,k,i)
                 !      Condensed OC on mode 1 and coagulated BC and OC on modes 5-10:
                 if(i>=1) then
-                   bebclt1t(icol,k)=bebclt1t(icol,k) &
-                        +Nnatk(icol,k,i)*bebclt1(icol,k,i)
-                   bebcgt1t(icol,k)=bebcgt1t(icol,k) &
-                        +Nnatk(icol,k,i)*bebcgt1(icol,k,i)
-                   beoclt1t(icol,k)=beoclt1t(icol,k) &
-                        +Nnatk(icol,k,i)*beoclt1(icol,k,i)
-                   beocgt1t(icol,k)=beocgt1t(icol,k) &
-                        +Nnatk(icol,k,i)*beocgt1(icol,k,i)
+                   bebclt1t(icol,k)=bebclt1t(icol,k) +Nnatk(icol,k,i)*bebclt1(icol,k,i)
+                   bebcgt1t(icol,k)=bebcgt1t(icol,k) +Nnatk(icol,k,i)*bebcgt1(icol,k,i)
+                   beoclt1t(icol,k)=beoclt1t(icol,k) +Nnatk(icol,k,i)*beoclt1(icol,k,i)
+                   beocgt1t(icol,k)=beocgt1t(icol,k) +Nnatk(icol,k,i)*beocgt1(icol,k,i)
                 endif   ! i>=1
              end do   ! icol
           enddo     ! k
@@ -1217,55 +1188,65 @@ contains
        !      in the internal mixture are
        do k=1,pver
           do icol=1,ncol
-             bint440du(icol,k)=Nnatk(icol,k,6)*bebg440(icol,k,6) &
-                  +Nnatk(icol,k,7)*bebg440(icol,k,7)
-             bint500du(icol,k)=Nnatk(icol,k,6)*bebg500(icol,k,6) &
-                  +Nnatk(icol,k,7)*bebg500(icol,k,7)
-             bint550du(icol,k)=Nnatk(icol,k,6)*bebg550(icol,k,6) &
-                  +Nnatk(icol,k,7)*bebg550(icol,k,7)
-             bint670du(icol,k)=Nnatk(icol,k,6)*bebg670(icol,k,6) &
-                  +Nnatk(icol,k,7)*bebg670(icol,k,7)
-             bint870du(icol,k)=Nnatk(icol,k,6)*bebg870(icol,k,6) &
-                  +Nnatk(icol,k,7)*bebg870(icol,k,7)
-             bint440ss(icol,k)=Nnatk(icol,k,8)*bebg440(icol,k,8) &
-                  +Nnatk(icol,k,9)*bebg440(icol,k,9) &
-                  +Nnatk(icol,k,10)*bebg440(icol,k,10)
-             bint500ss(icol,k)=Nnatk(icol,k,8)*bebg500(icol,k,8) &
-                  +Nnatk(icol,k,9)*bebg500(icol,k,9) &
-                  +Nnatk(icol,k,10)*bebg500(icol,k,10)
-             bint550ss(icol,k)=Nnatk(icol,k,8)*bebg550(icol,k,8) &
-                  +Nnatk(icol,k,9)*bebg550(icol,k,9) &
-                  +Nnatk(icol,k,10)*bebg550(icol,k,10)
-             bint670ss(icol,k)=Nnatk(icol,k,8)*bebg670(icol,k,8) &
-                  +Nnatk(icol,k,9)*bebg670(icol,k,9) &
-                  +Nnatk(icol,k,10)*bebg670(icol,k,10)
-             bint870ss(icol,k)=Nnatk(icol,k,8)*bebg870(icol,k,8) &
-                  +Nnatk(icol,k,9)*bebg870(icol,k,9) &
-                  +Nnatk(icol,k,10)*bebg870(icol,k,10)
-             baint550du(icol,k)=Nnatk(icol,k,6)*babg550(icol,k,6) &
-                  +Nnatk(icol,k,7)*babg550(icol,k,7)
-             baint550ss(icol,k)=Nnatk(icol,k,8)*babg550(icol,k,8) &
-                  +Nnatk(icol,k,9)*babg550(icol,k,9) &
-                  +Nnatk(icol,k,10)*babg550(icol,k,10)
+             bint440du(icol,k)=Nnatk(icol,k,6)*extinction_coeffs%bebg440(icol,k,6) &
+                             + Nnatk(icol,k,7)*extinction_coeffs%bebg440(icol,k,7)
+             bint500du(icol,k)=Nnatk(icol,k,6)*extinction_coeffs%bebg500(icol,k,6) &
+                             + Nnatk(icol,k,7)*extinction_coeffs%bebg500(icol,k,7)
+             bint550du(icol,k)=Nnatk(icol,k,6)*extinction_coeffs%bebg550(icol,k,6) &
+                             + Nnatk(icol,k,7)*extinction_coeffs%bebg550(icol,k,7)
+             bint670du(icol,k)=Nnatk(icol,k,6)*extinction_coeffs%bebg670(icol,k,6) &
+                             + Nnatk(icol,k,7)*extinction_coeffs%bebg670(icol,k,7)
+             bint870du(icol,k)=Nnatk(icol,k,6)*extinction_coeffs%bebg870(icol,k,6) &
+                             + Nnatk(icol,k,7)*extinction_coeffs%bebg870(icol,k,7)
+             bint440ss(icol,k)=Nnatk(icol,k,8)*extinction_coeffs%bebg440(icol,k,8) &
+                             + Nnatk(icol,k,9)*extinction_coeffs%bebg440(icol,k,9) &
+                             + Nnatk(icol,k,10)*extinction_coeffs%bebg440(icol,k,10)
+             bint500ss(icol,k)=Nnatk(icol,k,8)*extinction_coeffs%bebg500(icol,k,8) &
+                             + Nnatk(icol,k,9)*extinction_coeffs%bebg500(icol,k,9) &
+                             + Nnatk(icol,k,10)*extinction_coeffs%bebg500(icol,k,10)
+             bint550ss(icol,k)=Nnatk(icol,k,8)*extinction_coeffs%bebg550(icol,k,8) &
+                             + Nnatk(icol,k,9)*extinction_coeffs%bebg550(icol,k,9) &
+                             + Nnatk(icol,k,10)*extinction_coeffs%bebg550(icol,k,10)
+             bint670ss(icol,k)=Nnatk(icol,k,8)*extinction_coeffs%bebg670(icol,k,8) &
+                             + Nnatk(icol,k,9)*extinction_coeffs%bebg670(icol,k,9) &
+                             + Nnatk(icol,k,10)*extinction_coeffs%bebg670(icol,k,10)
+             bint870ss(icol,k)=Nnatk(icol,k,8)*extinction_coeffs%bebg870(icol,k,8) &
+                             + Nnatk(icol,k,9)*extinction_coeffs%bebg870(icol,k,9) &
+                             + Nnatk(icol,k,10)*extinction_coeffs%bebg870(icol,k,10)
+             baint550du(icol,k)=Nnatk(icol,k,6)*extinction_coeffs%babg550(icol,k,6) &
+                              + Nnatk(icol,k,7)*extinction_coeffs%babg550(icol,k,7)
+             baint550ss(icol,k)=Nnatk(icol,k,8)*extinction_coeffs%babg550(icol,k,8) &
+                              + Nnatk(icol,k,9)*extinction_coeffs%babg550(icol,k,9) &
+                              + Nnatk(icol,k,10)*extinction_coeffs%babg550(icol,k,10)
           end do
        enddo
+
+       ! Need to make the following substitutions
+       ! bebglt1 bebglt1n => extinction_coeffs%bebg550lt1
+       ! bebggt1 bebggt1n => extinction_coeffs%bebg550gt1
+       ! bebclt1 bebclt1n => extinction_coeffs%bebc550lt1
+       ! bebcgt1 bebcgt1n => extinction_coeffs%bebc550gt1
+       ! beoclt1 beoclt1n => extinction_coeffs%beoc550lt1
+       ! beocgt1 beocgt1n => extinction_coeffs%beoc550gt1
+       ! bes4lt1 bes4lt1n => extinction_coeffs%besu550lt1
+       ! bes4gt1 bes4gt1n => extinction_coeffs%besu550gt1
 
        do i=11,14
           do k=1,pver
              do icol=1,ncol
-                be440x(icol,k,i)=bext440n(icol,k,i-10)
-                ba440x(icol,k,i)=babs440n(icol,k,i-10)
-                be500x(icol,k,i)=bext500n(icol,k,i-10)
-                ba500x(icol,k,i)=babs500n(icol,k,i-10)
-                be550x(icol,k,i)=bext550n(icol,k,i-10)
-                ba550x(icol,k,i)=babs550n(icol,k,i-10)
-                be670x(icol,k,i)=bext670n(icol,k,i-10)
-                ba670x(icol,k,i)=babs670n(icol,k,i-10)
-                be870x(icol,k,i)=bext870n(icol,k,i-10)
-                ba870x(icol,k,i)=babs870n(icol,k,i-10)
-                belt1x(icol,k,i)=bebglt1n(icol,k,i-10)
-                begt1x(icol,k,i)=bebggt1n(icol,k,i-10)
-                backsc550x(icol,k,i)=backsc550n(icol,k,i-10)
+                be440x(icol,k,i) = extinction_coeffsn%bext440(icol,k,i-10)
+                ba440x(icol,k,i) = extinction_coeffsn%babs440(icol,k,i-10)
+                be500x(icol,k,i) = extinction_coeffsn%bext500(icol,k,i-10)
+                ba500x(icol,k,i) = extinction_coeffsn%babs500(icol,k,i-10)
+                be550x(icol,k,i) = extinction_coeffsn%bext550(icol,k,i-10)
+                ba550x(icol,k,i) = extinction_coeffsn%babs550(icol,k,i-10)
+                be670x(icol,k,i) = extinction_coeffsn%bext670(icol,k,i-10)
+                ba670x(icol,k,i) = extinction_coeffsn%babs670(icol,k,i-10)
+                be870x(icol,k,i) = extinction_coeffsn%bext870(icol,k,i-10)
+                ba870x(icol,k,i) = extinction_coeffsn%babs870(icol,k,i-10)
+                belt1x(icol,k,i) = extinction_coeffsn%bebg550lt1(icol,k,i-10)
+                begt1x(icol,k,i) = extinction_coeffsn%bebg550gt1(icol,k,i-10)
+                backsc550x(icol,k,i) = extinction_coeffsn%backsc550(icol,k,i-10)
              end do
           enddo
        enddo
@@ -1279,29 +1260,29 @@ contains
                   +(1.0_r8-fnbc(icol,k))*rhopart(l_bc_ni)/rhopart(l_om_ni))
              vnbc = vnbcarr(icol,k)            
              bebc440xt(icol,k) =Nnatk(icol,k,12)*be440x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*be440x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*be440x(icol,k,14)
              babc440xt(icol,k) =Nnatk(icol,k,12)*ba440x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*ba440x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*ba440x(icol,k,14)
              bebc500xt(icol,k) =Nnatk(icol,k,12)*be500x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*be500x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*be500x(icol,k,14)
              babc500xt(icol,k) =Nnatk(icol,k,12)*ba500x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*ba500x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*ba500x(icol,k,14)
              bebc550xt(icol,k) =Nnatk(icol,k,12)*be550x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*be550x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*be550x(icol,k,14)
              babc550xt(icol,k) =Nnatk(icol,k,12)*ba550x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*ba550x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*ba550x(icol,k,14)
              bebc670xt(icol,k) =Nnatk(icol,k,12)*be670x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*be670x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*be670x(icol,k,14)
              babc670xt(icol,k) =Nnatk(icol,k,12)*ba670x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*ba670x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*ba670x(icol,k,14)
              bebc870xt(icol,k) =Nnatk(icol,k,12)*be870x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*be870x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*be870x(icol,k,14)
              babc870xt(icol,k) =Nnatk(icol,k,12)*ba870x(icol,k,12)  &
-                  +vnbc*Nnatk(icol,k,14)*ba870x(icol,k,14)
+                          +vnbc*Nnatk(icol,k,14)*ba870x(icol,k,14)
              bbclt1xt(icol,k)=Nnatk(icol,k,12)*belt1x(icol,k,12) &
-                  +vnbc*Nnatk(icol,k,14)*belt1x(icol,k,14)
+                        +vnbc*Nnatk(icol,k,14)*belt1x(icol,k,14)
              bbcgt1xt(icol,k)=Nnatk(icol,k,12)*begt1x(icol,k,12) &
-                  +vnbc*Nnatk(icol,k,14)*begt1x(icol,k,14)
+                        +vnbc*Nnatk(icol,k,14)*begt1x(icol,k,14)
              !OC
              beoc440xt(icol,k) = &
                   +(1.0_r8-vnbc)*Nnatk(icol,k,14)*be440x(icol,k,14) 
@@ -1430,78 +1411,72 @@ contains
              !SO4
              !soa: *(1-v_soana) for the sulfate volume fraction of mode 1
              dod4403d_so4(icol,k) = (besu440tot(icol,k)                 &       ! condensate )
-                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*bebg440(icol,k,1) &       ! background, SO4(Ait) mode (1)
-                  + Nnatk(icol,k,5)*bebg440(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
+                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*extinction_coeffs%bebg440(icol,k,1) &       ! background, SO4(Ait) mode (1)
+                  + Nnatk(icol,k,5)*extinction_coeffs%bebg440(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
              dod5003d_so4(icol,k) = (besu500tot(icol,k)                 &       ! condensate 
-                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*bebg500(icol,k,1) &       ! background, SO4(Ait) mode (1)
-                  + Nnatk(icol,k,5)*bebg500(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
+                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*extinction_coeffs%bebg500(icol,k,1) &       ! background, SO4(Ait) mode (1)
+                  + Nnatk(icol,k,5)*extinction_coeffs%bebg500(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
              dod5503d_so4(icol,k) = (besu550tot(icol,k)                   &     ! condensate 
-                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*bebg550(icol,k,1) &       ! background, SO4(Ait) mode (1)
-                  + Nnatk(icol,k,5)*bebg550(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
+                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*extinction_coeffs%bebg550(icol,k,1) &       ! background, SO4(Ait) mode (1)
+                  + Nnatk(icol,k,5)*extinction_coeffs%bebg550(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
              abs5503d_so4(icol,k) = (basu550tot(icol,k)                 &       ! condensate )
-                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*babg550(icol,k,1) &       ! background, SO4(Ait) mode (1)
-                  + Nnatk(icol,k,5)*babg550(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
+                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*extinction_coeffs%babg550(icol,k,1) &       ! background, SO4(Ait) mode (1)
+                  + Nnatk(icol,k,5)*extinction_coeffs%babg550(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
              dod6703d_so4(icol,k) = (besu670tot(icol,k)                   &     ! condensate
-                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*bebg670(icol,k,1) &       ! background, SO4(Ait) mode (1)
-                  + Nnatk(icol,k,5)*bebg670(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
+                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*extinction_coeffs%bebg670(icol,k,1) &       ! background, SO4(Ait) mode (1)
+                  + Nnatk(icol,k,5)*extinction_coeffs%bebg670(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
              dod8703d_so4(icol,k) = (besu870tot(icol,k)                   &     ! condensate 
-                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*bebg870(icol,k,1) &       ! background, SO4(Ait) mode (1)
-                  + Nnatk(icol,k,5)*bebg870(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
+                  +(1.0_r8-v_soana(icol,k))*Nnatk(icol,k,1)*extinction_coeffs%bebg870(icol,k,1) &       ! background, SO4(Ait) mode (1)
+                  + Nnatk(icol,k,5)*extinction_coeffs%bebg870(icol,k,5))*deltah ! background, SO4(Ait75) mode (5)
              !BC
              vaitbcarr(icol,k) = faitbc(icol,k)/(faitbc(icol,k) &
                   +(1.0_r8-faitbc(icol,k))*rhopart(l_bc_ni)/rhopart(l_om_ni))
              vaitbc = vaitbcarr(icol,k)
              dod4403d_bc(icol,k) = (bebc440tot(icol,k)+bebc440xt(icol,k)  &     ! coagulated + n-mode BC (12)
-                  + Nnatk(icol,k,2)*bebg440(icol,k,2) &       ! background, BC(Ait) mode (2)
-                  + vaitbc*Nnatk(icol,k,4)*bebg440(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
-                  + Nnatk(icol,k,0)*bebg440(icol,k,0))*deltah ! background, BC(ax) mode (0)
+                  + Nnatk(icol,k,2)*extinction_coeffs%bebg440(icol,k,2) &       ! background, BC(Ait) mode (2)
+                  + vaitbc*Nnatk(icol,k,4)*extinction_coeffs%bebg440(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,0)*extinction_coeffs%bebg440(icol,k,0))*deltah ! background, BC(ax) mode (0)
              dod5003d_bc(icol,k) = (bebc500tot(icol,k)+bebc500xt(icol,k)  &     ! coagulated + n-mode BC (12)
-                  + Nnatk(icol,k,2)*bebg500(icol,k,2) &       ! background, BC(Ait) mode (2)
-                  + vaitbc*Nnatk(icol,k,4)*bebg500(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
-                  + Nnatk(icol,k,0)*bebg500(icol,k,0))*deltah ! background, BC(ax) mode (0)
+                  + Nnatk(icol,k,2)*extinction_coeffs%bebg500(icol,k,2) &       ! background, BC(Ait) mode (2)
+                  + vaitbc*Nnatk(icol,k,4)*extinction_coeffs%bebg500(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,0)*extinction_coeffs%bebg500(icol,k,0))*deltah ! background, BC(ax) mode (0)
              dod5503d_bc(icol,k) = (bebc550tot(icol,k)+bebc550xt(icol,k)  &     ! coagulated + n-mode BC (12)
-                  + Nnatk(icol,k,2)*bebg550(icol,k,2) &       ! background, BC(Ait) mode (2)
-                  + vaitbc*Nnatk(icol,k,4)*bebg550(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
-                  + Nnatk(icol,k,0)*bebg550(icol,k,0))*deltah ! background, BC(ax) mode (0)
+                  + Nnatk(icol,k,2)*extinction_coeffs%bebg550(icol,k,2) &       ! background, BC(Ait) mode (2)
+                  + vaitbc*Nnatk(icol,k,4)*extinction_coeffs%bebg550(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,0)*extinction_coeffs%bebg550(icol,k,0))*deltah ! background, BC(ax) mode (0)
              abs5503d_bc(icol,k) = (babc550tot(icol,k)+babc550xt(icol,k)  &     ! coagulated + n-mode BC (12)
-                  + Nnatk(icol,k,2)*babg550(icol,k,2) &       ! background, BC(Ait) mode (2)
-                  + vaitbc*Nnatk(icol,k,4)*babg550(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
-                  + Nnatk(icol,k,0)*babg550(icol,k,0))*deltah ! background, BC(ax) mode (0)
+                  + Nnatk(icol,k,2)*extinction_coeffs%babg550(icol,k,2) &       ! background, BC(Ait) mode (2)
+                  + vaitbc*Nnatk(icol,k,4)*extinction_coeffs%babg550(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,0)*extinction_coeffs%babg550(icol,k,0))*deltah ! background, BC(ax) mode (0)
              dod6703d_bc(icol,k) = (bebc670tot(icol,k)+bebc670xt(icol,k)  &     ! coagulated + n-mode BC (12)
-                  + Nnatk(icol,k,2)*bebg670(icol,k,2) &       ! background, BC(Ait) mode (2)
-                  + vaitbc*Nnatk(icol,k,4)*bebg670(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
-                  + Nnatk(icol,k,0)*bebg670(icol,k,0))*deltah ! background, BC(ax) mode (0)
+                  + Nnatk(icol,k,2)*extinction_coeffs%bebg670(icol,k,2) &       ! background, BC(Ait) mode (2)
+                  + vaitbc*Nnatk(icol,k,4)*extinction_coeffs%bebg670(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,0)*extinction_coeffs%bebg670(icol,k,0))*deltah ! background, BC(ax) mode (0)
              dod8703d_bc(icol,k) = (bebc870tot(icol,k)+bebc870xt(icol,k)  &     ! coagulated + n-mode BC (12)
-                  + Nnatk(icol,k,2)*bebg870(icol,k,2) &       ! background, BC(Ait) mode (2)
-                  + vaitbc*Nnatk(icol,k,4)*bebg870(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
-                  + Nnatk(icol,k,0)*bebg870(icol,k,0))*deltah ! background, BC(ax) mode (0)
+                  + Nnatk(icol,k,2)*extinction_coeffs%bebg870(icol,k,2) &       ! background, BC(Ait) mode (2)
+                  + vaitbc*Nnatk(icol,k,4)*extinction_coeffs%bebg870(icol,k,4) &       ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,0)*extinction_coeffs%bebg870(icol,k,0))*deltah ! background, BC(ax) mode (0)
              !OC        
              !soa + v_soana part of mode 11 for the OC volume fraction of that mode
              ! v_soana(icol,k)
              dod4403d_pom(icol,k) = (beoc440tot(icol,k)+beoc440xt(icol,k) &     ! coagulated + n-mode OC&BC (14)
-                  + Nnatk(icol,k,1)*bebg440(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
-                                !-3                                  + Nnatk(icol,k,3)*bebg440(icol,k,3) &       ! background, OC(Ait) mode (3)
-                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*bebg440(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,1)*extinction_coeffs%bebg440(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
+                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*extinction_coeffs%bebg440(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
              dod5003d_pom(icol,k) = (beoc500tot(icol,k)+beoc500xt(icol,k) &     ! coagulated + n-mode OC&BC (14)
-                  + Nnatk(icol,k,1)*bebg500(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
-                                !-3                                  + Nnatk(icol,k,3)*bebg500(icol,k,3) &       ! background, OC(Ait) mode (3)
-                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*bebg500(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,1)*extinction_coeffs%bebg500(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
+                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*extinction_coeffs%bebg500(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
              dod5503d_pom(icol,k) = (beoc550tot(icol,k)+beoc550xt(icol,k) &     ! coagulated + n-mode OC&BC (14)
-                  + Nnatk(icol,k,1)*bebg550(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
-                                !-3                                  + Nnatk(icol,k,3)*bebg550(icol,k,3) &       ! background, OC(Ait) mode (3)
-                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*bebg550(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,1)*extinction_coeffs%bebg550(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
+                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*extinction_coeffs%bebg550(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
              abs5503d_pom(icol,k) = (baoc550tot(icol,k)+baoc550xt(icol,k) &     ! coagulated + n-mode OC&BC (14)
-                  + Nnatk(icol,k,1)*babg550(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
-                                !-3                                  + Nnatk(icol,k,3)*babg550(icol,k,3) &       ! background, OC(Ait) mode (3)
-                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*babg550(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,1)*extinction_coeffs%babg550(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
+                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*extinction_coeffs%babg550(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
              dod6703d_pom(icol,k) = (beoc670tot(icol,k)+beoc670xt(icol,k) &     ! coagulated + n-mode OC&BC (14)
-                  + Nnatk(icol,k,1)*bebg670(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
-                                !-3                                  + Nnatk(icol,k,3)*bebg670(icol,k,3) &       ! background, OC(Ait) mode (3)
-                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*bebg670(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,1)*extinction_coeffs%bebg670(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
+                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*extinction_coeffs%bebg670(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
              dod8703d_pom(icol,k) = (beoc870tot(icol,k)+beoc870xt(icol,k) &     ! coagulated + n-mode OC&BC (14)
-                  + Nnatk(icol,k,1)*bebg870(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
-                                !-3                                  + Nnatk(icol,k,3)*bebg870(icol,k,3) &       ! background, OC(Ait) mode (3)
-                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*bebg870(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
+                  + Nnatk(icol,k,1)*extinction_coeffs%bebg870(icol,k,1)*v_soana(icol,k) & ! SOA fraction of mode 1
+                  + (1.0_r8-vaitbc)*Nnatk(icol,k,4)*extinction_coeffs%bebg870(icol,k,4))*deltah ! background in OC&BC(Ait) mode (4)
 
              ec550_so4(icol,k) = 1.e-3*dod5503d_so4(icol,k)/deltah
              ec550_bc(icol,k)  = 1.e-3*dod5503d_bc(icol,k)/deltah
@@ -1534,18 +1509,18 @@ contains
              !   (Note: Local abs550alt is up to 6% larger (annually averaged) in typical b.b.
              !   regions, compared to abs550. This is most likely most correct, but should be checked!)
              do i=0,10
-                abs4403d(icol,k) = abs4403d(icol,k)+Nnatk(icol,k,i)*babs440(icol,k,i)*deltah
-                abs5003d(icol,k) = abs5003d(icol,k)+Nnatk(icol,k,i)*babs500(icol,k,i)*deltah
-                abs6703d(icol,k) = abs6703d(icol,k)+Nnatk(icol,k,i)*babs670(icol,k,i)*deltah
-                abs8703d(icol,k) = abs8703d(icol,k)+Nnatk(icol,k,i)*babs870(icol,k,i)*deltah
-                abs5503dalt(icol,k) = abs5503dalt(icol,k)+Nnatk(icol,k,i)*babs550(icol,k,i)*deltah
+                abs4403d(icol,k) = abs4403d(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs440(icol,k,i)*deltah
+                abs5003d(icol,k) = abs5003d(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs500(icol,k,i)*deltah
+                abs6703d(icol,k) = abs6703d(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs670(icol,k,i)*deltah
+                abs8703d(icol,k) = abs8703d(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs870(icol,k,i)*deltah
+                abs5503dalt(icol,k) = abs5503dalt(icol,k)+Nnatk(icol,k,i)*extinction_coeffs%babs550(icol,k,i)*deltah
              enddo
              do i=11,14
-                abs4403d(icol,k) = abs4403d(icol,k)+Nnatk(icol,k,i)*babs440n(icol,k,i-10)*deltah
-                abs5003d(icol,k) = abs5003d(icol,k)+Nnatk(icol,k,i)*babs500n(icol,k,i-10)*deltah
-                abs6703d(icol,k) = abs6703d(icol,k)+Nnatk(icol,k,i)*babs670n(icol,k,i-10)*deltah
-                abs8703d(icol,k) = abs8703d(icol,k)+Nnatk(icol,k,i)*babs870n(icol,k,i-10)*deltah
-                abs5503dalt(icol,k) = abs5503dalt(icol,k)+Nnatk(icol,k,i)*babs550n(icol,k,i-10)*deltah
+                abs4403d(icol,k) = abs4403d(icol,k)+Nnatk(icol,k,i)*extinction_coeffsn%babs440(icol,k,i-10)*deltah
+                abs5003d(icol,k) = abs5003d(icol,k)+Nnatk(icol,k,i)*extinction_coeffsn%babs500(icol,k,i-10)*deltah
+                abs6703d(icol,k) = abs6703d(icol,k)+Nnatk(icol,k,i)*extinction_coeffsn%babs670(icol,k,i-10)*deltah
+                abs8703d(icol,k) = abs8703d(icol,k)+Nnatk(icol,k,i)*extinction_coeffsn%babs870(icol,k,i-10)*deltah
+                abs5503dalt(icol,k) = abs5503dalt(icol,k)+Nnatk(icol,k,i)*extinction_coeffsn%babs550(icol,k,i-10)*deltah
              enddo
              !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
              !            optical depths for d<1um and d>1um (r<0.5um and r>0.5um)
@@ -1743,39 +1718,20 @@ contains
 
        !       Dry parameters of each aerosol component 
        !       BC(ax) mode
-       call intdrypar0(lchnk, ncol, Nnatk,                          & 
-            cintbg, cintbg05, cintbg125, cintbc, cintbc05, cintbc125, & 
-            cintoc, cintoc05, cintoc125, cintsc, cintsc05, cintsc125, &
-            cintsa, cintsa05, cintsa125, aaeros, aaerol, vaeros, vaerol,&
-            cknorm,cknlt05,ckngt125)
+       call aerodry_prop%intdrypar0(lchnk, ncol, Nnatk)
+
        !       SO4&SOA(Ait,n) mode
-       call intdrypar1(lchnk, ncol, Nnatk, xfombg, ifombg1,         &
-            xct, ict1, xfac, ifac1,                                   & 
-            cintbg, cintbg05, cintbg125, cintbc, cintbc05, cintbc125, & 
-            cintoc, cintoc05, cintoc125, cintsc, cintsc05, cintsc125, &
-            cintsa, cintsa05, cintsa125, aaeros, aaerol, vaeros, vaerol,&
-            aaerosn,aaeroln,vaerosn,vaeroln,cknorm,cknlt05,ckngt125)
+       call aerodry_prop%intdrypar1(lchnk, ncol, Nnatk, xfombg, ifombg1, xct, ict1, xfac, ifac1)
+
        !       BC(Ait,n) and OC(Ait,n) modes
-       call intdrypar2to3(lchnk, ncol, Nnatk, xct, ict1, xfac, ifac1, & 
-            cintbg, cintbg05, cintbg125, cintbc, cintbc05, cintbc125,   & 
-            cintoc, cintoc05, cintoc125, cintsc, cintsc05, cintsc125,   &
-            cintsa, cintsa05, cintsa125, aaeros, aaerol, vaeros, vaerol,&
-            aaerosn,aaeroln,vaerosn,vaeroln,cknorm,cknlt05,ckngt125)
+       call aerodry_prop%intdrypar2to3(lchnk, ncol, Nnatk, xct, ict1, xfac, ifac1)
+
        !       BC&OC(Ait,n) mode   ------ fcm not valid here (=0). Use faitbc or fnbc instead
-       call intdrypar4(lchnk, ncol, Nnatk,                          &
-            xfbcbg, ifbcbg1, xfbcbgn, ifbcbgn1,                       &
-            xct, ict1, xfac, ifac1, xfaq, ifaq1,                      &
-            cintbg, cintbg05, cintbg125, cintbc, cintbc05, cintbc125, &
-            cintoc, cintoc05, cintoc125, cintsc, cintsc05, cintsc125, &
-            cintsa, cintsa05, cintsa125, aaeros, aaerol, vaeros, vaerol, &
-            aaerosn,aaeroln,vaerosn,vaeroln,cknorm,cknlt05,ckngt125)
+       call aerodry_prop%intdrypar4(lchnk, ncol, Nnatk, xfbcbg, ifbcbg1, xfbcbgn, ifbcbgn1, &
+            xct, ict1, xfac, ifac1, xfaq, ifaq1)
+
        !       SO4(Ait75) (5), mineral (6-7) and Sea-salt (8-10) modes:
-       call intdrypar5to10(lchnk, ncol, Nnatk,                      &
-            xct, ict1, xfac, ifac1, xfbc, ifbc1, xfaq, ifaq1,         & 
-            cintbg, cintbg05, cintbg125, cintbc, cintbc05, cintbc125, & 
-            cintoc, cintoc05, cintoc125, cintsc, cintsc05, cintsc125, &
-            cintsa, cintsa05, cintsa125, aaeros, aaerol, vaeros, vaerol,&
-            cknorm,cknlt05,ckngt125)
+       call aerodry_prop%intdrypar5to10(lchnk, ncol, Nnatk, xct, ict1, xfac, ifac1, xfbc, ifbc1, xfaq, ifaq1)
 
        do k=1,pver
           do icol=1,ncol
@@ -1786,22 +1742,23 @@ contains
 
        do k=1,pver
           do icol=1,ncol
-             !           mineral and sea-salt background concentrations, internally mixed
-             c_mi(icol,k)    = Nnatk(icol,k,6)*cintbg(icol,k,6)   &
-                  +Nnatk(icol,k,7)*cintbg(icol,k,7)
-             c_mi05(icol,k)  = Nnatk(icol,k,6)*cintbg05(icol,k,6) &
-                  +Nnatk(icol,k,7)*cintbg05(icol,k,7)
-             c_mi125(icol,k) = Nnatk(icol,k,6)*cintbg125(icol,k,6)& 
-                  +Nnatk(icol,k,7)*cintbg125(icol,k,7) 
-             c_ss(icol,k)    = Nnatk(icol,k,8)*cintbg(icol,k,8)   &
-                  +Nnatk(icol,k,9)*cintbg(icol,k,9)    &
-                  +Nnatk(icol,k,10)*cintbg(icol,k,10)
-             c_ss05(icol,k)  = Nnatk(icol,k,8)*cintbg05(icol,k,8) &
-                  +Nnatk(icol,k,9)*cintbg05(icol,k,9)  &
-                  +Nnatk(icol,k,10)*cintbg05(icol,k,10)
-             c_ss125(icol,k) = Nnatk(icol,k,8)*cintbg125(icol,k,8)&
-                  +Nnatk(icol,k,9)*cintbg125(icol,k,9) &
-                  +Nnatk(icol,k,10)*cintbg125(icol,k,10)
+             ! mineral and sea-salt background concentrations, internally mixed
+             c_mi(icol,k)    = Nnatk(icol,k,6) * aerodry_prop%cintbg(icol,k,6)   &
+                  +Nnatk(icol,k,7) * aerodry_prop%cintbg(icol,k,7)
+             c_mi05(icol,k)  = Nnatk(icol,k,6) * aerodry_prop%cintbg05(icol,k,6) &
+                  +Nnatk(icol,k,7) * aerodry_prop%cintbg05(icol,k,7)
+             c_mi125(icol,k) = Nnatk(icol,k,6) * aerodry_prop%cintbg125(icol,k,6)& 
+                  +Nnatk(icol,k,7) * aerodry_prop%cintbg125(icol,k,7) 
+             c_ss(icol,k)    = Nnatk(icol,k,8) * aerodry_prop%cintbg(icol,k,8)   &
+                  +Nnatk(icol,k,9) * aerodry_prop%cintbg(icol,k,9)    &
+                  +Nnatk(icol,k,10) * aerodry_prop%cintbg(icol,k,10)
+             c_ss05(icol,k)  = Nnatk(icol,k,8) * aerodry_prop%cintbg05(icol,k,8) &
+                  +Nnatk(icol,k,9) * aerodry_prop%cintbg05(icol,k,9)  &
+                  +Nnatk(icol,k,10) * aerodry_prop%cintbg05(icol,k,10)
+             c_ss125(icol,k) = Nnatk(icol,k,8) * aerodry_prop%cintbg125(icol,k,8)&
+                  +Nnatk(icol,k,9) * aerodry_prop%cintbg125(icol,k,9) &
+                  +Nnatk(icol,k,10) * aerodry_prop%cintbg125(icol,k,10)
+
              !           internally mixed bc and oc (from coagulation) and so4 concentrations 
              !           (sa=so4(aq) and sc=so4(cond+coag), separated because of different density: 
              !           necessary for calculation of volume fractions!), and total aerosol surface 
@@ -1833,7 +1790,6 @@ contains
              c_bc_14(icol,k)=0.0_r8
              c_oc_4(icol,k)=0.0_r8
              c_oc_14(icol,k)=0.0_r8
-             !akc6+
              c_tot(icol,k)=0.0_r8
              c_tot125(icol,k)=0.0_r8
              c_tot05(icol,k)=0.0_r8
@@ -1841,64 +1797,42 @@ contains
              c_pm1(icol,k)=0.0_r8
              mmr_pm25(icol,k)=0.0_r8
              mmr_pm1(icol,k)=0.0_r8
-             !akc6-
 
              do i=0,nbmodes
                 if(i.ne.3) then
-                   c_bc(icol,k)    = c_bc(icol,k) &
-                        +Nnatk(icol,k,i)*cintbc(icol,k,i)
-                   c_bc05(icol,k)  = c_bc05(icol,k) &
-                        +Nnatk(icol,k,i)*cintbc05(icol,k,i)
-                   c_bc125(icol,k) = c_bc125(icol,k) &
-                        +Nnatk(icol,k,i)*cintbc125(icol,k,i)
-                   c_oc(icol,k)    = c_oc(icol,k) &
-                        +Nnatk(icol,k,i)*cintoc(icol,k,i)
-                   c_oc05(icol,k)  = c_oc05(icol,k) &
-                        +Nnatk(icol,k,i)*cintoc05(icol,k,i)
-                   c_oc125(icol,k) = c_oc125(icol,k) &
-                        +Nnatk(icol,k,i)*cintoc125(icol,k,i)
-                   c_sa(icol,k)    = c_sa(icol,k) &
-                        +Nnatk(icol,k,i)*cintsa(icol,k,i)
-                   c_sa05(icol,k)  = c_sa05(icol,k) &
-                        +Nnatk(icol,k,i)*cintsa05(icol,k,i)
-                   c_sa125(icol,k) = c_sa125(icol,k) &
-                        +Nnatk(icol,k,i)*cintsa125(icol,k,i)
-                   c_sc(icol,k)    = c_sc(icol,k) &
-                        +Nnatk(icol,k,i)*cintsc(icol,k,i)
-                   c_sc05(icol,k)  = c_sc05(icol,k) &
-                        +Nnatk(icol,k,i)*cintsc05(icol,k,i)
-                   c_sc125(icol,k) = c_sc125(icol,k) &
-                        +Nnatk(icol,k,i)*cintsc125(icol,k,i)
-                   aaeros_tot(icol,k) = aaeros_tot(icol,k) &
-                        +Nnatk(icol,k,i)*aaeros(icol,k,i)
-                   aaerol_tot(icol,k) = aaerol_tot(icol,k) &
-                        +Nnatk(icol,k,i)*aaerol(icol,k,i)
-                   vaeros_tot(icol,k) =vaeros_tot(icol,k) &
-                        +Nnatk(icol,k,i)*vaeros(icol,k,i)
-                   vaerol_tot(icol,k) = vaerol_tot(icol,k) &
-                        +Nnatk(icol,k,i)*vaerol(icol,k,i)
+                   c_bc(icol,k)       = c_bc(icol,k)       + Nnatk(icol,k,i) * aerodry_prop%cintbc(icol,k,i)
+                   c_bc05(icol,k)     = c_bc05(icol,k)     + Nnatk(icol,k,i) * aerodry_prop%cintbc05(icol,k,i)
+                   c_bc125(icol,k)    = c_bc125(icol,k)    + Nnatk(icol,k,i) * aerodry_prop%cintbc125(icol,k,i)
+                   c_oc(icol,k)       = c_oc(icol,k)       + Nnatk(icol,k,i) * aerodry_prop%cintoc(icol,k,i)
+                   c_oc05(icol,k)     = c_oc05(icol,k)     + Nnatk(icol,k,i) * aerodry_prop%cintoc05(icol,k,i)
+                   c_oc125(icol,k)    = c_oc125(icol,k)    + Nnatk(icol,k,i) * aerodry_prop%cintoc125(icol,k,i)
+                   c_sa(icol,k)       = c_sa(icol,k)       + Nnatk(icol,k,i) * aerodry_prop%cintsa(icol,k,i)
+                   c_sa05(icol,k)     = c_sa05(icol,k)     + Nnatk(icol,k,i) * aerodry_prop%cintsa05(icol,k,i)
+                   c_sa125(icol,k)    = c_sa125(icol,k)    + Nnatk(icol,k,i) * aerodry_prop%cintsa125(icol,k,i)
+                   c_sc(icol,k)       = c_sc(icol,k)       + Nnatk(icol,k,i) * aerodry_prop%cintsc(icol,k,i)
+                   c_sc05(icol,k)     = c_sc05(icol,k)     + Nnatk(icol,k,i) * aerodry_prop%cintsc05(icol,k,i)
+                   c_sc125(icol,k)    = c_sc125(icol,k)    + Nnatk(icol,k,i) * aerodry_prop%cintsc125(icol,k,i)
+                   aaeros_tot(icol,k) = aaeros_tot(icol,k) + Nnatk(icol,k,i) * aerodry_prop%aaeros(icol,k,i)
+                   aaerol_tot(icol,k) = aaerol_tot(icol,k) + Nnatk(icol,k,i) * aerodry_prop%aaerol(icol,k,i)
+                   vaeros_tot(icol,k) = vaeros_tot(icol,k) + Nnatk(icol,k,i) * aerodry_prop%vaeros(icol,k,i)
+                   vaerol_tot(icol,k) = vaerol_tot(icol,k) + Nnatk(icol,k,i) * aerodry_prop%vaerol(icol,k,i)
                 endif
              enddo
              !           add dry aerosol area and volume of externally mixed modes
              do i=nbmp1,nmodes
-                aaeros_tot(icol,k) = aaeros_tot(icol,k) &
-                     +Nnatk(icol,k,i)*aaerosn(icol,k,i)
-                aaerol_tot(icol,k) = aaerol_tot(icol,k) &
-                     +Nnatk(icol,k,i)*aaeroln(icol,k,i)
-                vaeros_tot(icol,k) =vaeros_tot(icol,k) &
-                     +Nnatk(icol,k,i)*vaerosn(icol,k,i)
-                vaerol_tot(icol,k) = vaerol_tot(icol,k) &
-                     +Nnatk(icol,k,i)*vaeroln(icol,k,i)
+                aaeros_tot(icol,k) = aaeros_tot(icol,k) + Nnatk(icol,k,i) * aerodry_prop%aaerosn(icol,k,i)
+                aaerol_tot(icol,k) = aaerol_tot(icol,k) + Nnatk(icol,k,i) * aerodry_prop%aaeroln(icol,k,i)
+                vaeros_tot(icol,k) = vaeros_tot(icol,k) + Nnatk(icol,k,i) * aerodry_prop%vaerosn(icol,k,i)
+                vaerol_tot(icol,k) = vaerol_tot(icol,k) + Nnatk(icol,k,i) * aerodry_prop%vaeroln(icol,k,i)
              end do
+
              !c_er3d           
              !           Effective radii for particles smaller and greater than 0.5um, 
              !           and for all radii, in each layer (er=3*V/A):
-             erlt053d(icol,k)=3.0_r8*vaeros_tot(icol,k) &
-                  /(aaeros_tot(icol,k)+eps)
-             ergt053d(icol,k)=3.0_r8*vaerol_tot(icol,k) &
-                  /(aaerol_tot(icol,k)+eps)
-             er3d(icol,k)=3.0_r8*(vaeros_tot(icol,k)+vaerol_tot(icol,k)) &
-                  /(aaeros_tot(icol,k)+aaerol_tot(icol,k)+eps)
+             erlt053d(icol,k)=3.0_r8*vaeros_tot(icol,k) /(aaeros_tot(icol,k)+eps)
+             ergt053d(icol,k)=3.0_r8*vaerol_tot(icol,k) /(aaerol_tot(icol,k)+eps)
+             er3d(icol,k)=3.0_r8*(vaeros_tot(icol,k)+vaerol_tot(icol,k)) /(aaeros_tot(icol,k)+aaerol_tot(icol,k)+eps)
+
              !c_er3d
              !           column integrated dry aerosol surface areas and volumes
              !           for r<0.5um and r>0.5um (s and l, respectively).
@@ -1906,72 +1840,66 @@ contains
              aaercoll(icol)=aaercoll(icol)+aaerol_tot(icol,k)
              vaercols(icol)=vaercols(icol)+vaeros_tot(icol,k)
              vaercoll(icol)=vaercoll(icol)+vaerol_tot(icol,k)
+
              !           then add background and externally mixed BC, OC and SO4 to mass concentrations
              c_bc_ac(icol,k)= c_bc(icol,k)
-             c_bc_0(icol,k) = Nnatk(icol,k,0)*cintbg(icol,k,0)
-             c_bc_2(icol,k) = Nnatk(icol,k,2)*cintbg(icol,k,2)
-             c_bc_4(icol,k) = Nnatk(icol,k,4)*cintbg(icol,k,4)*faitbc(icol,k)
-             c_bc_12(icol,k)= Nnatk(icol,k,12)*cknorm(icol,k,12)
-             c_bc_14(icol,k)= Nnatk(icol,k,14)*cknorm(icol,k,14)*fnbc(icol,k)
+             c_bc_0(icol,k) = Nnatk(icol,k,0) * aerodry_prop%cintbg(icol,k,0)
+             c_bc_2(icol,k) = Nnatk(icol,k,2) * aerodry_prop%cintbg(icol,k,2)
+             c_bc_4(icol,k) = Nnatk(icol,k,4) * aerodry_prop%cintbg(icol,k,4)*faitbc(icol,k)
+             c_bc_12(icol,k)= Nnatk(icol,k,12) * aerodry_prop%cknorm(icol,k,12)
+             c_bc_14(icol,k)= Nnatk(icol,k,14) * aerodry_prop%cknorm(icol,k,14)*fnbc(icol,k)
              c_bc(icol,k)   = c_bc(icol,k)                                      &
-                  +Nnatk(icol,k,2)*cintbg(icol,k,2)                   &
-                  +Nnatk(icol,k,4)*cintbg(icol,k,4)*faitbc(icol,k) &
-                  +Nnatk(icol,k,0)*cintbg(icol,k,0)                   &
-                  +Nnatk(icol,k,12)*cknorm(icol,k,12)                 &
-                  +Nnatk(icol,k,14)*cknorm(icol,k,14)*fnbc(icol,k)
+                  +Nnatk(icol,k,2) * aerodry_prop%cintbg(icol,k,2)                   &
+                  +Nnatk(icol,k,4) * aerodry_prop%cintbg(icol,k,4) * faitbc(icol,k) &
+                  +Nnatk(icol,k,0) * aerodry_prop%cintbg(icol,k,0)                   &
+                  +Nnatk(icol,k,12) * aerodry_prop%cknorm(icol,k,12)                 &
+                  +Nnatk(icol,k,14) * aerodry_prop%cknorm(icol,k,14)*fnbc(icol,k)
              c_bc05(icol,k)  = c_bc05(icol,k)                                   &
-                  +Nnatk(icol,k,2)*cintbg05(icol,k,2)                 &
-                  +Nnatk(icol,k,4)*cintbg05(icol,k,4)*faitbc(icol,k) &
-                  +Nnatk(icol,k,0)*cintbg05(icol,k,0)                 &
-                  +Nnatk(icol,k,12)*cknlt05(icol,k,12)                &
-                  +Nnatk(icol,k,14)*cknlt05(icol,k,14)*fnbc(icol,k)
+                  +Nnatk(icol,k,2) * aerodry_prop%cintbg05(icol,k,2)                 &
+                  +Nnatk(icol,k,4) * aerodry_prop%cintbg05(icol,k,4)*faitbc(icol,k) &
+                  +Nnatk(icol,k,0) * aerodry_prop%cintbg05(icol,k,0)                 &
+                  +Nnatk(icol,k,12) * aerodry_prop%cknlt05(icol,k,12)                &
+                  +Nnatk(icol,k,14) * aerodry_prop%cknlt05(icol,k,14)*fnbc(icol,k)
              c_bc125(icol,k) = c_bc125(icol,k)                                  &
-                  +Nnatk(icol,k,2)*cintbg125(icol,k,2)                &
-                  +Nnatk(icol,k,4)*cintbg125(icol,k,4)*faitbc(icol,k) &
-                  +Nnatk(icol,k,0)*cintbg125(icol,k,0)                &
-                  +Nnatk(icol,k,12)*ckngt125(icol,k,12)               &
-                  +Nnatk(icol,k,14)*ckngt125(icol,k,14)*fnbc(icol,k)
+                  +Nnatk(icol,k,2) * aerodry_prop%cintbg125(icol,k,2)                &
+                  +Nnatk(icol,k,4) * aerodry_prop%cintbg125(icol,k,4)*faitbc(icol,k) &
+                  +Nnatk(icol,k,0) * aerodry_prop%cintbg125(icol,k,0)                &
+                  +Nnatk(icol,k,12) * aerodry_prop%ckngt125(icol,k,12)               &
+                  +Nnatk(icol,k,14) * aerodry_prop%ckngt125(icol,k,14)*fnbc(icol,k)
              c_oc_ac(icol,k)= c_oc(icol,k)
-             c_oc_4(icol,k)  = Nnatk(icol,k,4)*cintbg(icol,k,4)*(1.0_r8-faitbc(icol,k))
-             c_oc_14(icol,k) = Nnatk(icol,k,14)*cknorm(icol,k,14)*(1.0_r8-fnbc(icol,k))
+             c_oc_4(icol,k)  = Nnatk(icol,k,4) * aerodry_prop%cintbg(icol,k,4)*(1.0_r8-faitbc(icol,k))
+             c_oc_14(icol,k) = Nnatk(icol,k,14) * aerodry_prop%cknorm(icol,k,14)*(1.0_r8-fnbc(icol,k))
              c_oc(icol,k)    = c_oc(icol,k)                                           &
-                  +Nnatk(icol,k,1)*cintbg(icol,k,1)*f_soana(icol,k)         &
-                                !-3                            +Nnatk(icol,k,3)*cintbg(icol,k,3)                         &
-                  +Nnatk(icol,k,4)*cintbg(icol,k,4)*(1.0_r8-faitbc(icol,k))   &
-                  +Nnatk(icol,k,14)*cknorm(icol,k,14)*(1.0_r8-fnbc(icol,k))
+                  +Nnatk(icol,k,1) * aerodry_prop%cintbg(icol,k,1)*f_soana(icol,k)         &
+                  +Nnatk(icol,k,4) * aerodry_prop%cintbg(icol,k,4)*(1.0_r8-faitbc(icol,k))   &
+                  +Nnatk(icol,k,14) * aerodry_prop%cknorm(icol,k,14)*(1.0_r8-fnbc(icol,k))
              c_oc05(icol,k)  = c_oc05(icol,k)                                         &
-                  +Nnatk(icol,k,1)*cintbg05(icol,k,1)*f_soana(icol,k)       &
-                                !-3                            +Nnatk(icol,k,3)*cintbg05(icol,k,3)                       &
-                  +Nnatk(icol,k,4)*cintbg05(icol,k,4)*(1.0_r8-faitbc(icol,k))  &
-                  +Nnatk(icol,k,14)*cknlt05(icol,k,14)*(1.0_r8-fnbc(icol,k))
+                  +Nnatk(icol,k,1) * aerodry_prop%cintbg05(icol,k,1)*f_soana(icol,k)       &
+                  +Nnatk(icol,k,4) * aerodry_prop%cintbg05(icol,k,4)*(1.0_r8-faitbc(icol,k))  &
+                  +Nnatk(icol,k,14) * aerodry_prop%cknlt05(icol,k,14)*(1.0_r8-fnbc(icol,k))
              c_oc125(icol,k) = c_oc125(icol,k)                                        &
-                  +Nnatk(icol,k,1)*cintbg125(icol,k,1)*f_soana(icol,k)      &
-                                !-3                            +Nnatk(icol,k,3)*cintbg125(icol,k,3)                      &
-                  +Nnatk(icol,k,4)*cintbg125(icol,k,4)*(1.0_r8-faitbc(icol,k)) &
-                  +Nnatk(icol,k,14)*ckngt125(icol,k,14)*(1.0_r8-fnbc(icol,k))
+                  +Nnatk(icol,k,1) * aerodry_prop%cintbg125(icol,k,1)*f_soana(icol,k)      &
+                  +Nnatk(icol,k,4) * aerodry_prop%cintbg125(icol,k,4)*(1.0_r8-faitbc(icol,k)) &
+                  +Nnatk(icol,k,14) * aerodry_prop%ckngt125(icol,k,14)*(1.0_r8-fnbc(icol,k))
              c_s4(icol,k)    = c_sa(icol,k)+c_sc(icol,k)          &
-                  +Nnatk(icol,k,1)*cintbg(icol,k,1)*(1.0_r8-f_soana(icol,k))   &
-                  +Nnatk(icol,k,5)*cintbg(icol,k,5)     
+                  +Nnatk(icol,k,1) * aerodry_prop%cintbg(icol,k,1)*(1.0_r8-f_soana(icol,k))   &
+                  +Nnatk(icol,k,5) * aerodry_prop%cintbg(icol,k,5)     
              c_s405(icol,k)  = c_sa05(icol,k)+c_sc05(icol,k)      &
-                  +Nnatk(icol,k,1)*cintbg05(icol,k,1)*(1.0_r8-f_soana(icol,k)) &
-                  +Nnatk(icol,k,5)*cintbg05(icol,k,5)    
+                  +Nnatk(icol,k,1) * aerodry_prop%cintbg05(icol,k,1)*(1.0_r8-f_soana(icol,k)) &
+                  +Nnatk(icol,k,5) * aerodry_prop%cintbg05(icol,k,5)    
              c_s4125(icol,k) = c_sa125(icol,k)+c_sc125(icol,k)    &
-                  +Nnatk(icol,k,1)*cintbg125(icol,k,1)*(1.0_r8-f_soana(icol,k)) &
-                  +Nnatk(icol,k,5)*cintbg125(icol,k,5)  
+                  +Nnatk(icol,k,1) * aerodry_prop%cintbg125(icol,k,1)*(1.0_r8-f_soana(icol,k)) &
+                  +Nnatk(icol,k,5) * aerodry_prop%cintbg125(icol,k,5)  
 
-             !akc6+
-             c_tot(icol,k)    = c_s4(icol,k) + c_oc(icol,k) + c_bc(icol,k) &
-                  + c_mi(icol,k) + c_ss(icol,k)
-             c_tot125(icol,k) = c_s4125(icol,k) + c_oc125(icol,k) + c_bc125(icol,k) &
-                  + c_mi125(icol,k) + c_ss125(icol,k)
-             c_tot05(icol,k) = c_s405(icol,k) + c_oc05(icol,k) + c_bc05(icol,k) &
-                  + c_mi05(icol,k) + c_ss05(icol,k)
-             c_pm25(icol,k)   = c_tot(icol,k) - c_tot125(icol,k)
-             c_pm1(icol,k)    = c_tot05(icol,k)
-             !            mass mixing ratio:
+             c_tot(icol,k)  = c_s4(icol,k) + c_oc(icol,k) + c_bc(icol,k) + c_mi(icol,k) + c_ss(icol,k)
+             c_tot125(icol,k) = c_s4125(icol,k) + c_oc125(icol,k) + c_bc125(icol,k) + c_mi125(icol,k) + c_ss125(icol,k)
+             c_tot05(icol,k) = c_s405(icol,k) + c_oc05(icol,k) + c_bc05(icol,k) + c_mi05(icol,k) + c_ss05(icol,k)
+             c_pm25(icol,k) = c_tot(icol,k) - c_tot125(icol,k)
+             c_pm1(icol,k) = c_tot05(icol,k)
+
+             !  mass mixing ratio:
              mmr_pm25(icol,k) = 1.e-9*c_pm25(icol,k)/rhoda(icol,k)   
              mmr_pm1(icol,k)  = 1.e-9*c_pm1(icol,k)/rhoda(icol,k)   
-             !akc6-
 
              !            converting from S to SO4 concentrations is no longer necessary, since 
              !             sc=H2SO4 and sa=(NH4)2SO4 now, not SO4 as in CAM4-Oslo     
@@ -1980,24 +1908,17 @@ contains
              !             c_s4125(icol,k)=c_s4125(icol,k)/3._r8
 
              c_s4_a(icol,k) = c_sa(icol,k)+c_sc(icol,k) 
-             c_s4_1(icol,k) = Nnatk(icol,k,1)*cintbg(icol,k,1)*(1.0_r8-f_soana(icol,k))
-             c_s4_5(icol,k) = Nnatk(icol,k,5)*cintbg05(icol,k,5) 
+             c_s4_1(icol,k) = Nnatk(icol,k,1) * aerodry_prop%cintbg(icol,k,1)*(1.0_r8-f_soana(icol,k))
+             c_s4_5(icol,k) = Nnatk(icol,k,5) * aerodry_prop%cintbg05(icol,k,5) 
 
           end do ! icol
        enddo     ! k
 
        !       Total PM and PM2.5 (dry r>1.25um), surface values (ug/m3)
        do icol=1,ncol
-          !          c_tots(icol) = c_s4(icol,pver) + c_oc(icol,pver) + c_bc(icol,pver) &
-          !                          + c_mi(icol,pver) + c_ss(icol,pver)
-          !          c_tot125s(icol) = c_s4125(icol,pver) + c_oc125(icol,pver) + c_bc125(icol,pver) &
-          !                          + c_mi125(icol,pver) + c_ss125(icol,pver)
-          !          c_pm25s(icol) = c_tots(icol) - c_tot125s(icol)
-          !akc6+
           c_tots(icol) = c_tot(icol,pver)
           c_tot125s(icol) = c_tot125(icol,pver)
           c_pm25s(icol) = c_pm25(icol,pver)
-          !akc6-
        enddo
 
        !       Effective, column integrated, radii for particles
@@ -2005,8 +1926,7 @@ contains
        do icol=1,ncol
           derlt05(icol)=3.0_r8*vaercols(icol)/(aaercols(icol)+eps)
           dergt05(icol)=3.0_r8*vaercoll(icol)/(aaercoll(icol)+eps)
-          der(icol)=3.0_r8*(vaercols(icol)+vaercoll(icol)) &
-               /(aaercols(icol)+aaercoll(icol)+eps)
+          der(icol)=3.0_r8*(vaercols(icol)+vaercoll(icol)) /(aaercols(icol)+aaercoll(icol)+eps)
        enddo
 
        do icol=1,ncol

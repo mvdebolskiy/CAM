@@ -23,7 +23,6 @@ module opttab
   ! Interfaces
   public :: initopt
 
-  ! integer, public, parameter :: nbands=12    ! number of aerosol spectral bands in CAM4-Oslo
   integer, public, parameter :: nbands=14    ! number of aerosol spectral bands in SW
   integer, public, parameter :: nbmp1=11     ! number of first non-background mode
 
@@ -192,7 +191,7 @@ contains
     ifil = 11
     linmax=nbands
     do lin = 1,linmax
-       read(39+ifil,'(2I3,f8.3,4(x,e12.5)') kcomp, iwl, relh, ssa, ass, ext, spext
+       read(39+ifil,'(2I3,f8.3,4(x,e12.5))') kcomp, iwl, relh, ssa, ass, ext, spext
        om0(iwl)=ssa    
        g0 (iwl)=ass
        be0(iwl)=ext    ! unit km^-1
@@ -218,14 +217,10 @@ contains
     ! Mode 1 (H2SO4 and SOA + condesate from H2SO4 and SOA)
     !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
 
-#ifdef COLTST4INTCONS
-    ! open(101, file='check-kcomp1.out')
-#endif
-
     linmax = nbands*10*6*16*6   ! 14*10*6*16*6
     do lin = 1,linmax 
 
-       read(40,'(2I3,f8.3,3(x,e10.3),4(x,e12.5)') kcomp, iwl, relh, frombg, catot, frac, ssa, ass, ext, spext
+       read(40,'(2I3,f8.3,3(x,e10.3),4(x,e12.5))') kcomp, iwl, relh, frombg, catot, frac, ssa, ass, ext, spext
 
        do ic=1,10
           if(abs(relh-rh(ic))<eps4) then
@@ -262,13 +257,6 @@ contains
        ! write(iulog,*) 'kcomp, be =', kcomp, be1(iwl,irelh,ifombg,ictot,ifac)
        ! write(iulog,*) 'kcomp, ke =', kcomp, ke1(iwl,irelh,ifombg,ictot,ifac)
 
-#ifdef COLTST4INTCONS
-       ! write to file parameters and dependencies for check against AeroTab and 
-       ! general model results wrt. RRTMG optics (for the vis. band 0.442-0.625um)
-       ! if(iwl.eq.4) then
-       ! write(101,*) rh(irelh), ke1(iwl,irelh,ifombg,ictot,ifac)
-       ! endif
-#endif
     end do  ! lin
 
     kcomp=1
@@ -287,9 +275,6 @@ contains
           enddo
        enddo
     enddo
-#ifdef COLTST4INTCONS
-    ! close(101)
-#endif
 
     write(iulog,*)'mode 1 ok' 
 
@@ -297,15 +282,10 @@ contains
     ! Modes 2 to 3 (BC/OC + condensate from H2SO4 and SOA)
     !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
 
-#ifdef COLTST4INTCONS
-    ! open(102, file='check-kcomp2.out')
-    ! open(103, file='check-kcomp3.out')
-#endif
-
     linmax=nbands*10*16*6
     do lin = 1,linmax
 
-       read(41,'(2I3,f8.3,2(x,e10.3),4(x,e12.5)') kcomp, iwl, relh, catot, frac, ssa, ass, ext, spext
+       read(41,'(2I3,f8.3,2(x,e10.3),4(x,e12.5))') kcomp, iwl, relh, catot, frac, ssa, ass, ext, spext
 
        do ic=1,10
           if(abs(relh-rh(ic))<eps4) then
@@ -336,13 +316,6 @@ contains
        ! write(iulog,*) 'kcomp, be =', kcomp, be2to3(iwl,irelh,ictot,ifac,kcomp)
        ! write(iulog,*) 'kcomp, ke =', kcomp, ke2to3(iwl,irelh,ictot,ifac,kcomp)
 
-#ifdef COLTST4INTCONS
-       ! write to file parameters and dependencies for check against AeroTab and 
-       ! general model results wrt. RRTMG optics (for the vis. band 0.442-0.625um)
-       ! if(iwl.eq.4) then
-       ! write(100+ifil,*) rh(irelh), ke2to3(iwl,irelh,ictot,ifac,ifil)
-       ! endif
-#endif
     end do  ! lin
 
     ! Prescribed dummy values for kcomp=3
@@ -376,24 +349,15 @@ contains
        enddo
     enddo
 
-#ifdef COLTST4INTCONS
-    ! do ifil=2,3
-    ! close(100+ifil)
-    ! end do
-#endif
-
     write(iulog,*)'modes 2-3 ok' 
 
     !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
     ! Mode 4 (BC&OC + condensate from H2SO4 and SOA + wet phase (NH4)2SO4)
     !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
 
-#ifdef COLTST4INTCONS
-    ! open(104, file='check-kcomp4.out')
-#endif
     linmax = nbands*10*6*16*6*6 
     do lin = 1,linmax
-       read(43,'(2I3,f8.3,3(x,e10.3),f7.2,4(x,e12.5)') kcomp, iwl, relh, frbcbg, catot, frac, fraq, &
+       read(43,'(2I3,f8.3,3(x,e10.3),f7.2,4(x,e12.5))') kcomp, iwl, relh, frbcbg, catot, frac, fraq, &
             ssa, ass, ext, spext
 
        do ic=1,10
@@ -437,13 +401,6 @@ contains
        ! write(iulog,*) 'kcomp, be =', kcomp, be4(iwl,irelh,ifbcbg,ictot,ifac,ifaq)
        ! write(iulog,*) 'kcomp, ke =', kcomp, ke4(iwl,irelh,ifbcbg,ictot,ifac,ifaq)
 
-#ifdef COLTST4INTCONS
-       ! write to file parameters and dependencies for check against AeroTab and 
-       ! general model results wrt. RRTMG optics (for the vis. band 0.442-0.625um)
-       ! if(iwl.eq.4) then
-       ! write(104,*) rh(irelh), ke4(iwl,irelh,ifbcbg,ictot,ifac,ifaq)
-       ! endif
-#endif
     end do
 
     do iwl=1,nbands
@@ -453,7 +410,8 @@ contains
                 do ifac=1,6
                    do ifaq=1,6
                       if(be4(iwl,irelh,ifbcbg,ictot,ifac,ifaq)<=0.0_r8) then
-                         write(iulog,*) 'be4 =', iwl, irelh, ifbcbg, ictot, ifac, ifaq, be4(iwl,irelh,ifbcbg,ictot,ifac,ifaq)
+                         write(iulog,*) 'be4 =', iwl, irelh, ifbcbg, ictot, ifac, ifaq, &
+                              be4(iwl,irelh,ifbcbg,ictot,ifac,ifaq)
                          write(iulog,*) 'Error in initialization of be4'
                          stop
                       endif
@@ -464,29 +422,18 @@ contains
        enddo
     enddo
 
-#ifdef COLTST4INTCONS
-    ! close(104)
-#endif
     write(iulog,*)'mode 4 ok' 
 
     !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
     ! Modes 5 to 10 (SO4(Ait75) and mineral and seasalt-modes + cond./coag./aq.)
     !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
 
-#ifdef COLTST4INTCONS
-    ! open(105, file='check-kcomp5.out')
-    ! open(106, file='check-kcomp6.out')
-    ! open(107, file='check-kcomp7.out')
-    ! open(108, file='check-kcomp8.out')
-    ! open(109, file='check-kcomp9.out')
-    ! open(110, file='check-kcomp10.out')
-#endif
-
     linmax = nbands*10*6*6*6*6     ! 14*10*6*6*6*6
     do ifil = 5,10
        do lin = 1,linmax   
 
-          read(39+ifil,993) kcomp, iwl, relh, catot, frac, fabc, fraq, ssa, ass, ext, spext
+          read(39+ifil,'(2I3,f8.3,3(x,e10.3),f7.2,4(x,e12.5))') &
+               kcomp, iwl, relh, catot, frac, fabc, fraq, ssa, ass, ext, spext
 
        	  do ic=1,10
              if(abs(relh-rh(ic))<eps4) then
@@ -529,14 +476,6 @@ contains
           ! write(iulog,*) 'kcomp, be =', kcomp, be5to10(iwl,irelh,ictot,ifac,ifbc,ifaq,kcomp) 
           ! write(iulog,*) 'kcomp, ke =', kcomp, ke5to10(iwl,irelh,ictot,ifac,ifbc,ifaq,kcomp) 
 
-#ifdef COLTST4INTCONS
-          ! write to file parameters and dependencies for check against AeroTab and 
-          ! general model results wrt. RRTMG optics (for the vis. band 0.442-0.625um)
-          ! if(iwl.eq.4) then
-          ! write(100+ifil,*) rh(irelh), ke5to10(iwl,irelh,ictot,ifac,ifbc,ifaq,ifil)
-          ! endif
-#endif
-
        end do  ! ifil
     end do    ! lin
 
@@ -559,11 +498,6 @@ contains
        enddo
     enddo
 
-#ifdef COLTST4INTCONS
-    ! do ifil=5,10
-    ! close(100+ifil)
-    ! end do
-#endif
     write(iulog,*)'modes 5-10 ok' 
 
     do ifil=40,50

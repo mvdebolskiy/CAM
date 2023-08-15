@@ -6,10 +6,6 @@ module radlw
 !
 !-----------------------------------------------------------------------
 
-!akc6+
-#include <preprocessorDefinitions.h>
-!akc6-
-
 use shr_kind_mod,      only: r8 => shr_kind_r8
 use ppgrid,            only: pcols, pver, pverp
 use scamMod,           only: single_column, scm_crm_mode
@@ -193,10 +189,6 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
 
    if (associated(lu)) lu(1:ncol,:,:) = 0.0_r8
    if (associated(ld)) ld(1:ncol,:,:) = 0.0_r8
-!#ifdef RFMIPIRF
-!   lu(1:ncol,:,:) = 0.0_r8
-!   ld(1:ncol,:,:) = 0.0_r8
-!#endif
 
    call rrtmg_lw(lchnk  ,ncol ,rrtmg_levs    ,icld    ,                 &
         r_state%pmidmb  ,r_state%pintmb  ,r_state%tlay    ,r_state%tlev    ,tsfc    ,r_state%h2ovmr, &
@@ -237,16 +229,10 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    fsul(:ncol,pverp-rrtmg_levs+1:pverp)=uflxc(:ncol,rrtmg_levs:1:-1)
    fsdl(:ncol,pverp-rrtmg_levs+1:pverp)=dflxc(:ncol,rrtmg_levs:1:-1)
 
-#ifndef OSLO_AERO
-   if (single_column.and.scm_crm_mode) then
-#endif
       call outfld('FUL     ',ful,pcols,lchnk)
       call outfld('FDL     ',fdl,pcols,lchnk)
       call outfld('FULC    ',fsul,pcols,lchnk)
       call outfld('FDLC    ',fsdl,pcols,lchnk)
-#ifndef OSLO_AERO
-   endif
-#endif
    
    fnl(:ncol,:) = ful(:ncol,:) - fdl(:ncol,:)
    ! mji/ cam excluded this?
@@ -266,23 +252,15 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
 
    ! Pass spectral fluxes, reverse layering
    ! order=(/3,1,2/) maps the first index of lwuflxs to the third index of lu.
-!#ifndef RFMIPIRF
    if (associated(lu)) then
-!#endif
       lu(:ncol,pverp-rrtmg_levs+1:pverp,:) = reshape(lwuflxs(:,:ncol,rrtmg_levs:1:-1), &
            (/ncol,rrtmg_levs,nbndlw/), order=(/3,1,2/))
-!#ifndef RFMIPIRF
    end if
-!#endif
    
-!#ifndef RFMIPIRF
    if (associated(ld)) then
-!#endif
       ld(:ncol,pverp-rrtmg_levs+1:pverp,:) = reshape(lwdflxs(:,:ncol,rrtmg_levs:1:-1), &
            (/ncol,rrtmg_levs,nbndlw/), order=(/3,1,2/))
-!#ifndef RFMIPIRF
    end if
-!#endif
    
    call t_stopf('rrtmg_lw')
 

@@ -12,8 +12,15 @@ module optinterpol
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use ppgrid            , only : pcols, pver
   use commondefinitions , only : nmodes, nbmodes
-  use opttab_lw         , only : ka0, ka1, ka2to3, ka4, ka5to10
+  use opttab_lw         , only : ka0, ka1, ka2to3, ka4, ka5to10, nlwbands
+  use opttab            , only : nbands, e
   use opttab            , only : fombg, fbcbg, cate, cat, fac, faq, fbc, rh, eps
+  use opttab            , only : om0, g0, be0, ke0
+  use opttab            , only : om1, g1, be1, ke1
+  use opttab            , only : om2to3, g2to3, be2to3, ke2to3
+  use opttab            , only : om4, g4, be4, ke4
+  use opttab            , only : om5to10, g5to10, be5to10, ke5to10
+  use lininterpol_mod   , only : lininterpol3dim, lininterpol4dim, lininterpol5dim
 
   implicit none
   private
@@ -29,9 +36,9 @@ module optinterpol
 contains
 !********************************************************************************************
 
-  subroutine inputForInterpol (lchnk, ncol, rhum, xrh, irh1,    &
-       f_soana, xfombg, ifombg1, faitbc, xfbcbg, ifbcbg1,          &
-       fnbc, xfbcbgn, ifbcbgn1, Nnatk, Cam, xct, ict1,             &
+  subroutine inputForInterpol (lchnk, ncol, rhum, xrh, irh1, &
+       f_soana, xfombg, ifombg1, faitbc, xfbcbg, ifbcbg1,    &
+       fnbc, xfbcbgn, ifbcbgn1, Nnatk, Cam, xct, ict1,       &
        focm, fcm, xfac, ifac1, fbcm, xfbc, ifbc1, faqm, xfaq, ifaq1)
 
     !
@@ -83,8 +90,7 @@ contains
     do irelh=1,9
        do k=1,pver
           do icol=1,ncol
-             if(xrh(icol,k) >= rh(irelh).and. &
-                  xrh(icol,k)<=rh(irelh+1)) then
+             if(xrh(icol,k) >= rh(irelh) .and. xrh(icol,k)<=rh(irelh+1)) then
                 irh1(icol,k)=irelh
              endif
           end do
@@ -105,6 +111,7 @@ contains
           ! find common xfbcbg, ifbcbg1 and ifbcbg2 for use in the interpolation routines
           xfbcbg(icol,k) =min(max(faitbc(icol,k),fbcbg(1)),fbcbg(6)) ! Boer linkes til def. i opttab.F90
           ifbcbg1(icol,k)=min(max(int(4*log10(xfbcbg(icol,k))+6),1),5)
+
           ! find common xfbcbgn, ifbcbgn1 and ifbcbgn2 for use in the interpolation routines
           xfbcbgn(icol,k) =min(max(fnbc(icol,k),fbcbg(1)),fbcbg(6)) ! Boer linkes til def. i opttab.F90
           ifbcbgn1(icol,k)=min(max(int(4*log10(xfbcbgn(icol,k))+6),1),5)
@@ -1454,7 +1461,7 @@ contains
     real(r8) :: a, b
     integer  :: t_irh1, t_irh2, t_ict1, t_ict2, t_ifa1, t_ifa2
     integer  :: t_ifb1, t_ifb2, t_ifc1, t_ifc2
-    real(r8) :: t_faq1, t_faq2, t_xfaq, t_fbc1, t_fbc2, t_xfbc, t_fac1, &
+    real(r8) :: t_faq1, t_faq2, t_xfaq, t_fbc1, t_fbc2, t_xfbc, t_fac1
     real(r8) :: t_fac2, t_xfac, t_xrh, t_xct, t_rh1, t_rh2, t_cat1, t_cat2
     real(r8) :: d2mx(5), dxm1(5), invd(5)
     real(r8) :: opt5d(2,2,2,2,2)

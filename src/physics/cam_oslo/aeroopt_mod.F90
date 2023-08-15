@@ -6,6 +6,7 @@ module aeroopt_mod
   use opttab            , only : cate, cat, fac, faq, fbc, rh, fombg, fbcbg
   use oslo_control      , only : oslo_getopts, dir_string_length
   use cam_logfile       , only : iulog
+  use lininterpol_mod   , only : lininterpol3dim, lininterpol4dim, lininterpol5dim
 
   implicit none
   private
@@ -13,7 +14,7 @@ module aeroopt_mod
   ! Set by init_aeropt Mode0
   real(r8) :: bex440, bax440
   real(r8) :: bex500, bax500, bax550
-  real(r8) :: bex670, bax670,
+  real(r8) :: bex670, bax670
   real(r8) :: bex870, bax870
   real(r8) :: bex550lt1, bex550gt1, backscx550
 
@@ -78,25 +79,25 @@ module aeroopt_mod
      real(r8) :: backsc550(pcols,pver,0:nbmodes)
 
    contains
-     procedure :: zero_coeffs
-     procedure :: update_coeffs
+     procedure :: intaeropt0
+     procedure :: intaeropt1
+     procedure :: intaeropt2to3
+     procedure :: intaeropt4
+     procedure :: intaeropt5to10
+     procedure :: zero
+     procedure :: update
   end type extinction_coeffs_type
 
   type(extinction_coeffs_type), public :: extinction_coeffs
   type(extinction_coeffs_type), public :: extinction_coeffsn
 
-  public :: init_aeropt
-  public :: update_aeropt0
-  public :: update_aeropt1
-  public :: update_aeropt2to3
-  public :: update_aeropt4
-  public :: update_aeropt5to10
+  public :: initaeropt
 
 ! ==========================================================
 contains
 ! ==========================================================
 
-  subroutine init_aeropt
+  subroutine initaeropt()
 
     !Purpose: To read in the AeroCom look-up tables for aerosol optical properties.
     !     The grid for discrete input-values in the look-up tables is defined in opptab.
@@ -113,7 +114,7 @@ contains
     integer  :: ic, ifil, lin, iv
     integer  :: kcomp, irelh, ictot, ifac, ifbc, ifaq
     integer  :: ifombg, ifbcbg
-    real(r8) :: catot, relh, frbcbg, frac, fabc, fraq
+    real(r8) :: catot, relh, frombg, frbcbg, frac, fabc, fraq
     real(r8) :: bext440, babs440, bext500, babs500, babs550
     real(r8) :: bext670, babs670, bext870, babs870
     real(r8) :: bebg440, babg440, bebg500, babg500, babg550
@@ -419,7 +420,6 @@ contains
           endif
        end do
 
-
        bep4(1,irelh,ifbcbg,ictot,ifac,ifaq) = bext440 ! unit km^-1
        bep4(2,irelh,ifbcbg,ictot,ifac,ifaq) = bext500
        bep4(3,irelh,ifbcbg,ictot,ifac,ifaq) = bext670
@@ -591,13 +591,13 @@ contains
        close (ifil)
     end do
 
-  end subroutine init_aeropt
+  end subroutine initaeropt
 
   ! ==========================================================
   subroutine intaeropt0 (this, lchnk, ncol, Nnatk)
 
     ! Arguments
-    class(extinction_coeffs), intent(inout) :: this
+    class(extinction_coeffs_type) :: this
     integer                , intent(in)    :: lchnk                     ! chunk identifier
     integer                , intent(in)    :: ncol                      ! number of atmospheric columns
     real(r8)               , intent(in)    :: Nnatk(pcols,pver,0:nmodes) ! modal aerosol number concentration
@@ -606,43 +606,43 @@ contains
     integer i, iv, ierr, k, kcomp, icol
 
     kcomp=0
-    extinction_coeffs%zero_coeffs(kcomp, ncol)
+    call this%zero(kcomp, ncol)
 
     ! Mode 0 BC(ax)
     do k = 1,pver
        do icol = 1,ncol
-          if(Nnatk(icol,k,kcomp).gt.0) then
-             bext440(icol,k,kcomp)=bex440
-             babs440(icol,k,kcomp)=bax440
-             bext500(icol,k,kcomp)=bex500
-             babs500(icol,k,kcomp)=bax500
-             bext550(icol,k,kcomp)=bex550lt1+bex550gt1
-             babs550(icol,k,kcomp)=bax550
-             bext670(icol,k,kcomp)=bex670
-             babs670(icol,k,kcomp)=bax670
-             bext870(icol,k,kcomp)=bex870
-             babs870(icol,k,kcomp)=bax870
-             bebg440(icol,k,kcomp)=bex440
-             bebg500(icol,k,kcomp)=bex500
-             bebg550(icol,k,kcomp)=bex550lt1+bex550gt1
-             babg550(icol,k,kcomp)=bax550
-             bebg670(icol,k,kcomp)=bex670
-             bebg870(icol,k,kcomp)=bex870
-             bebg550lt1(icol,k,kcomp)=bex550lt1
-             bebg550gt1(icol,k,kcomp)=bex550gt1
-             backsc550(icol,k,kcomp)=backscx550
+          if (Nnatk(icol,k,kcomp).gt.0) then
+             this%bext440(icol,k,kcomp)=bex440
+             this%babs440(icol,k,kcomp)=bax440
+             this%bext500(icol,k,kcomp)=bex500
+             this%babs500(icol,k,kcomp)=bax500
+             this%bext550(icol,k,kcomp)=bex550lt1+bex550gt1
+             this%babs550(icol,k,kcomp)=bax550
+             this%bext670(icol,k,kcomp)=bex670
+             this%babs670(icol,k,kcomp)=bax670
+             this%bext870(icol,k,kcomp)=bex870
+             this%babs870(icol,k,kcomp)=bax870
+             this%bebg440(icol,k,kcomp)=bex440
+             this%bebg500(icol,k,kcomp)=bex500
+             this%bebg550(icol,k,kcomp)=bex550lt1+bex550gt1
+             this%babg550(icol,k,kcomp)=bax550
+             this%bebg670(icol,k,kcomp)=bex670
+             this%bebg870(icol,k,kcomp)=bex870
+             this%bebg550lt1(icol,k,kcomp)=bex550lt1
+             this%bebg550gt1(icol,k,kcomp)=bex550gt1
+             this%backsc550(icol,k,kcomp)=backscx550
           endif
        end do ! icol
     end do ! k
 
-  end subroutine update_aeropt0
+  end subroutine intaeropt0
 
   ! ==========================================================
-  subroutine update_aeropt1 (lchnk, ncol, xrh, irh1, mplus10, &
-                         Nnatk, xfombg, ifombg1, xct, ict1, xfac, ifac1, &
-                         extinction_coeffs)
+  subroutine intaeropt1 (this, lchnk, ncol, xrh, irh1, mplus10, &
+       Nnatk, xfombg, ifombg1, xct, ict1, xfac, ifac1)
 
     ! arguments
+    class(extinction_coeffs_type) :: this
     integer  , intent(in) :: lchnk                      ! chunk identifier
     integer  , intent(in) :: ncol                       ! number of atmospheric columns
     integer  , intent(in) :: mplus10                    ! mode number (0) or number + 10 (1)
@@ -655,12 +655,10 @@ contains
     integer  , intent(in) :: ict1(pcols,pver,nmodes)
     real(r8) , intent(in) :: xfac(pcols,pver,nbmodes)   ! condensed SOA/(SOA+H2SO4) (1-4) or added carbonaceous fraction (5-10)
     integer  , intent(in) :: ifac1(pcols,pver,nbmodes)
-    type(extinction_coeffs) , intent(inout) :: extinction_coeffs
 
     ! local variables
     real(r8) :: a, b, e, eps
     integer  :: i, iv, ierr, irelh, ifombg, ictot, ifac, kcomp, k, icol, kc10
-    ! Temporary storage of often used array elements
     integer  :: t_irh1, t_irh2, t_ifo1, t_ifo2, t_ict1, t_ict2, t_ifc1, t_ifc2
     real(r8) :: t_fac1, t_fac2, t_xfac
     real(r8) :: t_xrh, t_rh1, t_rh2, t_fombg1, t_fombg2, t_xfombg
@@ -669,12 +667,12 @@ contains
     real(r8) :: opt4d(2,2,2,2)
     real(r8) :: ome1, ome2, ge1, ge2, bex1, bex2, ske1, ske2
     real(r8) :: opt1, opt2, opt(38)
-
-    parameter :: (e=2.718281828_r8, eps=1.0e-60_r8)
+    parameter (e=2.718281828_r8, eps=1.0e-60_r8)
+    !----------------------------------------------
 
     ! SO4/SOA(Ait) mode:
     kcomp = 1
-    extinction_coeffs%zero_coeffs(kcomp, ncol)
+    call this%zero(kcomp, ncol)
 
     if(mplus10 == 0) then
        kc10 = kcomp
@@ -683,93 +681,94 @@ contains
        stop
     endif
 
-     do k=1,pver
-        do icol=1,ncol
+    do k=1,pver
+       do icol=1,ncol
 
-           if(Nnatk(icol,k,kc10).gt.0) then
+          if(Nnatk(icol,k,kc10).gt.0) then
 
-              ! Collect all the vector elements into temporary storage
-              ! to avoid cache conflicts and excessive cross-referencing
+             ! Collect all the vector elements into temporary storage
+             ! to avoid cache conflicts and excessive cross-referencing
 
-              t_irh1 = irh1(icol,k)
-              t_irh2 = t_irh1+1
-              t_ifo1 = ifombg1(icol,k)
-              t_ifo2 = t_ifo1+1
-              t_ict1 = ict1(icol,k,kcomp)
-              t_ict2 = t_ict1+1
-              t_ifc1 = ifac1(icol,k,kcomp)
-              t_ifc2 = t_ifc1+1
+             t_irh1 = irh1(icol,k)
+             t_irh2 = t_irh1+1
+             t_ifo1 = ifombg1(icol,k)
+             t_ifo2 = t_ifo1+1
+             t_ict1 = ict1(icol,k,kcomp)
+             t_ict2 = t_ict1+1
+             t_ifc1 = ifac1(icol,k,kcomp)
+             t_ifc2 = t_ifc1+1
 
-              t_rh1  = rh(t_irh1)
-              t_rh2  = rh(t_irh2)
-              t_fombg1 = fombg(t_ifo1)
-              t_fombg2 = fombg(t_ifo2)
-              t_cat1 = cate(kcomp,t_ict1)
-              t_cat2 = cate(kcomp,t_ict2)
-              t_fac1 = fac(t_ifc1)
-              t_fac2 = fac(t_ifc2)
+             t_rh1  = rh(t_irh1)
+             t_rh2  = rh(t_irh2)
+             t_fombg1 = fombg(t_ifo1)
+             t_fombg2 = fombg(t_ifo2)
+             t_cat1 = cate(kcomp,t_ict1)
+             t_cat2 = cate(kcomp,t_ict2)
+             t_fac1 = fac(t_ifc1)
+             t_fac2 = fac(t_ifc2)
 
-              t_xrh  = xrh(icol,k)
-              t_xct  = xct(icol,k,kc10)
-              t_xfac = xfac(icol,k,kcomp)
-              t_xfombg = xfombg(icol,k)
+             t_xrh  = xrh(icol,k)
+             t_xct  = xct(icol,k,kc10)
+             t_xfac = xfac(icol,k,kcomp)
+             t_xfombg = xfombg(icol,k)
 
-              ! partial lengths along each dimension (1-4) for interpolation
-              d2mx(1) = (t_rh2-t_xrh)
-              dxm1(1) = (t_xrh-t_rh1)
-              invd(1) = 1.0_r8/(t_rh2-t_rh1)
-              d2mx(2) = (t_fombg2-t_xfombg)
-              dxm1(2) = (t_xfombg-t_fombg1)
-              invd(2) = 1.0_r8/(t_fombg2-t_fombg1)
-              d2mx(3) = (t_cat2-t_xct)
-              dxm1(3) = (t_xct-t_cat1)
-              invd(3) = 1.0_r8/(t_cat2-t_cat1)
-              d2mx(4) = (t_fac2-t_xfac)
-              dxm1(4) = (t_xfac-t_fac1)
-              invd(4) = 1.0_r8/(t_fac2-t_fac1)
+             ! partial lengths along each dimension (1-4) for interpolation
+             d2mx(1) = (t_rh2-t_xrh)
+             dxm1(1) = (t_xrh-t_rh1)
+             invd(1) = 1.0_r8/(t_rh2-t_rh1)
+             d2mx(2) = (t_fombg2-t_xfombg)
+             dxm1(2) = (t_xfombg-t_fombg1)
+             invd(2) = 1.0_r8/(t_fombg2-t_fombg1)
+             d2mx(3) = (t_cat2-t_xct)
+             dxm1(3) = (t_xct-t_cat1)
+             invd(3) = 1.0_r8/(t_cat2-t_cat1)
+             d2mx(4) = (t_fac2-t_xfac)
+             dxm1(4) = (t_xfac-t_fac1)
+             invd(4) = 1.0_r8/(t_fac2-t_fac1)
 
-              do iv=1,38  ! variable number
-                 ! end points as basis for multidimentional linear interpolation
-                 opt4d(1,1,1,1) = bep1(iv,t_irh1,t_ifo1,t_ict1,t_ifc1)
-                 opt4d(1,1,1,2) = bep1(iv,t_irh1,t_ifo1,t_ict1,t_ifc2)
-                 opt4d(1,1,2,1) = bep1(iv,t_irh1,t_ifo1,t_ict2,t_ifc1)
-                 opt4d(1,1,2,2) = bep1(iv,t_irh1,t_ifo1,t_ict2,t_ifc2)
-                 opt4d(1,2,1,1) = bep1(iv,t_irh1,t_ifo2,t_ict1,t_ifc1)
-                 opt4d(1,2,1,2) = bep1(iv,t_irh1,t_ifo2,t_ict1,t_ifc2)
-                 opt4d(1,2,2,1) = bep1(iv,t_irh1,t_ifo2,t_ict2,t_ifc1)
-                 opt4d(1,2,2,2) = bep1(iv,t_irh1,t_ifo2,t_ict2,t_ifc2)
-                 opt4d(2,1,1,1) = bep1(iv,t_irh2,t_ifo1,t_ict1,t_ifc1)
-                 opt4d(2,1,1,2) = bep1(iv,t_irh2,t_ifo1,t_ict1,t_ifc2)
-                 opt4d(2,1,2,1) = bep1(iv,t_irh2,t_ifo1,t_ict2,t_ifc1)
-                 opt4d(2,1,2,2) = bep1(iv,t_irh2,t_ifo1,t_ict2,t_ifc2)
-                 opt4d(2,2,1,1) = bep1(iv,t_irh2,t_ifo2,t_ict1,t_ifc1)
-                 opt4d(2,2,1,2) = bep1(iv,t_irh2,t_ifo2,t_ict1,t_ifc2)
-                 opt4d(2,2,2,1) = bep1(iv,t_irh2,t_ifo2,t_ict2,t_ifc1)
-                 opt4d(2,2,2,2) = bep1(iv,t_irh2,t_ifo2,t_ict2,t_ifc2)
+             do iv=1,38  ! variable number
+                ! end points as basis for multidimentional linear interpolation
+                opt4d(1,1,1,1) = bep1(iv,t_irh1,t_ifo1,t_ict1,t_ifc1)
+                opt4d(1,1,1,2) = bep1(iv,t_irh1,t_ifo1,t_ict1,t_ifc2)
+                opt4d(1,1,2,1) = bep1(iv,t_irh1,t_ifo1,t_ict2,t_ifc1)
+                opt4d(1,1,2,2) = bep1(iv,t_irh1,t_ifo1,t_ict2,t_ifc2)
+                opt4d(1,2,1,1) = bep1(iv,t_irh1,t_ifo2,t_ict1,t_ifc1)
+                opt4d(1,2,1,2) = bep1(iv,t_irh1,t_ifo2,t_ict1,t_ifc2)
+                opt4d(1,2,2,1) = bep1(iv,t_irh1,t_ifo2,t_ict2,t_ifc1)
+                opt4d(1,2,2,2) = bep1(iv,t_irh1,t_ifo2,t_ict2,t_ifc2)
+                opt4d(2,1,1,1) = bep1(iv,t_irh2,t_ifo1,t_ict1,t_ifc1)
+                opt4d(2,1,1,2) = bep1(iv,t_irh2,t_ifo1,t_ict1,t_ifc2)
+                opt4d(2,1,2,1) = bep1(iv,t_irh2,t_ifo1,t_ict2,t_ifc1)
+                opt4d(2,1,2,2) = bep1(iv,t_irh2,t_ifo1,t_ict2,t_ifc2)
+                opt4d(2,2,1,1) = bep1(iv,t_irh2,t_ifo2,t_ict1,t_ifc1)
+                opt4d(2,2,1,2) = bep1(iv,t_irh2,t_ifo2,t_ict1,t_ifc2)
+                opt4d(2,2,2,1) = bep1(iv,t_irh2,t_ifo2,t_ict2,t_ifc1)
+                opt4d(2,2,2,2) = bep1(iv,t_irh2,t_ifo2,t_ict2,t_ifc2)
 
-                 ! interpolation in the fac, cat and fombg dimensions
-                 call lininterpol4dim (d2mx, dxm1, invd, opt4d, opt1, opt2)
+                ! interpolation in the fac, cat and fombg dimensions
+                call lininterpol4dim (d2mx, dxm1, invd, opt4d, opt1, opt2)
 
-                 ! finally, interpolation in the rh dimension
-                 opt(iv)=((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) / (t_rh2-t_rh1)
-              end do ! iv=1,38
+                ! finally, interpolation in the rh dimension
+                opt(iv)=((t_rh2-t_xrh)*opt1+(t_xrh-t_rh1)*opt2) / (t_rh2-t_rh1)
+             end do ! iv=1,38
 
-              ! determine extinction coefficient
-              extinction_coeffs%update_coeffs(icol, k, kcomp, opt)
+             ! update extinction coefficient
+             call this%update(icol, k, kcomp, opt)
 
-           end if
-        end do ! end of icol loop
-     end do  ! end of k loop
+          end if
+       end do ! end of icol loop
+    end do  ! end of k loop
 
-  end subroutine update_aeropt1
+  end subroutine intaeropt1
 
   ! ==========================================================
-  subroutine update_aeropt2to3 (lchnk, ncol, xrh, irh1, mplus10, &
-       Nnatk, xct, ict1, xfac, ifac1, extinction_coeffs)
+  subroutine intaeropt2to3 (this, lchnk, ncol, xrh, irh1, mplus10, &
+       Nnatk, xct, ict1, xfac, ifac1)
 
     !   Extended by Alf Kirkevaag to include SOA in September 2015
 
     ! Arguments
+    class(extinction_coeffs_type) :: this
     integer  , intent(in) :: lchnk                       ! chunk identifier
     integer  , intent(in) :: ncol                        ! number of atmospheric columns
     integer  , intent(in) :: mplus10                     ! mode number (0) or number + 10 (1)
@@ -784,19 +783,17 @@ contains
     ! Local variables
     real(r8) :: a, b, e, eps
     integer  :: i, iv, kcomp, k, icol, kc10
-    ! Temporary storage of often used array elements
     integer  :: t_irh1, t_irh2, t_ict1, t_ict2, t_ifc1, t_ifc2
     real(r8) :: t_fac1, t_fac2, t_xfac, t_xrh, t_xct, t_rh1, t_rh2, t_cat1, t_cat2
     real(r8) :: d2mx(3), dxm1(3), invd(3)
     real(r8) :: opt3d(2,2,2)
     real(r8) :: opt1, opt2, opt(38)
-
     parameter (e=2.718281828_r8, eps=1.0e-60_r8)
 
     ! SO4(Ait), BC(Ait) and OC(Ait) modes:
 
     do kcomp=2,3
-       extinction_coeffs%zero_coeffs(kcomp, ncol)
+       call this%zero(kcomp, ncol)
     end do
 
     kcomp = 2 ! kcomp=3 is no longer used
@@ -856,19 +853,19 @@ contains
              end do ! iv=1,38
 
              ! determine extinction coefficient
-             extinction_coeffs%update_coeffs(icol, k, kcomp, opt)
+             call this%update(icol, k, kcomp, opt)
 
           end if ! Nnatk > 0
        end do ! icol
     end do ! k
 
-  end subroutine update_aeropt2to3
+  end subroutine intaeropt2to3
 
   ! ==========================================================
-  subroutine update_aeropt4 (lchnk, ncol, xrh, irh1, mplus10, Nnatk,   &
-       xfbcbg, ifbcbg1, xct, ict1, xfac, ifac1, xfaq, ifaq1, &
-       extinction_coeffs)
+  subroutine intaeropt4 (this, lchnk, ncol, xrh, irh1, mplus10, Nnatk,   &
+       xfbcbg, ifbcbg1, xct, ict1, xfac, ifac1, xfaq, ifaq1)
 
+    class(extinction_coeffs_type) :: this
     integer  , intent(in) :: lchnk                      ! chunk identifier
     integer  , intent(in) :: ncol                       ! number of atmospheric columns
     integer  , intent(in) :: mplus10                    ! mode number (0) or number + 10 (1)
@@ -883,7 +880,6 @@ contains
     integer  , intent(in) :: ifac1(pcols,pver,nbmodes)
     real(r8) , intent(in) :: xfaq(pcols,pver,nbmodes)   ! modal SO4(aq)/SO4
     integer  , intent(in) :: ifaq1(pcols,pver,nbmodes)
-    type(extinction_coeffs), intent(inout) :: extinction_coeffs
 
     ! Local variables
     real(r8) :: a, b, e, eps
@@ -903,7 +899,7 @@ contains
 
     ! BC&OC(Ait) mode:
     kcomp = 4
-    extinction_coeffs%zero_coeffs(kcomp, ncol)
+    call this%zero(kcomp, ncol)
 
     if(mplus10==0) then
        kc10=kcomp
@@ -1007,20 +1003,20 @@ contains
              end do ! iv=1,38
 
              ! determine extinction coefficient
-             extinction_coeffs%update_coeffs(icol, k, kcomp, opt)
+             call this%update(icol, k, kcomp, opt)
 
           end if ! Nnatk > 0
        end do ! icol
     end do ! k
 
-  end subroutine update_aeropt4
+  end subroutine intaeropt4
 
   ! ==========================================================
-  subroutine update_aeropt5to10 (lchnk, ncol, xrh, irh1, Nnatk,    &
-       xct, ict1, xfac, ifac1, xfbc, ifbc1, xfaq, ifaq1, &
-       extinction_coeffs)
+  subroutine intaeropt5to10 (this, lchnk, ncol, xrh, irh1, Nnatk,    &
+       xct, ict1, xfac, ifac1, xfbc, ifbc1, xfaq, ifaq1)
 
     ! Arguments
+    class(extinction_coeffs_type) :: this
     integer  , intent(in) :: lchnk                      ! chunk identifier
     integer  , intent(in) :: ncol                       ! number of atmospheric columns
     real(r8) , intent(in) :: xrh(pcols,pver)            ! level relative humidity (fraction)
@@ -1054,7 +1050,7 @@ contains
 
     do kcomp=5,10
        ! zero extinction coefficients for this kcomp
-       extinction_coeffs%zero_coeffs(kcomp, ncol)
+       call this%zero(kcomp, ncol)
 
        do k=1,pver
           do icol=1,ncol
@@ -1152,17 +1148,17 @@ contains
                 end do ! iv=1,38
 
                 ! determine extinction coefficient
-                extinction_coeffs%update_coeffs(icol, k, kcomp, opt)
+                call this%update(icol, k, kcomp, opt)
 
              end if ! Nnatk > 0
           end do ! icol
        end do ! k
     end do ! kcomp
 
-  end subroutine update_aeropt5to10
+  end subroutine intaeropt5to10
 
   ! ==========================================================
-  subroutine zero_coeffs(this, kcomp, ncol)
+  subroutine zero(this, kcomp, ncol)
 
     class(extinction_coeffs_type) :: this
     integer , intent(in)    :: kcomp
@@ -1220,10 +1216,10 @@ contains
        end do
     end do
 
-  end subroutine zero_coeffs
+  end subroutine zero
 
   ! ==========================================================
-  subroutine update_coeffs(this, icol, k, kcomp)
+  subroutine update(this, icol, k, kcomp, opt)
 
     class(extinction_coeffs_type) :: this
     integer  , intent(in) :: icol
@@ -1273,8 +1269,8 @@ contains
     this%bebc550(icol,k,kcomp)    = opt(28)+opt(29)
     this%beoc550(icol,k,kcomp)    = opt(30)+opt(31)
     this%besu550(icol,k,kcomp)    = opt(32)+opt(33)
-    this%bext550(icol,k,kcomp)    = bebg550(icol,k,kcomp)+bebc550(icol,k,kcomp) &
-                                   +beoc550(icol,k,kcomp)+besu550(icol,k,kcomp)
-  end subroutine update_coeffs
+    this%bext550(icol,k,kcomp)    = this%bebg550(icol,k,kcomp) + this%bebc550(icol,k,kcomp) &
+                                   +this%beoc550(icol,k,kcomp) + this%besu550(icol,k,kcomp)
+  end subroutine update
 
 end module aeroopt_mod

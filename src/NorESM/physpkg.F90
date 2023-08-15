@@ -11,8 +11,6 @@ module physpkg
   ! Nov 2010    A. Gettelman   Put micro/macro physics into separate routines
   !-----------------------------------------------------------------------
 
-#include <preprocessorDefinitions.h>
-
   use shr_kind_mod,     only: r8 => shr_kind_r8
   use spmd_utils,       only: masterproc
   use physconst,        only: latvap, latice, rh2o
@@ -87,6 +85,12 @@ module physpkg
   integer ::  prec_sh_idx        = 0
   integer ::  snow_sh_idx        = 0
   integer ::  dlfzm_idx          = 0     ! detrained convective cloud water mixing ratio.
+
+#ifdef AEROCOM
+logical :: do_aerocom = .true.
+#else
+logical :: do_aerocom = .false.
+#endif
 
 !=======================================================================
 contains
@@ -1728,10 +1732,10 @@ contains
     use subcol_utils,    only: subcol_ptend_copy, is_subcol_on
     use qneg_module,     only: qneg3
 
-#ifdef OSLO_AERO
+    ! OSLO_AERO beg
     use commondefinitions
     use aerosoldef !, only: nmodes
-#endif 
+    ! OSLO_AERO end
 
     implicit none
 
@@ -1780,9 +1784,8 @@ contains
     ! for macro/micro co-substepping
     integer :: macmic_it                       ! iteration variables
     real(r8) :: cld_macmic_ztodt               ! modified timestep
-#ifdef OSLO_AERO
-    integer kcomp                              ! mode number (1-14)
-#endif                                    
+
+    integer kcomp                              ! mode number (1-14) oslo_aero
 
     ! physics buffer fields to compute tendencies for stratiform package
     integer itim_old, ifld
@@ -1844,52 +1847,52 @@ contains
 
     logical   :: lq(pcnst)
 
-#ifdef AEROCOM
-   real(r8) :: logsig3d(pcols,pver,nmodes) ! Log (log10) of standard deviation for lognormal modes, method 2.
-   real(r8) :: rnew3d(pcols,pver,nmodes)   ! New modal radius from look-up tables, method 2.
-   real(r8) :: logsig1(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 1, method 2.
-   real(r8) :: rnew1(pcols,pver)   ! New modal radius, mode 1, from look-up tables, method 2.
-   real(r8) :: logsig2(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 2, method 2.
-   real(r8) :: rnew2(pcols,pver)   ! New modal radius, mode 2, from look-up tables, method 2.
-   real(r8) :: logsig4(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 4, method 2.
-   real(r8) :: rnew4(pcols,pver)   ! New modal radius, mode 4, from look-up tables, method 2.
-   real(r8) :: logsig5(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 5, method 2.
-   real(r8) :: rnew5(pcols,pver)   ! New modal radius, mode 5, from look-up tables, method 2.
-   real(r8) :: logsig6(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 6, method 2.
-   real(r8) :: rnew6(pcols,pver)   ! New modal radius, mode 6, from look-up tables, method 2.
-   real(r8) :: logsig7(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 7, method 2.
-   real(r8) :: rnew7(pcols,pver)   ! New modal radius, mode 7, from look-up tables, method 2.
-   real(r8) :: logsig8(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 8, method 2.
-   real(r8) :: rnew8(pcols,pver)   ! New modal radius, mode 8, from look-up tables, method 2.
-   real(r8) :: logsig9(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 9, method 2.
-   real(r8) :: rnew9(pcols,pver)   ! New modal radius, mode 9, from look-up tables, method 2.
-   real(r8) :: logsig10(pcols,pver)! Log (log10) of standard deviation for lognormal modes 10, method 2.
-   real(r8) :: rnew10(pcols,pver)  ! New modal radius, mode 10, from look-up tables, method 2.
-   real(r8) :: logsig11(pcols,pver)! Log (log10) of standard deviation for lognormal modes 11, method 2.
-   real(r8) :: rnew11(pcols,pver)  ! New modal radius, mode 11, from look-up tables, method 2.
-   real(r8) :: logsig13(pcols,pver)! Log (log10) of standard deviation for lognormal modes 13, method 2.
-   real(r8) :: rnew13(pcols,pver)  ! New modal radius, mode 13, from look-up tables, method 2.
-   real(r8) :: logsig14(pcols,pver)! Log (log10) of standard deviation for lognormal modes 14, method 2.
-   real(r8) :: rnew14(pcols,pver)  ! New modal radius, mode 14, from look-up tables, method 2.
-   real(r8) :: rnewdry1(pcols,pver)   ! New dry modal radius, mode 1, from look-up tables, method 2.
-   real(r8) :: rnewdry2(pcols,pver)   ! New dry modal radius, mode 2, from look-up tables, method 2.
-   real(r8) :: rnewdry4(pcols,pver)   ! New dry modal radius, mode 4, from look-up tables, method 2.
-   real(r8) :: rnewdry5(pcols,pver)   ! New dry modal radius, mode 5, from look-up tables, method 2.
-   real(r8) :: rnewdry6(pcols,pver)   ! New dry modal radius, mode 6, from look-up tables, method 2.
-   real(r8) :: rnewdry7(pcols,pver)   ! New dry modal radius, mode 7, from look-up tables, method 2.
-   real(r8) :: rnewdry8(pcols,pver)   ! New dry modal radius, mode 8, from look-up tables, method 2.
-   real(r8) :: rnewdry9(pcols,pver)   ! New dry modal radius, mode 9, from look-up tables, method 2.
-   real(r8) :: rnewdry10(pcols,pver)  ! New dry modal radius, mode 10, from look-up tables, method 2.
-   real(r8) :: rnewdry11(pcols,pver)  ! New dry modal radius, mode 11, from look-up tables, method 2.
-   real(r8) :: rnewdry13(pcols,pver)  ! New dry modal radius, mode 13, from look-up tables, method 2.
-   real(r8) :: rnewdry14(pcols,pver)  ! New dry modal radius, mode 14, from look-up tables, method 2.
-   real(r8) :: relhum(pcols,pver)         ! Ambient relative humidity (fraction)
-   real(r8) :: v3so4(pcols,pver,nmodes)  ! Modal mass fraction of Sulfate
-   real(r8) :: v3insol(pcols,pver,nmodes)! Modal mass fraction of BC and dust
-   real(r8) :: v3oc(pcols,pver,nmodes)   ! Modal mass fraction of OC (POM)
-   real(r8) :: v3ss(pcols,pver,nmodes)   ! Modal mass fraction of sea-salt
-   real(r8) :: frh(pcols,pver,nmodes)    ! Modal humidity growth factor 
-#endif ! aerocom
+    ! OSLO_AERO beg
+    real(r8) :: logsig3d(pcols,pver,nmodes) ! Log (log10) of standard deviation for lognormal modes, method 2.
+    real(r8) :: rnew3d(pcols,pver,nmodes)   ! New modal radius from look-up tables, method 2.
+    real(r8) :: logsig1(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 1, method 2.
+    real(r8) :: rnew1(pcols,pver)   ! New modal radius, mode 1, from look-up tables, method 2.
+    real(r8) :: logsig2(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 2, method 2.
+    real(r8) :: rnew2(pcols,pver)   ! New modal radius, mode 2, from look-up tables, method 2.
+    real(r8) :: logsig4(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 4, method 2.
+    real(r8) :: rnew4(pcols,pver)   ! New modal radius, mode 4, from look-up tables, method 2.
+    real(r8) :: logsig5(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 5, method 2.
+    real(r8) :: rnew5(pcols,pver)   ! New modal radius, mode 5, from look-up tables, method 2.
+    real(r8) :: logsig6(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 6, method 2.
+    real(r8) :: rnew6(pcols,pver)   ! New modal radius, mode 6, from look-up tables, method 2.
+    real(r8) :: logsig7(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 7, method 2.
+    real(r8) :: rnew7(pcols,pver)   ! New modal radius, mode 7, from look-up tables, method 2.
+    real(r8) :: logsig8(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 8, method 2.
+    real(r8) :: rnew8(pcols,pver)   ! New modal radius, mode 8, from look-up tables, method 2.
+    real(r8) :: logsig9(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 9, method 2.
+    real(r8) :: rnew9(pcols,pver)   ! New modal radius, mode 9, from look-up tables, method 2.
+    real(r8) :: logsig10(pcols,pver)! Log (log10) of standard deviation for lognormal modes 10, method 2.
+    real(r8) :: rnew10(pcols,pver)  ! New modal radius, mode 10, from look-up tables, method 2.
+    real(r8) :: logsig11(pcols,pver)! Log (log10) of standard deviation for lognormal modes 11, method 2.
+    real(r8) :: rnew11(pcols,pver)  ! New modal radius, mode 11, from look-up tables, method 2.
+    real(r8) :: logsig13(pcols,pver)! Log (log10) of standard deviation for lognormal modes 13, method 2.
+    real(r8) :: rnew13(pcols,pver)  ! New modal radius, mode 13, from look-up tables, method 2.
+    real(r8) :: logsig14(pcols,pver)! Log (log10) of standard deviation for lognormal modes 14, method 2.
+    real(r8) :: rnew14(pcols,pver)  ! New modal radius, mode 14, from look-up tables, method 2.
+    real(r8) :: rnewdry1(pcols,pver)   ! New dry modal radius, mode 1, from look-up tables, method 2.
+    real(r8) :: rnewdry2(pcols,pver)   ! New dry modal radius, mode 2, from look-up tables, method 2.
+    real(r8) :: rnewdry4(pcols,pver)   ! New dry modal radius, mode 4, from look-up tables, method 2.
+    real(r8) :: rnewdry5(pcols,pver)   ! New dry modal radius, mode 5, from look-up tables, method 2.
+    real(r8) :: rnewdry6(pcols,pver)   ! New dry modal radius, mode 6, from look-up tables, method 2.
+    real(r8) :: rnewdry7(pcols,pver)   ! New dry modal radius, mode 7, from look-up tables, method 2.
+    real(r8) :: rnewdry8(pcols,pver)   ! New dry modal radius, mode 8, from look-up tables, method 2.
+    real(r8) :: rnewdry9(pcols,pver)   ! New dry modal radius, mode 9, from look-up tables, method 2.
+    real(r8) :: rnewdry10(pcols,pver)  ! New dry modal radius, mode 10, from look-up tables, method 2.
+    real(r8) :: rnewdry11(pcols,pver)  ! New dry modal radius, mode 11, from look-up tables, method 2.
+    real(r8) :: rnewdry13(pcols,pver)  ! New dry modal radius, mode 13, from look-up tables, method 2.
+    real(r8) :: rnewdry14(pcols,pver)  ! New dry modal radius, mode 14, from look-up tables, method 2.
+    real(r8) :: relhum(pcols,pver)         ! Ambient relative humidity (fraction)
+    real(r8) :: v3so4(pcols,pver,nmodes)  ! Modal mass fraction of Sulfate
+    real(r8) :: v3insol(pcols,pver,nmodes)! Modal mass fraction of BC and dust
+    real(r8) :: v3oc(pcols,pver,nmodes)   ! Modal mass fraction of OC (POM)
+    real(r8) :: v3ss(pcols,pver,nmodes)   ! Modal mass fraction of sea-salt
+    real(r8) :: frh(pcols,pver,nmodes)    ! Modal humidity growth factor 
+   ! OSLO_AERO_END
     !-----------------------------------------------------------------------
 
     call t_startf('bc_init')
@@ -2080,24 +2083,6 @@ contains
     ! code.
     call sslt_rebin_adv(pbuf,  state)
     
-#ifdef DIRIND
-!   do i=1,ncol
-!      precc (i) = prec_zmc(i) + prec_cmf(i)
-!      if(precc(i).lt.0.) precc(i)=0.
-!   end do
-#ifdef AEROCOM
-!   do kcomp=1,14
-!   do k=1,pver
-!      do i=1,ncol
-        rnew3d(:,:,:)  =0.0_r8
-        logsig3d(:,:,:)=0.0_r8
-!      enddo
-!   enddo
-!   enddo
-#endif ! aerocom
-#endif ! dirind
-
-
     !===================================================
     ! Calculate tendencies from CARMA bin microphysics.
     !===================================================
@@ -2334,103 +2319,53 @@ contains
        call aero_model_wetdep( state, ztodt, dlf, cam_out, ptend, pbuf)
        call physics_update(state, ptend, ztodt, tend)
 
-#ifdef DIRIND
-#ifdef AEROCOM
-!  Estimating hygroscopic growth by use of linear interpolation w.r.t. mass 
-!  fractions of each internally mixed component for each mode (kcomp).
-!
-   call intfrh(lchnk, ncol, v3so4, v3insol, v3oc, v3ss, relhum, frh)
-!
-   do k=1,pver
-      do i=1,ncol
-        rnewdry1(i,k)   = rnew3d(i,k,1)
-        rnewdry2(i,k)   = rnew3d(i,k,2)
-        rnewdry4(i,k)   = rnew3d(i,k,4)
-        rnewdry5(i,k)   = rnew3d(i,k,5)
-        rnewdry6(i,k)   = rnew3d(i,k,6)
-        rnewdry7(i,k)   = rnew3d(i,k,7)
-        rnewdry8(i,k)   = rnew3d(i,k,8)
-        rnewdry9(i,k)   = rnew3d(i,k,9)
-        rnewdry10(i,k)  = rnew3d(i,k,10)
-        rnewdry11(i,k)  = rnew3d(i,k,11)
-        rnewdry13(i,k)  = rnew3d(i,k,13)
-        rnewdry14(i,k)  = rnew3d(i,k,14)
-        rnew1(i,k)   = rnew3d(i,k,1)*frh(i,k,1)
-        rnew2(i,k)   = rnew3d(i,k,2)*frh(i,k,2)
-        rnew4(i,k)   = rnew3d(i,k,4)*frh(i,k,4)
-        rnew5(i,k)   = rnew3d(i,k,5)*frh(i,k,5)
-        rnew6(i,k)   = rnew3d(i,k,6)*frh(i,k,6)
-        rnew7(i,k)   = rnew3d(i,k,7)*frh(i,k,7)
-        rnew8(i,k)   = rnew3d(i,k,8)*frh(i,k,8)
-        rnew9(i,k)   = rnew3d(i,k,9)*frh(i,k,9)
-        rnew10(i,k)  = rnew3d(i,k,10)*frh(i,k,10)
-        rnew11(i,k)  = rnew3d(i,k,11)*frh(i,k,11)
-        rnew13(i,k)  = rnew3d(i,k,13)*frh(i,k,13)
-        rnew14(i,k)  = rnew3d(i,k,14)*frh(i,k,14)
-        logsig1(i,k) = logsig3d(i,k,1)
-        logsig2(i,k) = logsig3d(i,k,2)
-        logsig4(i,k) = logsig3d(i,k,4)
-        logsig5(i,k) = logsig3d(i,k,5)
-        logsig6(i,k) = logsig3d(i,k,6)
-        logsig7(i,k) = logsig3d(i,k,7)
-        logsig8(i,k) = logsig3d(i,k,8)
-        logsig9(i,k) = logsig3d(i,k,9)
-        logsig10(i,k)= logsig3d(i,k,10)
-        logsig11(i,k)= logsig3d(i,k,11)
-        logsig13(i,k)= logsig3d(i,k,13)
-        logsig14(i,k)= logsig3d(i,k,14)
-!test-output++
-!        logsig1(i,k)  = frh(i,k,1)
-!        logsig2(i,k)  = frh(i,k,2)
-!        logsig4(i,k)  = frh(i,k,4)
-!        logsig5(i,k)  = frh(i,k,5)
-!        logsig6(i,k)  = frh(i,k,6)
-!        logsig7(i,k)  = frh(i,k,7)
-!        logsig8(i,k)  = frh(i,k,8)
-!        logsig9(i,k)  = frh(i,k,9)
-!        logsig10(i,k) = frh(i,k,10)
-!test-output--
-      end do
-   end do
-! kommenterer ut disse foreløpig:
-!   call outfld('RNEWD1  ',rnewdry1,pcols,lchnk)
-!   call outfld('RNEWD2  ',rnewdry2,pcols,lchnk)
-!   call outfld('RNEWD4  ',rnewdry4,pcols,lchnk)
-!   call outfld('RNEWD5  ',rnewdry5,pcols,lchnk)
-!   call outfld('RNEWD6  ',rnewdry6,pcols,lchnk)
-!   call outfld('RNEWD7  ',rnewdry7,pcols,lchnk)
-!   call outfld('RNEWD8  ',rnewdry8,pcols,lchnk)
-!   call outfld('RNEWD9  ',rnewdry9,pcols,lchnk)
-!   call outfld('RNEWD10 ',rnewdry10,pcols,lchnk)
-!!   call outfld('RNEWD11 ',rnewdry11,pcols,lchnk)  ! always = 0.0118
-!!   call outfld('RNEWD13 ',rnewdry13,pcols,lchnk)  ! always = 0.04
-!!   call outfld('RNEWD14 ',rnewdry14,pcols,lchnk)  ! always = 0.04
-!   call outfld('RNEW1   ',rnew1,pcols,lchnk)
-!   call outfld('RNEW2   ',rnew2,pcols,lchnk)
-!   call outfld('RNEW4   ',rnew4,pcols,lchnk)
-!   call outfld('RNEW5   ',rnew5,pcols,lchnk)
-!   call outfld('RNEW6   ',rnew6,pcols,lchnk)
-!   call outfld('RNEW7   ',rnew7,pcols,lchnk)
-!   call outfld('RNEW8   ',rnew8,pcols,lchnk)
-!   call outfld('RNEW9   ',rnew9,pcols,lchnk)
-!   call outfld('RNEW10  ',rnew10,pcols,lchnk)
-!   call outfld('RNEW11  ',rnew11,pcols,lchnk)
-!   call outfld('RNEW13  ',rnew13,pcols,lchnk)
-!   call outfld('RNEW14  ',rnew14,pcols,lchnk)
-!   call outfld('LOGSIG1 ',logsig1,pcols,lchnk)
-!   call outfld('LOGSIG2 ',logsig2,pcols,lchnk)
-!   call outfld('LOGSIG4 ',logsig4,pcols,lchnk)
-!   call outfld('LOGSIG5 ',logsig5,pcols,lchnk)
-!   call outfld('LOGSIG6 ',logsig6,pcols,lchnk)
-!   call outfld('LOGSIG7 ',logsig7,pcols,lchnk)
-!   call outfld('LOGSIG8 ',logsig8,pcols,lchnk)
-!   call outfld('LOGSIG9 ',logsig9,pcols,lchnk)
-!   call outfld('LOGSIG10',logsig10,pcols,lchnk)
-!!   call outfld('LOGSIG11',logsig11,pcols,lchnk)  ! always = 0.2553
-!!   call outfld('LOGSIG13',logsig13,pcols,lchnk)  ! always = 0.2553
-!!   call outfld('LOGSIG14',logsig14,pcols,lchnk)  ! always = 0.2553
-#endif ! aerocom
-#endif ! dirind
+       if (do_aerocom) then
+          !  Estimating hygroscopic growth by use of linear interpolation w.r.t. mass 
+          !  fractions of each internally mixed component for each mode (kcomp).
+          !
+          call intfrh(lchnk, ncol, v3so4, v3insol, v3oc, v3ss, relhum, frh)
+          !
+          do k=1,pver
+             do i=1,ncol
+                rnewdry1(i,k)   = rnew3d(i,k,1)
+                rnewdry2(i,k)   = rnew3d(i,k,2)
+                rnewdry4(i,k)   = rnew3d(i,k,4)
+                rnewdry5(i,k)   = rnew3d(i,k,5)
+                rnewdry6(i,k)   = rnew3d(i,k,6)
+                rnewdry7(i,k)   = rnew3d(i,k,7)
+                rnewdry8(i,k)   = rnew3d(i,k,8)
+                rnewdry9(i,k)   = rnew3d(i,k,9)
+                rnewdry10(i,k)  = rnew3d(i,k,10)
+                rnewdry11(i,k)  = rnew3d(i,k,11)
+                rnewdry13(i,k)  = rnew3d(i,k,13)
+                rnewdry14(i,k)  = rnew3d(i,k,14)
+                rnew1(i,k)   = rnew3d(i,k,1)*frh(i,k,1)
+                rnew2(i,k)   = rnew3d(i,k,2)*frh(i,k,2)
+                rnew4(i,k)   = rnew3d(i,k,4)*frh(i,k,4)
+                rnew5(i,k)   = rnew3d(i,k,5)*frh(i,k,5)
+                rnew6(i,k)   = rnew3d(i,k,6)*frh(i,k,6)
+                rnew7(i,k)   = rnew3d(i,k,7)*frh(i,k,7)
+                rnew8(i,k)   = rnew3d(i,k,8)*frh(i,k,8)
+                rnew9(i,k)   = rnew3d(i,k,9)*frh(i,k,9)
+                rnew10(i,k)  = rnew3d(i,k,10)*frh(i,k,10)
+                rnew11(i,k)  = rnew3d(i,k,11)*frh(i,k,11)
+                rnew13(i,k)  = rnew3d(i,k,13)*frh(i,k,13)
+                rnew14(i,k)  = rnew3d(i,k,14)*frh(i,k,14)
+                logsig1(i,k) = logsig3d(i,k,1)
+                logsig2(i,k) = logsig3d(i,k,2)
+                logsig4(i,k) = logsig3d(i,k,4)
+                logsig5(i,k) = logsig3d(i,k,5)
+                logsig6(i,k) = logsig3d(i,k,6)
+                logsig7(i,k) = logsig3d(i,k,7)
+                logsig8(i,k) = logsig3d(i,k,8)
+                logsig9(i,k) = logsig3d(i,k,9)
+                logsig10(i,k)= logsig3d(i,k,10)
+                logsig11(i,k)= logsig3d(i,k,11)
+                logsig13(i,k)= logsig3d(i,k,13)
+                logsig14(i,k)= logsig3d(i,k,14)
+             end do
+          end do
+       end if
 
        if (carma_do_wetdep) then
           ! CARMA wet deposition
@@ -2548,9 +2483,9 @@ subroutine phys_timestep_init(phys_state, cam_in, cam_out, pbuf2d)
   use epp_ionization,      only: epp_ionization_active
   use iop_forcing,         only: scam_use_iop_srf
   use nudging,             only: Nudge_Model, nudging_timestep_init
-#ifdef OSLO_AERO
+  ! OSLO_AERO beg
   use oslo_ocean_intr,     only: oslo_ocean_time
-#endif
+  ! OSLO_AERO end
 
   implicit none
 
@@ -2585,9 +2520,9 @@ subroutine phys_timestep_init(phys_state, cam_in, cam_out, pbuf2d)
   call aircraft_emit_adv(phys_state, pbuf2d)
   call prescribed_volcaero_adv(phys_state, pbuf2d)
   call prescribed_strataero_adv(phys_state, pbuf2d)
-#ifdef OSLO_AERO
+  ! OSLO_AERO beg
   call oslo_ocean_time(phys_state, pbuf2d)
-#endif
+  ! OSLO_AERO end
 
   ! prescribed aerosol deposition fluxes
   call aerodep_flx_adv(phys_state, pbuf2d, cam_out)
