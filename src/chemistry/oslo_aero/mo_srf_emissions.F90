@@ -12,9 +12,7 @@ module mo_srf_emissions
   use ppgrid,        only : pcols, begchunk, endchunk
   use cam_logfile,   only : iulog
   use tracer_data,   only : trfld,trfile
-#ifdef OSLO_AERO
   use oslo_ocean_intr, only: oslo_dms_inq
-#endif
 
   implicit none
 

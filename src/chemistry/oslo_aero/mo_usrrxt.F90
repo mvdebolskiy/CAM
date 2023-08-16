@@ -3,17 +3,12 @@ module mo_usrrxt
   use shr_kind_mod,     only : r8 => shr_kind_r8
   use cam_logfile,      only : iulog
   use ppgrid,           only : pver, pcols
-#ifdef OSLO_AERO
-!   use aerosoldef, only: nmodes_oslo=> nmodes, lifeCycleNumberMedianRadius
-   use commondefinitions, only: nmodes_oslo=> nmodes
-#endif
+  use commondefinitions, only: nmodes_oslo=> nmodes
 
   implicit none
 
   private
   public :: usrrxt, usrrxt_inti, usrrxt_hrates
-
-  save
 
   integer :: usr_O_O2_ndx
   integer :: usr_HO2_HO2_ndx
@@ -574,13 +569,7 @@ contains
 
     real(r8), pointer :: sfc_array(:,:,:), dm_array(:,:,:)
     
-#ifdef OSLO_AERO
     ntot_amode = nmodes_oslo
-#else
-    ! get info about the modal aerosols
-    ! get ntot_amode
-    call rad_cnst_get_info(0, nmodes=ntot_amode)
-#endif
     if (ntot_amode>0) then
        allocate(sfc_array(pcols,pver,ntot_amode), dm_array(pcols,pver,ntot_amode) )
     else
@@ -1518,11 +1507,7 @@ contains
     real(r8), intent(in)  :: y(:)
     integer,  intent(in)  :: n
     
-#ifdef IBM
-    call vexp( x, y, n )
-#else
     x(:n) = exp( y(:n) )
-#endif
 
   end subroutine comp_exp
 

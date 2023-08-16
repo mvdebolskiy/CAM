@@ -291,8 +291,6 @@ contains
       real(r8)                     :: total
       real(r8)                     :: fraction(pcols,pver,pcnst)      !ak: oversized, but only for test use
       !--test
-#undef EXTRATESTS
-
 
       call modalapp2d_sub(ncol         &
                 ,Nnatk(1,1,1)          &  !I [#/m3]  Total number concentration (skip mode 0)
@@ -309,95 +307,6 @@ contains
                 ,f_so4_condm           &  !O [frc] 
                 ,f_soam                &
                 )
-
-#ifdef EXTRATESTS
-      !++testing
-      fraction(:,:,:)=0.0_r8
-      do m=1,nbmodes
-         do l = 1, getNumberOfTracersInMode(m)
-            lptr = getTracerIndex(m,l,.false.)
-            do k=1,pver
-               do i=1,ncol
-                  fraction(i,k,lptr) = fraction(i,k,lptr) &
-                           + getConstituentFraction(CProcessModes(i,k), f_c(i,k), f_bc(i,k), f_aq(i,k), f_so4_cond(i,k), f_soa(i,k) &
-                           ,Cam(i,k,m), f_acm(i,k,m), f_bcm(i,k,m), f_aqm(i,k,m), f_so4_condm(i,k,m),f_soam(i,k,m), lptr  )
-               end do
-             end do
-         enddo
-      enddo
-
-         !testing that the mass fractions summed over all modes and species = 1 (or 0 if not present).
-         do m1=1,pcnst
-            do k=1, pver
-               do i=1,ncol
-                  !Check if "fraction" differs from one (accept 0.01 error), only check for concentrations > 1.e-30 kg/m3
-                  if((abs(fraction(i,k,m1)-1.0_r8) .gt. 1.e-2) .and. (fraction(i,k,m1).gt.0.0_r8) .and. (CProcessModes(i,k) .gt. 1.e-30_r8) )then
-                     if( ( m1 .eq. l_so4_a1 .and. (1.0_r8-f_c(i,k))*(1.0_r8-f_aq(i,k))*f_so4_cond(i,k) .gt. 1.0e-4_r8).or. &
-                         ( m1 .eq. l_so4_a2 .and. (1.0_r8-f_c(i,k))*f_aq(i,k) .gt. 1.0e-4_r8).or. &
-                         ( m1 .eq. l_so4_ac .and. (1.0_r8-f_c(i,k))*(1.0_r8-f_aq(i,k))*(1.0_r8-f_so4_cond(i,k)) .gt. 1.0e-4_r8).or. &
-                         ( m1 .eq. l_bc_ac .and.  f_c(i,k)*f_bc(i,k) .gt. 1.0e-4_r8).or. &
-                         ( m1 .eq. l_om_ac .and.  f_c(i,k)*(1.0_r8-f_bc(i,k))*(1.0_r8 - f_soa(i,k)) .gt. 1.0e-4_r8) .or. & 
-                         ( m1 .eq. l_soa_a1 .and. f_c(i,k)*(1.0_r8-f_bc(i,k))*f_soa(i,k) .gt. 1.0e-4_r8) &
-                         )then
-
-               print*,"  "
-               print*,"fraction error ", m1, fraction(i,k,m1), cnst_name(m1)
-               print*, "Cprocessmodes", CProcessModes(i,k), f_c(i,k), f_bc(i,k), f_aq(i,k), f_so4_cond(i,k), f_soa(i,k)
-               do l=1,nbmodes
-                  print*, "mode, cam", l, cam(i,k,l),nnatk(i,k,l)
-               enddo
-               print*,"ca, sum(cam)", CProcessModes(i,k), sum(cam(i,k,:))
-               print*,"sulfate fraction", (1.0_r8 - f_c(i,k))
-               print*,"carbon fraction", f_c(i,k)
-               print*,"non aq sulf fraction", (1.0_r8 - f_aq(i,k))*(1.0_r8 - f_c(i,k))
-               !There is something wrong with tracer lptr
-               do m=1,nmodes
-                  do l =1,getNumberOfTracersInMode(m)
-                     lptr = getTracerIndex(m,l,.false.)
-                     if(lptr .eq. m1)then !This is the tracer with problems
-                        print*, "lptr, fraction ", m,l,lptr, &
-                            getConstituentFraction(CProcessModes(i,k), f_c(i,k), f_bc(i,k), f_aq(i,k), f_so4_cond(i,k), f_soa(i,k) &
-                             ,Cam(i,k,m), f_acm(i,k,m), f_bcm(i,k,m), f_aqm(i,k,m), f_so4_condm(i,k,m) , f_soam(i,k,m), lptr,.TRUE.  ) &
-                            , NNatk(i,k,m),cam(i,k,m),numberFractionAvailableAqChem(m)
-
-                     endif
-                  enddo
-               enddo
-               do m=1,nbmodes
-                  print*,"sulfate / c, aq ", m, (1.0_r8-f_acm(i,k,m)),  f_acm(i,k,m)& 
-                        ,f_aqm(i,k,m), f_so4_condm(i,k,m), f_so4_condm(i,k,m), f_soam(i,k,m)
-               enddo
-
-               stop !stop on error
-               endif !if tracer has error
-            endif    !if budget is wrong
-               enddo      
-            enddo 
-         enddo
-
-
-         !Check total carbon
-         do k=1,pver
-            do i=1,ncol
-               total=0.0_r8
-               do kcomp=1,nbmodes
-                  total = total + cam(i,k,kcomp)*f_acm(i,k,kcomp)
-               enddo
-               if( ABS(total - CProcessModes(i,k)*f_c(i,k)) .gt. 1.e-2_r8*CProcessModes(i,k) )then
-                  if(abs(total) > 1.e-25)then
-                     print*,"CProcessModes", CProcessModes(i,k), total, abs(total - CProcessModes(i,k)*f_c(i,k))
-                     do kcomp=1,nbmodes
-                        print*,"fcm,cam,fc,ctot", f_acm(i,k,kcomp), cam(i,k,kcomp), f_c(i,k), CProcessModes(i,k)
-                     enddo
-                     stop
-                  endif
-               endif
-             end do
-          end do
-
-   !--testing
-#endif
-      !EXTRATESTS
 
    end subroutine partitionMass
 
