@@ -2,22 +2,267 @@ module intlog
 
   use shr_kind_mod,      only: r8 => shr_kind_r8
   use ppgrid,            only: pcols
-  use commondefinitions, only : nmodes, nbmodes
-  use const,             only: sss1to3, rrr1to3
-  use const,             only: sss4, rrr4
-  use const,             only: sss, rrr
+  use commondefinitions, only: nmodes, nbmodes
   use opttab,            only: nbmp1, cate, fac, faq, fbc, cat
   use lininterpol_mod,   only: lininterpol3dim, lininterpol4dim
+  use aerosoldef
+
+  use cam_logfile,  only: iulog
+  use oslo_control, only: oslo_getopts,dir_string_length
 
   implicit none
   private
 
+  public :: initlogn
   public :: intlog1to3_sub
   public :: intlog4_sub
   public :: intlog5to10_sub
 
-contains
+  real(r8) :: rrr1to3 (3,16,6)   ! Modal radius array, mode 1 - 3
+  real(r8) :: sss1to3 (3,16,6)   ! Standard deviation array, Mode 1 -3
+  real(r8) :: rrr4 (16,6,6)      ! Modal radius array, mode 4	 	
+  real(r8) :: sss4 (16,6,6)      ! Modal radius array, mode 4	 
+  real(r8) :: rrr (5:10,6,6,6,6) ! Modal radius array, mode 5 - 10
+  real(r8) :: sss (5:10,6,6,6,6) ! Standard deviation array, mode 5 - 10
 
+  real(r8) :: calog1to3(3,96)          ! Array for reading catot from file
+  real(r8) :: rk1to3 (3,96)            ! Array for reading modal radius from file
+  real(r8) :: stdv1to3 (3,96)          ! Array for reading std. dev. from file
+  real(r8) :: fraclog1to3 (3,96)       ! Same as frac4, but for initlogn.F90 
+
+  real(r8) :: calog4(576)              ! Same as catot4, but for initlogn.F90
+  real(r8) :: fraclog4 (576)           ! Same as frac4, but for initlogn.F90 
+  real(r8) :: fraqlog4 (576)           ! Same as fraq4, but for initlogn.F90
+  real(r8) :: rk4 (576)                ! Array for reading modal radius from file
+  real(r8) :: stdv4 (576)              ! Array for reading std. dev. from file
+
+  real(r8) :: calog (5:10,1296)        ! Same as catot, but for initlogn.F90
+  real(r8) :: fraclog5to10 (5:10,1296) ! Same as frac5to10, but for initlogn.F90 
+  real(r8) :: fabclog5to10 (5:10,1296) ! Same as fabc5to10, but for initlogn.F90 
+  real(r8) :: fraqlog5to10 (5:10,1296) ! Same as fraq5to10, but for initlogn.F90 
+  real(r8) :: rk5to10 (5:10,1296)      ! Array for reading modal radius from file
+  real(r8) :: stdv5to10 (5:10,1296)    ! Array for reading std. dev. from file
+
+!=======================================================
+contains
+!=======================================================
+  
+  subroutine initlogn()
+
+    ! Reads the tabulated parameters for "best lognormal fits" of the
+    ! aerosol size distribution wrt CCN activation as calculated by Alf Kirkevaag.
+
+    integer kcomp, ictot, ifac, ifbc, ifaq, irk, istdv
+    integer ic, ifil, lin
+    character(len=dir_string_length) :: aerotab_table_dir
+    real(r8) :: eps2 = 1.e-2_r8
+    real(r8) :: eps4 = 1.e-4_r8
+
+    ! Where are the tables stored??
+    call oslo_getopts(aerotab_table_dir_out=aerotab_table_dir)
+
+    open(20,file=trim(aerotab_table_dir)//'/logntilp1.out' ,form='formatted',status='old')  ! SO4&SOA(n/Ait)
+    open(21,file=trim(aerotab_table_dir)//'/logntilp2.out' ,form='formatted',status='old')  ! BC(n/Ait)
+    open(22,file=trim(aerotab_table_dir)//'/logntilp3.out' ,form='formatted',status='old')  ! OC(n/Ait)
+    open(23,file=trim(aerotab_table_dir)//'/logntilp4.out' ,form='formatted',status='old')  ! BC&OC(n/Ait)
+    open(24,file=trim(aerotab_table_dir)//'/logntilp5.out' ,form='formatted',status='old')  ! SO4(Ait75)
+    open(25,file=trim(aerotab_table_dir)//'/logntilp6.out' ,form='formatted',status='old')  ! MINACC
+    open(26,file=trim(aerotab_table_dir)//'/logntilp7.out' ,form='formatted',status='old')  ! MINCOA
+    open(27,file=trim(aerotab_table_dir)//'/logntilp8.out' ,form='formatted',status='old')  ! SEASF
+    open(28,file=trim(aerotab_table_dir)//'/logntilp9.out' ,form='formatted',status='old')  ! SEASACC
+    open(29,file=trim(aerotab_table_dir)//'/logntilp10.out',form='formatted',status='old')  ! SEASCOA
+    write(iulog,*)'nlog open ok' 
+
+    ! Skipping the header-text in all input files (Later: use it to check AeroTab - CAM5-Oslo consistency!)
+    do ifil = 20,29
+       call checkTableHeader (ifil)
+    enddo
+
+    ! ************************************************************************
+    ! Mode  1      (SO4&SOA + condesate from H2SO4 and SOA)
+    ! Modes 2 to 3 (BC/OC + condesate from H2SO4 and SOA)
+    !
+    ! These two are treated the same way since there is no dependence on 
+    ! fombg (SOA fraction in the background) for mode 1. 
+    ! ************************************************************************
+
+    do ifil = 1,2
+       do lin = 1,96   ! 16*6 entries   
+          read(19+ifil,993) kcomp, calog1to3(ifil,lin), fraclog1to3 (ifil, lin), &
+               rk1to3(ifil,lin), stdv1to3(ifil,lin) 
+
+          do ic=1,16
+             if(abs((calog1to3(ifil,lin)-cate(kcomp,ic))/cate(kcomp,ic))<eps2) then
+                ictot=ic
+                exit
+             endif
+          end do
+          do ic=1,6
+             if(abs(fraclog1to3(ifil,lin)-fac(ic))<eps4) then
+                ifac=ic
+                exit
+             endif
+          end do
+
+          sss1to3(kcomp,ictot,ifac) = stdv1to3(ifil,lin)
+          rrr1to3(kcomp,ictot,ifac) = rk1to3(ifil,lin)
+       end do   ! lin
+    end do    ! ifil
+
+    ! Prescribed dummy values for kcomp=3
+    kcomp=3
+    do ictot=1,16
+       do ifac=1,6
+          sss1to3(kcomp,ictot,ifac)=1.0_r8
+          rrr1to3(kcomp,ictot,ifac)=1.0_r8
+       enddo
+    enddo
+
+    do kcomp=1,2
+       do ictot=1,16
+          do ifac=1,6
+             if(sss1to3(kcomp,ictot,ifac)<=0.0_r8) then
+                write(*,*) 'sss1to3 =',  ictot, ifac, sss1to3(kcomp,ictot,ifac)
+                write(*,*) 'Error in initialization of sss1to3'
+                stop
+             endif
+             if(rrr1to3(kcomp,ictot,ifac)<=0.0_r8) then
+                write(*,*) 'rrr1to3 =', ictot, ifac, rrr1to3(kcomp,ictot,ifac)
+                write(*,*) 'Error in initialization of rrr1to3'
+                stop
+             endif
+          enddo
+       enddo
+    enddo
+    write(iulog,*)'nlog mode 1-3 ok' 
+
+
+    ! ************************************************************************
+    ! Mode 4 (BC&OC + condesate from H2SO4 + wetphase (NH4)2SO4)
+    ! ************************************************************************
+
+    ifil = 4
+    do lin = 1,576   ! 16 entries   
+       read(19+ifil,994) kcomp, calog4(lin) &
+            ,fraclog4(lin), fraqlog4(lin), rk4(lin), stdv4(lin)
+
+       do ic=1,16
+          if(abs((calog4(lin)-cate(kcomp,ic))/cate(kcomp,ic))<eps2) then
+             ictot=ic
+             exit
+          endif
+       end do
+       do ic=1,6
+          if(abs(fraclog4(lin)-fac(ic))<eps4) then
+             ifac=ic
+             exit
+          endif
+       end do
+       do ic=1,6
+          if(abs(fraqlog4(lin)-faq(ic))<eps4) then
+             ifaq=ic
+             exit
+          endif
+       end do
+
+       rrr4(ictot,ifac,ifaq) = rk4(lin)
+       sss4(ictot,ifac,ifaq) = stdv4(lin)
+    end do   ! lin
+
+    do ifac=1,6
+       do ifaq=1,6
+          do ictot=1,16
+             if(rrr4(ictot,ifac,ifaq)<=0.0_r8) then
+                write(*,*) 'rrr4 =',ictot,ifac,ifaq,rrr4(ictot,ifac,ifaq)
+                write(*,*) 'Error in initialization of rrr4'
+                stop
+             endif
+             if(sss4(ictot,ifac,ifaq)<=0.0_r8) then
+                write(*,*) 'sss4 =',ictot,ifac,ifaq,sss4(ictot,ifac,ifaq)
+                write(*,*) 'Error in initialization of sss4'
+                stop
+             endif
+          enddo
+       enddo
+    enddo
+    write(iulog,*)'nlog mode 4 ok' 
+
+    ! ************************************************************************
+    ! Modes 5 to 10 (SO4(ait75) and mineral and seasalt-modes + cond./coag./aq.)
+    ! ************************************************************************
+
+    do ifil = 5,10
+       do lin = 1,1296   ! 6**4 entries
+          read(19+ifil,995) kcomp, calog(ifil,lin) &
+               ,fraclog5to10(ifil,lin), fabclog5to10(ifil,lin), fraqlog5to10(ifil,lin) &
+               ,rk5to10(ifil,lin), stdv5to10(ifil,lin)
+
+          do ic=1,6
+             if(abs((calog(ifil,lin)-cat(kcomp,ic))/cat(kcomp,ic))<eps2) then
+                ictot=ic
+                exit
+             endif
+          end do
+          do ic=1,6
+             if(abs(fraclog5to10(ifil,lin)-fac(ic))<eps4) then
+                ifac=ic
+                exit
+             endif
+          end do
+          ! PRINT*,'ifac not found',fraclog5to10(ifil,lin) TODO:
+          do ic=1,6
+             if(abs((fabclog5to10(ifil,lin)-fbc(ic))/fbc(ic))<eps2) then
+                ifbc=ic
+                exit
+             endif
+          end do
+          ! PRINT*,'ifbc not found',fabclog5to10(ifil,lin) TODO:
+          do ic=1,6
+             if(abs(fraqlog5to10(ifil,lin)-faq(ic))<eps4) then
+                ifaq=ic
+                exit
+             endif
+          end do
+          ! PRINT*,'ifaq not found',fraqlog5to10(ifil,lin) TODO:
+
+          rrr(kcomp,ictot,ifac,ifbc,ifaq) = rk5to10(ifil,lin)
+          sss(kcomp,ictot,ifac,ifbc,ifaq) = stdv5to10(ifil,lin)
+
+       end do   ! lin
+    end do    ! ifil
+
+    do kcomp=5,10
+       do ifac=1,6
+          do ifbc=1,6
+             do ictot=1,6
+                if(rrr(kcomp,ictot,ifac,ifbc,ifaq)<=0.0_r8) then
+                   write(*,*) 'rrr =',kcomp,ictot,ifac,ifbc,ifaq,rrr(kcomp,ictot,ifac,ifbc,ifaq)
+                   write(*,*) 'Error in initialization of rrr'
+                   stop
+                endif
+                if(sss(kcomp,ictot,ifac,ifbc,ifaq)<=0.0_r8) then
+                   write(*,*) 'sss =',ictot,ifac,ifbc,ifaq,sss(kcomp,ictot,ifac,ifbc,ifaq)
+                   write(*,*) 'Error in initialization of sss'
+                   stop
+                endif
+             enddo
+          enddo
+       enddo
+    enddo
+
+    write(iulog,*)'nlog mode 5-10 ok' 
+
+    do ifil=20,29
+       close (ifil)
+    end do
+
+993 format(I3,4(x,e12.5))
+994 format(I3,5(x,e12.5))
+995 format(I3,6(x,e12.5))
+
+  end subroutine initlogn
+
+  !=======================================================
   subroutine intlog1to3_sub (ncol, ind, kcomp, xctin, &
        Nnat, xfacin, cxs, xstdv, xrk)
 
@@ -131,13 +376,11 @@ contains
        s2 =d2mx(2)*s21+dxm1(2)*s22
 
        xstdv(lon) = (d2mx(1)*s1+dxm1(1)*s2)*invd(2)*invd(1)
-
-
     end do   ! lon
 
-    return
   end subroutine intlog1to3_sub
 
+  !=======================================================
   subroutine intlog4_sub (ncol, ind, kcomp, xctin, Nnat, &
        xfacin, xfaqin, cxs, xstdv, xrk)
 
@@ -293,23 +536,15 @@ contains
 
     end do   ! lon
 
-    return
   end subroutine intlog4_sub
 
+  !=======================================================
   subroutine intlog5to10_sub (ncol, ind, kcomp, xctin, Nnat, &
        xfacin, xfbcin, xfaqin, cxs, xstdv, xrk)
 
-    !Created by Trude Storelvmo, fall 2007, based on method of A. Kirkevag. 
     !This subroutine gives as output the "new" modal radius and standard deviation 
     !for a given aerosol mode, kcomp 1-5. These parameters are calculated for a 
     !best lognormal fit approximation of the aerosol size distribution. 
-    !This because the aerosol activation routine (developed by Abdul-Razzak & Ghan,
-    !2000) requires the size distribution to be described by lognormal modes.
-    !Rewritten by Alf Kirkevaag September 2015 to a more generalized for for 
-    !interpolations using common subroutines interpol*dim.
-
-
-    implicit none
 
     integer, intent(in) :: ncol
     integer, intent(in) :: ind(pcols)
