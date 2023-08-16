@@ -13,7 +13,6 @@ module mo_gas_phase_chemdr
   use chem_prod_loss_diags, only: chem_prod_loss_diags_init, chem_prod_loss_diags_out
 
   implicit none
-  save
 
   private
   public :: gas_phase_chemdr, gas_phase_chemdr_inti 
@@ -26,10 +25,8 @@ module mo_gas_phase_chemdr
   integer :: het1_ndx
   integer :: ndx_cldfr, ndx_cmfdqr, ndx_nevapr, ndx_cldtop, ndx_prain
   integer :: ndx_h2so4
-#ifdef OSLO_AERO
   logical :: inv_o3, inv_oh, inv_no3, inv_ho2
   integer :: id_o3, id_oh, id_no3, id_ho2
-#endif
 !
 ! CCMI
 !
@@ -78,7 +75,6 @@ contains
 
     call phys_getopts( convproc_do_aer_out = convproc_do_aer, history_cesm_forcing_out=history_cesm_forcing )
    
-#if defined(OSLO_AERO)
     inv_o3   = get_inv_ndx('O3') > 0
     inv_oh   = get_inv_ndx('OH') > 0
     inv_no3  = get_inv_ndx('NO3') > 0
@@ -95,7 +91,6 @@ contains
     if (inv_ho2) then
        id_ho2 = get_inv_ndx('HO2')
     endif
-#endif
 
     ndx_h2so4 = get_spc_ndx('H2SO4')
 !
@@ -334,9 +329,7 @@ contains
     use mo_chm_diags,      only : chm_diags, het_diags
     use perf_mod,          only : t_startf, t_stopf
     use gas_wetdep_opts,   only : gas_wetdep_method
-#if (defined OSLO_AERO)
     use oxi_diurnal_var,   only : set_diurnal_invariants
-#endif
     use physics_buffer,    only : physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
     use infnan,            only : nan, assignment(=)
     use rate_diags,        only : rate_diags_calc
@@ -665,7 +658,6 @@ contains
     call setinv( invariants, tfld, h2ovmr, vmr, pmid, ncol, lchnk, pbuf )
 
     !-----------------------------------------------------------------------      
-#if defined (OSLO_AERO)
     !        ... Set the "day/night cycle for prescribed oxidants"
     !----------------------------------------------------------------------- 
 
@@ -684,7 +676,6 @@ contains
     call outfld('NO3_aft',   invariants(:,:,id_no3), ncol, lchnk)
     !--IH
 
-#endif
     !        ... stratosphere aerosol surface area
     !-----------------------------------------------------------------------  
     if (sad_pbf_ndx>0) then

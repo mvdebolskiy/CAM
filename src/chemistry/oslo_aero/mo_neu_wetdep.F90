@@ -14,19 +14,15 @@ module mo_neu_wetdep
   use cam_abortutils,   only : endrun
   use seq_drydep_mod,   only : n_species_table, species_name_table, dheff
   use gas_wetdep_opts,  only : gas_wetdep_method, gas_wetdep_list, gas_wetdep_cnt
-#ifdef OSLO_AERO
   use phys_control, only: phys_getopts
   use mo_constants, only: rgrav
   use phys_control, only: phys_getopts
-#endif   
 !
   implicit none
 !
   private
   public :: neu_wetdep_init
   public :: neu_wetdep_tend
-!
-  save
 !
   integer, allocatable, dimension(:) :: mapping_to_heff,mapping_to_mmr
   real(r8),allocatable, dimension(:) :: mol_weight
@@ -282,10 +278,8 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
   real(r8) :: pi
   real(r8) :: lats(pcols)
 
-#ifdef OSLO_AERO
   real(r8) :: wrk_wd(pcols)
   logical history_aerosol
-#endif   
 
 call phys_getopts( history_aerosol_out = history_aerosol)
 !
@@ -486,7 +480,6 @@ call phys_getopts( history_aerosol_out = history_aerosol)
 
 !This is output normally in mo_chm_diags, but
 !if neu wetdep, we have to output it here!
-#ifdef OSLO_AERO
     if(history_aerosol)then
        do m=1,gas_wetdep_cnt
           wrk_wd(:ncol) = 0.0_r8
@@ -498,7 +491,6 @@ call phys_getopts( history_aerosol_out = history_aerosol)
           call outfld('WD_A_'//trim(gas_wetdep_list(m)),wrk_wd(:ncol),ncol,lchnk)
        end do
     end if
-#endif
 !
   if ( do_diag ) then
     call outfld('QT_RAIN_HNO3', qt_rain, ncol, lchnk )
