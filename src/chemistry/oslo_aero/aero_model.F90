@@ -195,8 +195,7 @@ contains
     use oslo_ocean_intr,     only: oslo_ocean_init
     use oslo_aerosols_intr,      only: oslo_aero_initialize
 
-    use opttab, only  :      initopt
-    use opttab_lw, only: initopt_lw
+    use opttab, only  :      initopt, initopt_lw
 
     use modal_aero_deposition , only: modal_aero_deposition_init
 

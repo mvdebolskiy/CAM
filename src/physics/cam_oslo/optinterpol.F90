@@ -12,7 +12,7 @@ module optinterpol
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use ppgrid            , only : pcols, pver
   use commondefinitions , only : nmodes, nbmodes
-  use opttab_lw         , only : ka0, ka1, ka2to3, ka4, ka5to10, nlwbands
+  use opttab            , only : ka0, ka1, ka2to3, ka4, ka5to10, nlwbands
   use opttab            , only : nbands, e
   use opttab            , only : fombg, fbcbg, cate, cat, fac, faq, fbc, rh, eps
   use opttab            , only : om0, g0, be0, ke0

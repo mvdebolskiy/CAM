@@ -39,7 +39,6 @@ contains
     use opttab
     use oslo_utils, only: calculateNumberConcentration
     use parmix_progncdnc, only: calculateBulkProperties, partitionMass
-    use opttab_lw
     use const
     use aerosoldef
     use commondefinitions
