@@ -1,4 +1,6 @@
-module aeroopt_mod
+module aerocom_opt_mod
+
+#ifdef AEROCOM
 
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use ppgrid            , only : pcols, pver
@@ -1273,4 +1275,21 @@ contains
                                    +this%beoc550(icol,k,kcomp) + this%besu550(icol,k,kcomp)
   end subroutine update
 
-end module aeroopt_mod
+  subroutine checkTableHeader (ifil)
+    ! Read the header-text in a look-up table (in file with iu=ifil). 
+
+    integer, intent(in) :: ifil
+    character*80 :: headertext
+    character*12 :: text0, text1 
+
+    text0='X-CHECK LUT'
+    text1='none       '
+    do while (text1(2:12) .ne. text0(2:12))
+       read(ifil,'(A)') headertext
+       text1 = headertext(2:12) 
+    enddo
+  end subroutine checkTableHeader
+
+#endif
+
+end module aerocom_opt_mod

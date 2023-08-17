@@ -723,7 +723,6 @@ contains
 
     use commondefinitions
     use aerosoldef
-    use opttab,           only: nbands, eps
     use constituents,     only: pcnst
     use oslo_control,     only: oslo_getopts
     use physics_buffer,   only: pbuf_get_index

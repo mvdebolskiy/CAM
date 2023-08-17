@@ -2,9 +2,9 @@ module pmxsub_mod
 
   implicit none
 
-  !===============================================================================
+!===============================================================================
 contains
-  !===============================================================================
+!===============================================================================
 
   subroutine pmxsub(lchnk, ncol, pint, pmid, coszrs, state, t, cld, qm1, Nnatk, &
        per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs,                &
@@ -28,12 +28,10 @@ contains
     use commondefinitions
     use physics_types, only: physics_state
     use wv_saturation, only: qsat_water
-    use aeroopt_mod,   only: extinction_coeffs, extinction_coeffsn
-    use aerodry_mod,   only: aerodry_prop
 
     ! Input arguments
-    integer, intent(in) :: lchnk                                  ! chunk identifier
-    integer, intent(in) :: ncol                                   ! number of atmospheric columns
+    integer , intent(in) :: lchnk                                 ! chunk identifier
+    integer , intent(in) :: ncol                                  ! number of atmospheric columns
     real(r8), intent(in) :: coszrs(pcols)                         ! Cosine solar zenith angle
     real(r8), intent(in) :: pint(pcols,pverp)                     ! Model interface pressures (10*Pa)
     real(r8), intent(in) :: pmid(pcols,pver)                      ! Model level pressures (Pa)
@@ -79,8 +77,6 @@ contains
     real(r8) :: Cam(pcols,pver,nbmodes), fbcm(pcols,pver,nbmodes), fcm(pcols,pver,nbmodes)
     real(r8) :: faqm(pcols,pver,nbmodes), f_condm(pcols,pver,nbmodes)
     real(r8) :: f_soam(pcols, pver,nbmodes), faqm4(pcols,pver)
-    real(r8) :: xrh(pcols,pver)
-    integer  :: irh1(pcols,pver)
     real(r8) :: focm(pcols,pver,4)
     real(r8) :: ssa(pcols,pver,0:nmodes,nbands), asym(pcols,pver,0:nmodes,nbands)
     real(r8) :: be(pcols,pver,0:nmodes,nbands), ke(pcols,pver,0:nmodes,nbands)
@@ -94,11 +90,13 @@ contains
     real(r8) :: volc_balw(pcols,0:pver,nlwbands) ! volcanic aerosol absorption coefficient for terrestrial bands, CMIP6
     real(r8) :: rh0(pcols,pver), rhoda(pcols,pver)
     real(r8) :: ssavis(pcols,pver), asymmvis(pcols,pver), extvis(pcols,pver), dayfoc(pcols,pver)
-    real(r8) :: n_aerorig(pcols,pver), n_aer(pcols,pver)
+    real(r8) :: n_aer(pcols,pver)
     real(r8) :: es(pcols,pver)      ! saturation vapor pressure
     real(r8) :: qs(pcols,pver)      ! saturation specific humidity
     real(r8) :: rht(pcols,pver)     ! relative humidity (fraction) (rh is already used in opptab)
     real(r8) :: rh_temp(pcols,pver) ! relative humidity (fraction) for input to LUT
+    real(r8) :: xrh(pcols,pver)
+    integer  :: irh1(pcols,pver)
     real(r8) :: xfombg(pcols,pver)
     integer  :: ifombg1(pcols,pver), ifombg2(pcols,pver)
     real(r8) :: xct(pcols,pver,nmodes)
@@ -162,7 +160,6 @@ contains
     end do
     do k=1,pver
        do icol=1,ncol
-          n_aerorig(icol,k) = 0.0_r8
           n_aer(icol,k)     = 0.0_r8
        end do
     end do
@@ -340,9 +337,8 @@ contains
             + volc_ext_sun(1:ncol,1:pver,ib)*volc_omega_sun(1:ncol,1:pver,ib) &
             *volc_g_sun(1:ncol,1:pver,ib)
     enddo
-    !akc6+
     bevisvolc(1:ncol,1:pver) = volc_ext_sun(1:ncol,1:pver,4)
-    !akc6-
+
     ! and then calculate the total bulk optical parameters
     do ib=1,nbands
        do k=1,pver

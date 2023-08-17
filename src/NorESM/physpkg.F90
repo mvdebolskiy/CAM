@@ -31,7 +31,9 @@ module physpkg
   use perf_mod
   use cam_logfile,     only: iulog
   use camsrfexch,      only: cam_export
-  use intfrh_mod,      only: intfrh  
+#ifdef AEROCOM
+  use aerocom_intfrh_mod, only: intfrh  
+#endif
 
   use modal_aero_calcsize,    only: modal_aero_calcsize_init, modal_aero_calcsize_diag, modal_aero_calcsize_reg
   use modal_aero_wateruptake, only: modal_aero_wateruptake_init, modal_aero_wateruptake_dr, modal_aero_wateruptake_reg
@@ -1778,9 +1780,9 @@ contains
 
     integer :: i,k,m                           ! Longitude, level, constituent indices
     integer :: ixcldice, ixcldliq              ! constituent indices for cloud liquid and ice water.
-!AL
+    !AL
     integer :: ixcldni, ixcldnc              ! constituent indices for cloud liquid and ice water.
-!AL
+    !AL
     ! for macro/micro co-substepping
     integer :: macmic_it                       ! iteration variables
     real(r8) :: cld_macmic_ztodt               ! modified timestep
@@ -1798,10 +1800,10 @@ contains
     real(r8), pointer, dimension(:,:) :: cldliqini
     real(r8), pointer, dimension(:,:) :: cldiceini
     real(r8), pointer, dimension(:,:) :: dtcore
-!AL
+    !AL
     real(r8), pointer, dimension(:,:) :: cldncini
     real(r8), pointer, dimension(:,:) :: cldniini
-!AL
+    !AL
     real(r8), pointer, dimension(:,:,:) :: fracis  ! fraction of transported species that are insoluble
 
     real(r8), pointer :: dlfzm(:,:)                ! ZM detrained convective cloud water mixing ratio.
@@ -1892,7 +1894,7 @@ contains
     real(r8) :: v3oc(pcols,pver,nmodes)   ! Modal mass fraction of OC (POM)
     real(r8) :: v3ss(pcols,pver,nmodes)   ! Modal mass fraction of sea-salt
     real(r8) :: frh(pcols,pver,nmodes)    ! Modal humidity growth factor 
-   ! OSLO_AERO_END
+    ! OSLO_AERO_END
     !-----------------------------------------------------------------------
 
     call t_startf('bc_init')
@@ -1916,10 +1918,10 @@ contains
     call pbuf_get_field(pbuf, qini_idx, qini)
     call pbuf_get_field(pbuf, cldliqini_idx, cldliqini)
     call pbuf_get_field(pbuf, cldiceini_idx, cldiceini)
-!AL
+    !AL
     call pbuf_get_field(pbuf, cldncini_idx, cldncini)
     call pbuf_get_field(pbuf, cldniini_idx, cldniini)
-!AL
+    !AL
 
     ifld   =  pbuf_get_index('DTCORE')
     call pbuf_get_field(pbuf, ifld, dtcore, start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
@@ -1980,12 +1982,12 @@ contains
     qini     (:ncol,:pver) = state%q(:ncol,:pver,       1)
     cldliqini(:ncol,:pver) = state%q(:ncol,:pver,ixcldliq)
     cldiceini(:ncol,:pver) = state%q(:ncol,:pver,ixcldice)
-!AL
+    !AL
     call cnst_get_ind('NUMLIQ', ixcldnc)
     call cnst_get_ind('NUMICE', ixcldni)
     cldncini(:ncol,:pver) = state%q(:ncol,:pver,ixcldnc)
     cldniini(:ncol,:pver) = state%q(:ncol,:pver,ixcldni)
-!AL
+    !AL
 
     call outfld('TEOUT', teout       , pcols, lchnk   )
     call outfld('TEINP', state%te_ini, pcols, lchnk   )
@@ -2040,8 +2042,8 @@ contains
     call pbuf_get_field(pbuf, snow_pcw_idx, snow_pcw )
 
     if (use_subcol_microp) then
-      call pbuf_get_field(pbuf, prec_str_idx, prec_str_sc, col_type=col_type_subcol)
-      call pbuf_get_field(pbuf, snow_str_idx, snow_str_sc, col_type=col_type_subcol)
+       call pbuf_get_field(pbuf, prec_str_idx, prec_str_sc, col_type=col_type_subcol)
+       call pbuf_get_field(pbuf, snow_str_idx, snow_str_sc, col_type=col_type_subcol)
     end if
 
     ! Check energy integrals, including "reserved liquid"
@@ -2082,7 +2084,7 @@ contains
     ! from the stratiform interface has access to the same aerosols as the radiation
     ! code.
     call sslt_rebin_adv(pbuf,  state)
-    
+
     !===================================================
     ! Calculate tendencies from CARMA bin microphysics.
     !===================================================
@@ -2183,8 +2185,8 @@ contains
              ! =====================================================
 
              call clubb_tend_cam(state, ptend, pbuf, cld_macmic_ztodt,&
-                cmfmc, cam_in, macmic_it, cld_macmic_num_steps, &
-                dlf, det_s, det_ice)
+                  cmfmc, cam_in, macmic_it, cld_macmic_num_steps, &
+                  dlf, det_s, det_ice)
 
              ! Since we "added" the reserved liquid back in this routine, we need
              ! to account for it in the energy checker
@@ -2204,10 +2206,10 @@ contains
 
              ! Use actual qflux (not lhf/latvap) for consistency with surface fluxes and revised code
              call check_energy_chng(state, tend, "clubb_tend", nstep, ztodt, &
-                cam_in%cflx(:ncol,1)/cld_macmic_num_steps, &
-                flx_cnd(:ncol)/cld_macmic_num_steps, &
-                det_ice(:ncol)/cld_macmic_num_steps, &
-                flx_heat(:ncol)/cld_macmic_num_steps)
+                  cam_in%cflx(:ncol,1)/cld_macmic_num_steps, &
+                  flx_cnd(:ncol)/cld_macmic_num_steps, &
+                  det_ice(:ncol)/cld_macmic_num_steps, &
+                  flx_heat(:ncol)/cld_macmic_num_steps)
 
           endif
 
@@ -2319,53 +2321,53 @@ contains
        call aero_model_wetdep( state, ztodt, dlf, cam_out, ptend, pbuf)
        call physics_update(state, ptend, ztodt, tend)
 
-       if (do_aerocom) then
-          !  Estimating hygroscopic growth by use of linear interpolation w.r.t. mass 
-          !  fractions of each internally mixed component for each mode (kcomp).
-          !
-          call intfrh(lchnk, ncol, v3so4, v3insol, v3oc, v3ss, relhum, frh)
-          !
-          do k=1,pver
-             do i=1,ncol
-                rnewdry1(i,k)   = rnew3d(i,k,1)
-                rnewdry2(i,k)   = rnew3d(i,k,2)
-                rnewdry4(i,k)   = rnew3d(i,k,4)
-                rnewdry5(i,k)   = rnew3d(i,k,5)
-                rnewdry6(i,k)   = rnew3d(i,k,6)
-                rnewdry7(i,k)   = rnew3d(i,k,7)
-                rnewdry8(i,k)   = rnew3d(i,k,8)
-                rnewdry9(i,k)   = rnew3d(i,k,9)
-                rnewdry10(i,k)  = rnew3d(i,k,10)
-                rnewdry11(i,k)  = rnew3d(i,k,11)
-                rnewdry13(i,k)  = rnew3d(i,k,13)
-                rnewdry14(i,k)  = rnew3d(i,k,14)
-                rnew1(i,k)   = rnew3d(i,k,1)*frh(i,k,1)
-                rnew2(i,k)   = rnew3d(i,k,2)*frh(i,k,2)
-                rnew4(i,k)   = rnew3d(i,k,4)*frh(i,k,4)
-                rnew5(i,k)   = rnew3d(i,k,5)*frh(i,k,5)
-                rnew6(i,k)   = rnew3d(i,k,6)*frh(i,k,6)
-                rnew7(i,k)   = rnew3d(i,k,7)*frh(i,k,7)
-                rnew8(i,k)   = rnew3d(i,k,8)*frh(i,k,8)
-                rnew9(i,k)   = rnew3d(i,k,9)*frh(i,k,9)
-                rnew10(i,k)  = rnew3d(i,k,10)*frh(i,k,10)
-                rnew11(i,k)  = rnew3d(i,k,11)*frh(i,k,11)
-                rnew13(i,k)  = rnew3d(i,k,13)*frh(i,k,13)
-                rnew14(i,k)  = rnew3d(i,k,14)*frh(i,k,14)
-                logsig1(i,k) = logsig3d(i,k,1)
-                logsig2(i,k) = logsig3d(i,k,2)
-                logsig4(i,k) = logsig3d(i,k,4)
-                logsig5(i,k) = logsig3d(i,k,5)
-                logsig6(i,k) = logsig3d(i,k,6)
-                logsig7(i,k) = logsig3d(i,k,7)
-                logsig8(i,k) = logsig3d(i,k,8)
-                logsig9(i,k) = logsig3d(i,k,9)
-                logsig10(i,k)= logsig3d(i,k,10)
-                logsig11(i,k)= logsig3d(i,k,11)
-                logsig13(i,k)= logsig3d(i,k,13)
-                logsig14(i,k)= logsig3d(i,k,14)
-             end do
+#ifdef AEROCOM
+       !  Estimating hygroscopic growth by use of linear interpolation w.r.t. mass 
+       !  fractions of each internally mixed component for each mode (kcomp).
+       !
+       call intfrh(lchnk, ncol, v3so4, v3insol, v3oc, v3ss, relhum, frh)
+       !
+       do k=1,pver
+          do i=1,ncol
+             rnewdry1(i,k)   = rnew3d(i,k,1)
+             rnewdry2(i,k)   = rnew3d(i,k,2)
+             rnewdry4(i,k)   = rnew3d(i,k,4)
+             rnewdry5(i,k)   = rnew3d(i,k,5)
+             rnewdry6(i,k)   = rnew3d(i,k,6)
+             rnewdry7(i,k)   = rnew3d(i,k,7)
+             rnewdry8(i,k)   = rnew3d(i,k,8)
+             rnewdry9(i,k)   = rnew3d(i,k,9)
+             rnewdry10(i,k)  = rnew3d(i,k,10)
+             rnewdry11(i,k)  = rnew3d(i,k,11)
+             rnewdry13(i,k)  = rnew3d(i,k,13)
+             rnewdry14(i,k)  = rnew3d(i,k,14)
+             rnew1(i,k)   = rnew3d(i,k,1)*frh(i,k,1)
+             rnew2(i,k)   = rnew3d(i,k,2)*frh(i,k,2)
+             rnew4(i,k)   = rnew3d(i,k,4)*frh(i,k,4)
+             rnew5(i,k)   = rnew3d(i,k,5)*frh(i,k,5)
+             rnew6(i,k)   = rnew3d(i,k,6)*frh(i,k,6)
+             rnew7(i,k)   = rnew3d(i,k,7)*frh(i,k,7)
+             rnew8(i,k)   = rnew3d(i,k,8)*frh(i,k,8)
+             rnew9(i,k)   = rnew3d(i,k,9)*frh(i,k,9)
+             rnew10(i,k)  = rnew3d(i,k,10)*frh(i,k,10)
+             rnew11(i,k)  = rnew3d(i,k,11)*frh(i,k,11)
+             rnew13(i,k)  = rnew3d(i,k,13)*frh(i,k,13)
+             rnew14(i,k)  = rnew3d(i,k,14)*frh(i,k,14)
+             logsig1(i,k) = logsig3d(i,k,1)
+             logsig2(i,k) = logsig3d(i,k,2)
+             logsig4(i,k) = logsig3d(i,k,4)
+             logsig5(i,k) = logsig3d(i,k,5)
+             logsig6(i,k) = logsig3d(i,k,6)
+             logsig7(i,k) = logsig3d(i,k,7)
+             logsig8(i,k) = logsig3d(i,k,8)
+             logsig9(i,k) = logsig3d(i,k,9)
+             logsig10(i,k)= logsig3d(i,k,10)
+             logsig11(i,k)= logsig3d(i,k,11)
+             logsig13(i,k)= logsig3d(i,k,13)
+             logsig14(i,k)= logsig3d(i,k,14)
           end do
-       end if
+       end do
+#endif ! AEROCOM
 
        if (carma_do_wetdep) then
           ! CARMA wet deposition
@@ -2389,7 +2391,7 @@ contains
 
        call t_stopf('bc_aerosols')
 
-   endif
+    end if 
 
     !===================================================
     ! Moist physical parameteriztions complete:
@@ -2419,7 +2421,7 @@ contains
 
 
     call radiation_tend( &
-       state, ptend, pbuf, cam_out, cam_in, net_flx)
+         state, ptend, pbuf, cam_out, cam_in, net_flx)
 
     ! Set net flux used by spectral dycores
     do i=1,ncol

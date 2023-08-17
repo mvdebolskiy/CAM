@@ -23,8 +23,6 @@ use time_manager,    only: is_first_step
 use scamMod,         only: single_column, wfld
 use cam_abortutils,  only: endrun
 
-use opttab,        only: RF
-
 implicit none
 private
 

@@ -12,8 +12,6 @@ module aero_model
   use perf_mod,       only: t_startf, t_stopf
   use camsrfexch,     only: cam_in_t, cam_out_t
   use aerodep_flx,    only: aerodep_flx_prescribed
-  use aeroopt_mod,    only: initaeropt
-  use aerodry_mod,    only: initdryp
   use physics_types,  only: physics_state, physics_ptend, physics_ptend_init
   use physics_buffer, only: physics_buffer_desc
   use physics_buffer, only: pbuf_get_field, pbuf_get_index, pbuf_set_field
@@ -28,6 +26,10 @@ module aero_model
   use koagsub,        only: coagtend, clcoag
   use sox_cldaero_mod, only: sox_cldaero_init
   use intlog,         only: initlogn
+#ifdef AEROCOM
+  use aerocom_opt_mod,    only: initaeropt
+  use aerocom_dry_mod,    only: initdryp
+#endif
 
   !use modal_aero_data,only: cnst_name_cw, lptr_so4_cw_amode
   !use modal_aero_data,only: ntot_amode, modename_amode, nspec_max
