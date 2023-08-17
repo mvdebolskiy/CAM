@@ -42,12 +42,10 @@ contains
     use const
     use aerosoldef
     use commondefinitions
-    use optinterpol,   only: interpol0,interpol1,interpol2to3,interpol4,interpol5to10
     use physics_types, only: physics_state
     use wv_saturation, only: qsat_water
     use aeroopt_mod,   only: extinction_coeffs, extinction_coeffsn
     use aerodry_mod,   only: aerodry_prop  
-    use optinterpol,   only: inputForInterpol
                              
     !
     ! Input arguments
