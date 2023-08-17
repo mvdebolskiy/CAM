@@ -103,12 +103,6 @@ module aero_model
 
   logical :: convproc_do_aer
 
-#ifdef AEROCOM
-  logical :: do_aerocom = .true.
-#else
-  logical :: do_aerocom = .false.
-#endif
-
 contains
 
   !=============================================================================
@@ -237,10 +231,10 @@ contains
    call initopt
    call initlogn
    call initopt_lw
-   if (do_aerocom) then
+#ifdef AEROCOM
       call initaeropt()
       call initdryp()
-   end if
+#endif
 
     call initializeCondensation()
     call oslo_ocean_init()
