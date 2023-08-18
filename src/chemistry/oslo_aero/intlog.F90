@@ -722,5 +722,21 @@ contains
     end do   ! lon
   end subroutine intlog5to10_sub
 
+  !********************************************************************************************
+  subroutine checkTableHeader (ifil)
+    ! Read the header-text in a look-up table (in file with iu=ifil).
+
+    integer, intent(in) :: ifil
+    character*80 :: headertext
+    character*12 :: text0, text1
+
+    text0='X-CHECK LUT'
+    text1='none       '
+    do while (text1(2:12) .ne. text0(2:12))
+       read(ifil,'(A)') headertext
+       text1 = headertext(2:12)
+    enddo
+  end subroutine checkTableHeader
+
 end module intlog
 

@@ -21,6 +21,21 @@ module opttab
   ! condensation, coagulation or cloud-processing - Alf Kirkevaag, May 2016.
   ! Modified cate values for kcomp=2 (as  in AeroTab) - Alf Kirkevaag October 2016.
 
+  ! Internal mixtures of process-tagged mass
+  ! cate : total added mass (µg/m3 per particle per cm3) from condensation
+  !        and wet phase chemistry/cloud processing, for kcomp = 1-2.
+  !        cate should be scaled up/down whenever the modal parameters (modal
+  !        radius and width) are increased/decreased a lot.
+  ! cat  : total added mass (µg/m3 per particle per cm-3) from coagulation, condensation
+  !        and wet phase chemistry/cloud processing, for kcomp = 5-10.
+  !        cat should be scaled up/down whenever the modal parameters (modal
+  !        radius and width) are increased/decreased a lot.
+  ! fac  : mass fraction of cat or cate from coagulating carbonaceous aerosols (BC+OM).
+  !        The remaining mass cate*(1-fac) or cat*(1-fac) is SO4.
+  ! fbc  : mass fraction of BC from coagulating carbonaceous aerosols, BC/(BC+OM).
+  ! faq  : mass fraction of sulfate which is produced in wet-phase, SO4aq/SO4.
+  !        The remaining SO4 mass, SO4*(1-faq), is from condensation. 
+
   use shr_kind_mod      , only: r8 => shr_kind_r8
   use ppgrid            , only: pcols, pver
   use cam_logfile       , only: iulog
