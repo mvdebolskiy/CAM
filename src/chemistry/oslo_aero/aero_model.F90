@@ -3,89 +3,58 @@
 !===============================================================================
 module aero_model
 
-  use shr_kind_mod,   only: r8 => shr_kind_r8
-  use constituents,   only: pcnst, cnst_name, cnst_get_ind
-  use ppgrid,         only: pcols, pver, pverp
-  use phys_control,   only: phys_getopts, cam_physpkg_is
-  use cam_abortutils, only: endrun
-  use cam_logfile,    only: iulog
-  use perf_mod,       only: t_startf, t_stopf
-  use camsrfexch,     only: cam_in_t, cam_out_t
-  use aerodep_flx,    only: aerodep_flx_prescribed
-  use physics_types,  only: physics_state, physics_ptend, physics_ptend_init
-  use physics_buffer, only: physics_buffer_desc
-  use physics_buffer, only: pbuf_get_field, pbuf_get_index, pbuf_set_field
-  use physconst,      only: gravit, rair, rhoh2o
-  use spmd_utils,     only: masterproc
-  use infnan,         only: nan, assignment(=)
-  use cam_history,    only: outfld, fieldname_len
-  use chem_mods,      only: gas_pcnst, adv_mass
-  use mo_tracname,    only: solsym
-  use aerosoldef,     only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
-  use condtend,       only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
-  use koagsub,        only: coagtend, clcoag
+  use shr_kind_mod,    only: r8 => shr_kind_r8
+  use constituents,    only: pcnst, cnst_name, cnst_get_ind
+  use ppgrid,          only: pcols, pver, pverp
+  use phys_control,    only: phys_getopts, cam_physpkg_is
+  use cam_abortutils,  only: endrun
+  use cam_logfile,     only: iulog
+  use perf_mod,        only: t_startf, t_stopf
+  use camsrfexch,      only: cam_in_t, cam_out_t
+  use aerodep_flx,     only: aerodep_flx_prescribed
+  use physics_types,   only: physics_state, physics_ptend, physics_ptend_init
+  use physics_buffer,  only: physics_buffer_desc
+  use physics_buffer,  only: pbuf_get_field, pbuf_get_index, pbuf_set_field
+  use physconst,       only: gravit, rair, rhoh2o
+  use spmd_utils,      only: masterproc
+  use infnan,          only: nan, assignment(=)
+  use cam_history,     only: outfld, fieldname_len
+  use chem_mods,       only: gas_pcnst, adv_mass
+  use mo_tracname,     only: solsym
+  use aerosoldef,      only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
+  use condtend,        only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
+  use koagsub,         only: coagtend, clcoag
   use sox_cldaero_mod, only: sox_cldaero_init
-  use intlog,         only: initlogn
+  use intlog,          only: initlogn
+  use ref_pres,        only: top_lev => clim_modal_aero_top_lev
+  use mo_setsox,       only: setsox
+  use mo_mass_xforms,  only: vmr2mmr, mmr2vmr, mmr2vmri
 #ifdef AEROCOM
-  use aerocom_opt_mod,    only: initaeropt
-  use aerocom_dry_mod,    only: initdryp
+  use aerocom_opt_mod, only: initaeropt
+  use aerocom_dry_mod, only: initdryp
 #endif
-
-  !use modal_aero_data,only: cnst_name_cw, lptr_so4_cw_amode
-  !use modal_aero_data,only: ntot_amode, modename_amode, nspec_max
-
-  use ref_pres,       only: top_lev => clim_modal_aero_top_lev
-
-  !use modal_aero_wateruptake, only: modal_strat_sulfate
-  use mo_setsox,              only: setsox
-  use mo_mass_xforms,         only: vmr2mmr, mmr2vmr, mmr2vmri
 
   implicit none
   private
-
   public :: aero_model_readnl
   public :: aero_model_register
   public :: aero_model_init
-  public :: aero_model_gasaerexch ! create, grow, change, and shrink aerosols.
-  public :: aero_model_drydep     ! aerosol dry deposition and sediment
-  public :: aero_model_wetdep     ! aerosol wet removal
-  public :: aero_model_emissions  ! aerosol emissions
-  public :: aero_model_surfarea  ! tropopspheric aerosol wet surface area for chemistry
+  public :: aero_model_gasaerexch     ! create, grow, change, and shrink aerosols.
+  public :: aero_model_drydep         ! aerosol dry deposition and sediment
+  public :: aero_model_wetdep         ! aerosol wet removal
+  public :: aero_model_emissions      ! aerosol emissions
+  public :: aero_model_surfarea       ! tropopspheric aerosol wet surface area for chemistry
   public :: aero_model_strat_surfarea ! stratospheric aerosol wet surface area for chemistry
 
+  private :: constants
+
   ! Misc private data
-
-  ! number of modes
-  integer :: nmodes
-  integer :: pblh_idx            = 0
-  integer :: dgnum_idx           = 0
-  integer :: dgnumwet_idx        = 0
-  integer :: rate1_cw2pr_st_idx  = 0
-
-  integer :: wetdens_ap_idx      = 0
-  integer :: qaerwat_idx         = 0
-
-  integer :: fracis_idx          = 0
-  integer :: prain_idx           = 0
-  integer :: rprddp_idx          = 0
-  integer :: rprdsh_idx          = 0
-  integer :: nevapr_shcu_idx     = 0
-  integer :: nevapr_dpcu_idx     = 0
-
-  integer :: sulfeq_idx = -1
-
-  ! variables for table lookup of aerosol impaction/interception scavenging rates
-  integer, parameter :: nimptblgrow_mind=-7, nimptblgrow_maxd=12
-  real(r8) :: dlndg_nimptblgrow
-  real(r8),allocatable :: scavimptblnum(:,:)
-  real(r8),allocatable :: scavimptblvol(:,:)
-
-  ! for surf_area_dens
-  integer,allocatable :: num_idx(:)
-  integer,allocatable :: index_tot_mass(:,:)
-  integer,allocatable :: index_chm_mass(:,:)
-
-  integer :: ndx_h2so4, ndx_soa_lv, ndx_soa_sv
+  integer :: nmodes ! number of modes
+  integer :: pblh_idx= 0
+  integer :: ndx_h2so4, ndx_soa_lv, ndx_soa_sv ! for surf_area_dens
+  integer :: ndrydep = 0
+  integer :: nwetdep = 0
+  logical :: convproc_do_aer
 
   ! Namelist variables
   character(len=16) :: wetdep_list(pcnst) = ' '
@@ -95,16 +64,6 @@ module aero_model
   real(r8)          :: sol_factic_interstitial = 0.4_r8
   real(r8)          :: seasalt_emis_scale
 
-  integer :: ndrydep = 0
-  integer,allocatable :: drydep_indices(:)
-  integer :: nwetdep = 0
-  integer,allocatable :: wetdep_indices(:)
-  logical :: drydep_lq(pcnst)
-  logical :: wetdep_lq(pcnst)
-
-
-  logical :: convproc_do_aer
-
 contains
 
   !=============================================================================
@@ -113,28 +72,23 @@ contains
   subroutine aero_model_readnl(nlfile)
 
     use namelist_utils,  only: find_group_name
-    use units,           only: getunit, freeunit
     use mpishorthand
 
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
     ! Local variables
     integer :: unitn, ierr
+    character(len=16) :: aer_wetdep_list(pcnst) = ' ' ! Namelist variable
+    character(len=16) :: aer_drydep_list(pcnst) = ' ' ! Namelist variable
     character(len=*), parameter :: subname = 'aero_model_readnl'
 
-    ! Namelist variables
-    character(len=16) :: aer_wetdep_list(pcnst) = ' '
-    character(len=16) :: aer_drydep_list(pcnst) = ' '
-
     namelist /aerosol_nl/ aer_wetdep_list, aer_drydep_list, sol_facti_cloud_borne, &
-       sol_factb_interstitial, sol_factic_interstitial
-
+         sol_factb_interstitial, sol_factic_interstitial
     !-----------------------------------------------------------------------------
 
     ! Read namelist
     if (masterproc) then
-       unitn = getunit()
-       open( unitn, file=trim(nlfile), status='old' )
+       open(newunit=unitn, file=trim(nlfile), status='old' )
        call find_group_name(unitn, 'aerosol_nl', status=ierr)
        if (ierr == 0) then
           read(unitn, aerosol_nl, iostat=ierr)
@@ -143,17 +97,16 @@ contains
           end if
        end if
        close(unitn)
-       call freeunit(unitn)
     end if
 
 #ifdef SPMD
     ! Broadcast namelist variables
-    call mpibcast(aer_wetdep_list,   len(aer_wetdep_list(1))*pcnst, mpichar, 0, mpicom)
-    call mpibcast(aer_drydep_list,   len(aer_drydep_list(1))*pcnst, mpichar, 0, mpicom)
-    call mpibcast(sol_facti_cloud_borne, 1,                         mpir8,   0, mpicom)
-    call mpibcast(sol_factb_interstitial, 1,                        mpir8,   0, mpicom)
-    call mpibcast(sol_factic_interstitial, 1,                       mpir8,   0, mpicom)
-    call mpibcast(seasalt_emis_scale, 1,                            mpir8,   0, mpicom)
+    call mpibcast(aer_wetdep_list, len(aer_wetdep_list(1))*pcnst, mpichar, 0, mpicom)
+    call mpibcast(aer_drydep_list, len(aer_drydep_list(1))*pcnst, mpichar, 0, mpicom)
+    call mpibcast(sol_facti_cloud_borne, 1, mpir8, 0, mpicom)
+    call mpibcast(sol_factb_interstitial, 1, mpir8, 0, mpicom)
+    call mpibcast(sol_factic_interstitial, 1, mpir8, 0, mpicom)
+    call mpibcast(seasalt_emis_scale, 1, mpir8, 0, mpicom)
 #endif
 
     wetdep_list = aer_wetdep_list
@@ -161,7 +114,6 @@ contains
 
   end subroutine aero_model_readnl
 
-  !=============================================================================
   !=============================================================================
   subroutine aero_model_register()
     use aerosoldef, only: aero_register
@@ -173,35 +125,19 @@ contains
   end subroutine aero_model_register
 
   !=============================================================================
-  !=============================================================================
   subroutine aero_model_init( pbuf2d )
 
-    !use mo_chem_utls,    only: get_inv_ndx
-    use cam_history,     only: addfld, add_default, horiz_only
-    use mo_chem_utls,    only: get_rxt_ndx, get_spc_ndx
-    !use modal_aero_data, only: cnst_name_cw
-    !use modal_aero_data, only: modal_aero_data_init
-    !use rad_constituents,only: rad_cnst_get_info
-    use dust_model,      only: dust_init, dust_active
-    use seasalt_model,   only: seasalt_init, seasalt_active
-    use drydep_mod,      only: inidrydep
-    use wetdep,          only: wetdep_init
-
-    use condtend,            only: initializeCondensation
-    use oslo_ocean_intr,     only: oslo_ocean_init
-    use oslo_aerosols_intr,      only: oslo_aero_initialize
-
-    use opttab, only  :      initopt, initopt_lw
-
+    use cam_history,            only: addfld, add_default, horiz_only
+    use mo_chem_utls,           only: get_rxt_ndx, get_spc_ndx
+    use dust_model,             only: dust_init, dust_active
+    use seasalt_model,          only: seasalt_init, seasalt_active
+    use drydep_mod,             only: inidrydep
+    use wetdep,                 only: wetdep_init
+    use condtend,               only: initializeCondensation
+    use oslo_ocean_intr,        only: oslo_ocean_init
+    use oslo_aerosols_intr,     only: oslo_aero_initialize
+    use opttab,                 only: initopt, initopt_lw
     use modal_aero_deposition , only: modal_aero_deposition_init
-
-    !use modal_aero_calcsize,   only: modal_aero_calcsize_init
-    !use modal_aero_coag,       only: modal_aero_coag_init
-    !use modal_aero_deposition, only: modal_aero_deposition_init
-    !use modal_aero_gasaerexch, only: modal_aero_gasaerexch_init
-    !use modal_aero_newnuc,     only: modal_aero_newnuc_init
-    !use modal_aero_rename,     only: modal_aero_rename_init
-    !use modal_aero_convproc,   only: ma_convproc_init
 
     ! args
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
@@ -225,24 +161,21 @@ contains
     character(len=32) :: spec_type
     character(len=32) :: mode_type
     integer :: nspec
+    !------------------------------------
 
-    call phys_getopts(history_aerosol_out = history_aerosol, &
-                      convproc_do_aer_out = convproc_do_aer)
+    call phys_getopts(history_aerosol_out=history_aerosol, convproc_do_aer_out=convproc_do_aer)
 
-   call constants
-   call initopt
-   call initlogn
-   call initopt_lw
+    call constants
+    call initopt
+    call initlogn
+    call initopt_lw
 #ifdef AEROCOM
-      call initaeropt()
-      call initdryp()
+    call initaeropt()
+    call initdryp()
 #endif
-
     call initializeCondensation()
     call oslo_ocean_init()
-
     call oslo_aero_initialize(pbuf2d)
-
     call dust_init()
     call seasalt_init() !seasalt_emis_scale)
     call wetdep_init()
@@ -263,8 +196,8 @@ contains
        call add_default (dummy, 1, ' ')
     endif
 
-    !Get height of boundary layer for boundary layer nucleation
-    pblh_idx            = pbuf_get_index('pblh')
+    ! Get height of boundary layer for boundary layer nucleation
+    pblh_idx = pbuf_get_index('pblh')
 
     call cnst_get_ind ( "H2SO4", ndx_h2so4, abort=.true. )
     ndx_h2so4 = chemistryIndex(ndx_h2so4)
@@ -274,29 +207,29 @@ contains
     ndx_soa_sv = chemistryIndex(ndx_soa_sv)
 
     do m = 1,gas_pcnst
-
-
        unit_basename = 'kg'  ! Units 'kg' or '1'
 
        call addfld( 'GS_'//trim(solsym(m)),horiz_only, 'A', unit_basename//'/m2/s ', &
-                    trim(solsym(m))//' gas chemistry/wet removal (for gas species)')
+            trim(solsym(m))//' gas chemistry/wet removal (for gas species)')
+
        call addfld( 'AQ_'//trim(solsym(m)),horiz_only, 'A', unit_basename//'/m2/s ', &
-                    trim(solsym(m))//' aqueous chemistry (for gas species)')
+            trim(solsym(m))//' aqueous chemistry (for gas species)')
+
        if(physicsIndex(m).le.pcnst) then
-       if (getCloudTracerIndexDirect(physicsIndex(m)) .gt. 0)then
-         call addfld( 'AQ_'//getCloudTracerName(physicsIndex(m)),horiz_only, 'A', unit_basename//'/m2/s ', &
-                    trim(solsym(m))//' aqueous chemistry (for cloud species)')
-       end if
+          if (getCloudTracerIndexDirect(physicsIndex(m)) .gt. 0)then
+             call addfld( 'AQ_'//getCloudTracerName(physicsIndex(m)),horiz_only, 'A', unit_basename//'/m2/s ', &
+                  trim(solsym(m))//' aqueous chemistry (for cloud species)')
+          end if
        end if
 
        if ( history_aerosol ) then
           call add_default( 'GS_'//trim(solsym(m)), 1, ' ')
           call add_default( 'AQ_'//trim(solsym(m)), 1, ' ')
-       if(physicsIndex(m).le.pcnst) then
-          if(getCloudTracerIndexDirect(physicsIndex(m)).gt.0)then
-             call add_default( 'AQ_'//getCloudTracerName(physicsIndex(m)),1,' ')
+          if(physicsIndex(m).le.pcnst) then
+             if(getCloudTracerIndexDirect(physicsIndex(m)).gt.0)then
+                call add_default( 'AQ_'//getCloudTracerName(physicsIndex(m)),1,' ')
+             end if
           end if
-       end if
        endif
     enddo
 
@@ -330,11 +263,8 @@ contains
        call add_default ('AQSO4_O3', 1, ' ')
     endif
 
+  end subroutine aero_model_init
 
-
-end subroutine aero_model_init
-
-  !=============================================================================
   !=============================================================================
   subroutine aero_model_drydep  ( state, pbuf, obklen, ustar, cam_in, dt, cam_out, ptend )
 
@@ -343,7 +273,7 @@ end subroutine aero_model_init
     use aerosoldef        , only : numberOfProcessModeTracers
     use commondefinitions, only: oslo_nmodes=>nmodes
 
-  ! args
+    ! args
     type(physics_state),    intent(in)    :: state     ! Physics state variables
     real(r8),               intent(in)    :: obklen(:)
     real(r8),               intent(in)    :: ustar(:)  ! sfc fric vel
@@ -353,7 +283,7 @@ end subroutine aero_model_init
     type(physics_ptend),    intent(out)   :: ptend     ! indivdual parameterization tendencies
     type(physics_buffer_desc),    pointer :: pbuf(:)
 
-  ! local vars
+    ! local vars
     integer                                         :: ncol
     real(r8), dimension(pcols, pver, 0:oslo_nmodes) :: oslo_dgnumwet
     real(r8), dimension(pcols, pver, 0:oslo_nmodes) :: oslo_wetdens
@@ -362,21 +292,15 @@ end subroutine aero_model_init
 
     ncol  = state%ncol
     oslo_wetdens(:,:,:) = 0._r8
-    call calcaersize_sub( ncol, &
-                     state%t, state%q(1,1,1), state%pmid, state%pdel &
-                     ,oslo_dgnumwet , oslo_wetdens                  &
-                     ,oslo_dgnumwet_processmodes, oslo_wetdens_processmodes   &
-                     )
+    call calcaersize_sub( ncol, state%t, state%q(1,1,1), state%pmid, state%pdel, &
+         oslo_dgnumwet, oslo_wetdens, oslo_dgnumwet_processmodes, oslo_wetdens_processmodes)
 
-    call oslo_aero_dry_intr(state, pbuf, obklen, ustar, cam_in, dt, cam_out,ptend &
-            , oslo_dgnumwet, oslo_wetdens                        &
-            , oslo_dgnumwet_processmodes, oslo_wetdens_processmodes, &
-            cam_in%cflx ) !++alfgr
+    call oslo_aero_dry_intr(state, pbuf, obklen, ustar, cam_in, dt, cam_out, ptend, &
+         oslo_dgnumwet, oslo_wetdens, oslo_dgnumwet_processmodes, oslo_wetdens_processmodes, &
+         cam_in%cflx )
 
-   return
   endsubroutine aero_model_drydep
 
-  !=============================================================================
   !=============================================================================
   subroutine aero_model_wetdep( state, dt, dlf, cam_out, ptend, pbuf)
 
@@ -393,13 +317,15 @@ end subroutine aero_model_init
 
   endsubroutine aero_model_wetdep
 
-  !-------------------------------------------------------------------------
-  ! provides wet tropospheric aerosol surface area info for modal aerosols
-  ! called from mo_usrrxt
-  !-------------------------------------------------------------------------
+  !=============================================================================
   subroutine aero_model_surfarea( &
-                  mmr, radmean, relhum, pmid, temp, strato_sad, sulfate, rho, ltrop, &
-                  dlat, het1_ndx, pbuf, ncol, sfc, dm_aer, sad_trop, reff_trop )
+       mmr, radmean, relhum, pmid, temp, strato_sad, sulfate, rho, ltrop, &
+       dlat, het1_ndx, pbuf, ncol, sfc, dm_aer, sad_trop, reff_trop )
+
+    !-------------------------------------------------------------------------
+    ! provides wet tropospheric aerosol surface area info for modal aerosols
+    ! called from mo_usrrxt
+    !-------------------------------------------------------------------------
 
     use commondefinitions, only: nmodes_oslo => nmodes
     use const            , only: numberToSurface
@@ -434,7 +360,7 @@ end subroutine aero_model_init
     integer :: l,m
     integer :: i,k
 
-   !Get air density
+    !Get air density
     do k=1,pver
        do i=1,ncol
           rho_air(i,k) = pmid(i,k)/(temp(i,k)*287.04_r8)
@@ -449,30 +375,30 @@ end subroutine aero_model_init
     sad_trop = 0._r8
     do m=1,nmodes_oslo
        do k=1,pver
-         sad_mode(:ncol,k,m) = numberConcentration(:ncol,k,m)*numberToSurface(m)*1.e-2_r8 !m2/m3 ==> cm2/cm3
-         sad_trop(:ncol,k) = sad_trop(:ncol,k) + sad_mode(:ncol,k,m)
+          sad_mode(:ncol,k,m) = numberConcentration(:ncol,k,m)*numberToSurface(m)*1.e-2_r8 !m2/m3 ==> cm2/cm3
+          sad_trop(:ncol,k) = sad_trop(:ncol,k) + sad_mode(:ncol,k,m)
        end do
     end do
 
     do m=1,nmodes_oslo
        do k=1,pver
-         sfc(:ncol,k,m) = sad_mode(:ncol,k,m)     ! aitken_idx:aitken_idx)
-         dm_aer(:ncol,k,m) = 2.0_r8*lifeCycleNumberMedianRadius(m)
+          sfc(:ncol,k,m) = sad_mode(:ncol,k,m)     ! aitken_idx:aitken_idx)
+          dm_aer(:ncol,k,m) = 2.0_r8*lifeCycleNumberMedianRadius(m)
        end do
     end do
 
     !++ need to implement reff_trop here
-      reff_trop(:,:)=1.0e-6_r8
-    !--
-
+    reff_trop(:,:)=1.0e-6_r8
 
   end subroutine aero_model_surfarea
 
-  !-------------------------------------------------------------------------
-  ! provides WET stratospheric aerosol surface area info for modal aerosols
-  ! if modal_strat_sulfate = TRUE -- called from mo_gas_phase_chemdr
-  !-------------------------------------------------------------------------
+  !=============================================================================
   subroutine aero_model_strat_surfarea( ncol, mmr, pmid, temp, ltrop, pbuf, strato_sad, reff_strat )
+
+    !-------------------------------------------------------------------------
+    ! provides WET stratospheric aerosol surface area info for modal aerosols
+    ! if modal_strat_sulfate = TRUE -- called from mo_gas_phase_chemdr
+    !-------------------------------------------------------------------------
 
     ! dummy args
     integer,  intent(in)    :: ncol
@@ -497,16 +423,16 @@ end subroutine aero_model_init
   end subroutine aero_model_strat_surfarea
 
   !=============================================================================
-  !=============================================================================
   subroutine aero_model_gasaerexch( loffset, ncol, lchnk, troplev, delt, reaction_rates, &
-                                    tfld, pmid, pdel, mbar, relhum, &
-                                    zm,  qh2o, cwat, cldfr, cldnum, &
-                                    airdens, invariants, del_h2so4_gasprod,  &
-                                    vmr0, vmr, pbuf )
+       tfld, pmid, pdel, mbar, relhum, &
+       zm,  qh2o, cwat, cldfr, cldnum, &
+       airdens, invariants, del_h2so4_gasprod,  &
+       vmr0, vmr, pbuf )
 
     use time_manager,          only : get_nstep
     use condtend,              only : condtend_sub
     use aerosoldef,            only: getCloudTracerName
+
     !-----------------------------------------------------------------------
     !      ... dummy arguments
     !-----------------------------------------------------------------------
@@ -584,22 +510,22 @@ end subroutine aero_model_init
     ! calculate tendency due to gas phase chemistry and processes
     dvmrdt(:ncol,:,:) = (vmr(:ncol,:,:) - vmr0(:ncol,:,:)) / delt
     do m = 1, gas_pcnst
-      wrk(:) = 0._r8
-      do k = 1,pver
-        wrk(:ncol) = wrk(:ncol) + dvmrdt(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
-      end do
-      name = 'GS_'//trim(solsym(m))
-      call outfld( name, wrk(:ncol), ncol, lchnk )
+       wrk(:) = 0._r8
+       do k = 1,pver
+          wrk(:ncol) = wrk(:ncol) + dvmrdt(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
+       end do
+       name = 'GS_'//trim(solsym(m))
+       call outfld( name, wrk(:ncol), ncol, lchnk )
     enddo
 
-!  Get mass mixing ratios at start of time step
-   call vmr2mmr( vmr0, mmr_tend_ncols, mbar, ncol )
-   mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_H2SO4) = mmr_tend_ncols(1:ncol,:,ndx_h2so4)
-   mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_LV) = mmr_tend_ncols(1:ncol,:,ndx_soa_lv)
-   mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_SV) = mmr_tend_ncols(1:ncol,:,ndx_soa_sv)
-!
-! Aerosol processes ...
-!
+    !  Get mass mixing ratios at start of time step
+    call vmr2mmr( vmr0, mmr_tend_ncols, mbar, ncol )
+    mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_H2SO4) = mmr_tend_ncols(1:ncol,:,ndx_h2so4)
+    mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_LV) = mmr_tend_ncols(1:ncol,:,ndx_soa_lv)
+    mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_SV) = mmr_tend_ncols(1:ncol,:,ndx_soa_sv)
+    !
+    ! Aerosol processes ...
+    !
     call qqcw2vmr( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
 
     ! save h2so4 change by gas phase chem (for later new particle nucleation)
@@ -611,173 +537,164 @@ end subroutine aero_model_init
     del_soa_sv_gasprod(1:ncol,:) = vmr(1:ncol,:,ndx_soa_sv) - vmr0(1:ncol,:,ndx_soa_sv)
 
     if (.not. is_spcam_m2005) then  ! regular CAM
-      dvmrdt(:ncol,:,:) = vmr(:ncol,:,:)
-      dvmrcwdt(:ncol,:,:) = vmrcw(:ncol,:,:)
+       dvmrdt(:ncol,:,:) = vmr(:ncol,:,:)
+       dvmrcwdt(:ncol,:,:) = vmrcw(:ncol,:,:)
 
-      !Save intermediate concentrations
-      dvmrdt_sv1 = vmr
-      dvmrcwdt_sv1 = vmrcw
+       !Save intermediate concentrations
+       dvmrdt_sv1 = vmr
+       dvmrcwdt_sv1 = vmrcw
 
-    ! aqueous chemistry ...
+       ! aqueous chemistry ...
 
-    call setsox(   &
-        ncol,     &
-        lchnk,    &
-        loffset,  &
-        delt,     &
-        pmid,     &
-        pdel,     &
-        tfld,     &
-        mbar,     &
-        cwat,     &
-        cldfr,    &
-        cldnum,   &
-        airdens,  &
-        invariants, &
-        vmrcw,    &
-        vmr,      &
-        xphlwc,   &
-        aqso4,    &
-        aqh2so4,  &
-        aqso4_h2o2, &
-        aqso4_o3  &
-        )
+       call setsox(   &
+            ncol,     &
+            lchnk,    &
+            loffset,  &
+            delt,     &
+            pmid,     &
+            pdel,     &
+            tfld,     &
+            mbar,     &
+            cwat,     &
+            cldfr,    &
+            cldnum,   &
+            airdens,  &
+            invariants, &
+            vmrcw,    &
+            vmr,      &
+            xphlwc,   &
+            aqso4,    &
+            aqh2so4,  &
+            aqso4_h2o2, &
+            aqso4_o3  &
+            )
 
-      call outfld( 'AQSO4_H2O2', aqso4_h2o2(:ncol), ncol, lchnk)
-      call outfld( 'AQSO4_O3',   aqso4_o3(:ncol),   ncol, lchnk)
-      call outfld( 'XPH_LWC',    xphlwc(:ncol,:),   ncol, lchnk )
+       call outfld( 'AQSO4_H2O2', aqso4_h2o2(:ncol), ncol, lchnk)
+       call outfld( 'AQSO4_O3',   aqso4_o3(:ncol),   ncol, lchnk)
+       call outfld( 'XPH_LWC',    xphlwc(:ncol,:),   ncol, lchnk )
 
 
-    ! vmr tendency from aqchem and soa routines
-    dvmrdt_sv1 = (vmr - dvmrdt_sv1)/delt
-    dvmrcwdt_sv1 = (vmrcw - dvmrcwdt_sv1)/delt
+       ! vmr tendency from aqchem and soa routines
+       dvmrdt_sv1 = (vmr - dvmrdt_sv1)/delt
+       dvmrcwdt_sv1 = (vmrcw - dvmrcwdt_sv1)/delt
 
-    if(ndx_h2so4 .gt. 0)then
-       del_h2so4_aqchem(:ncol,:) = dvmrdt_sv1(:ncol,:,ndx_h2so4)*delt !"production rate" of H2SO4
-    else
-       del_h2so4_aqchem(:ncol,:) = 0.0_r8
-    end if
+       if(ndx_h2so4 .gt. 0)then
+          del_h2so4_aqchem(:ncol,:) = dvmrdt_sv1(:ncol,:,ndx_h2so4)*delt !"production rate" of H2SO4
+       else
+          del_h2so4_aqchem(:ncol,:) = 0.0_r8
+       end if
 
-    do m = 1,gas_pcnst
-       wrk(:ncol) = 0._r8
-       do k = 1,pver
-          wrk(:ncol) = wrk(:ncol) + dvmrdt_sv1(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
-       end do
-       name = 'AQ_'//trim(solsym(m))
-       call outfld( name, wrk(:ncol), ncol, lchnk )
-
-       !In oslo aero also write out the tendencies for the
-       !cloud borne aerosols...
-       n = physicsIndex(m)
-       if (n.le.pcnst) then
-       if(getCloudTracerIndexDirect(n) .gt. 0)then
-          name = 'AQ_'//trim(getCloudTracerName(n))
-          wrk(:ncol)=0.0_r8
-          do k=1,pver
-            wrk(:ncol) = wrk(:ncol) + dvmrcwdt_sv1(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
+       do m = 1,gas_pcnst
+          wrk(:ncol) = 0._r8
+          do k = 1,pver
+             wrk(:ncol) = wrk(:ncol) + dvmrdt_sv1(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
           end do
+          name = 'AQ_'//trim(solsym(m))
           call outfld( name, wrk(:ncol), ncol, lchnk )
-       end if
-       end if
-    enddo
 
-   else if (is_spcam_m2005) then  ! SPCAM ECPP
-! when ECPP is used, aqueous chemistry is done in ECPP,
-! and not updated here.
-! Minghuai Wang, 2010-02 (Minghuai.Wang@pnl.gov)
-!
-      dvmrdt = 0.0_r8
-      dvmrcwdt = 0.0_r8
-   endif
+          !In oslo aero also write out the tendencies for the
+          !cloud borne aerosols...
+          n = physicsIndex(m)
+          if (n.le.pcnst) then
+             if(getCloudTracerIndexDirect(n) .gt. 0)then
+                name = 'AQ_'//trim(getCloudTracerName(n))
+                wrk(:ncol)=0.0_r8
+                do k=1,pver
+                   wrk(:ncol) = wrk(:ncol) + dvmrcwdt_sv1(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
+                end do
+                call outfld( name, wrk(:ncol), ncol, lchnk )
+             end if
+          end if
+       enddo
 
-   !condensation
-   call vmr2mmr( vmr, mmr_tend_ncols, mbar, ncol )
-   do k = 1,pver
-      mmr_cond_vap_gasprod(:ncol,k,COND_VAP_H2SO4) = adv_mass(ndx_h2so4) * (del_h2so4_gasprod(:ncol,k)+del_h2so4_aqchem(:ncol,k)) / mbar(:ncol,k)/delt
-      mmr_cond_vap_gasprod(:ncol,k,COND_VAP_ORG_LV) = adv_mass(ndx_soa_lv) * del_soa_lv_gasprod(:ncol,k) / mbar(:ncol,k)/delt !cka
-      mmr_cond_vap_gasprod(:ncol,k,COND_VAP_ORG_SV) = adv_mass(ndx_soa_sv) * del_soa_sv_gasprod(:ncol,k) / mbar(:ncol,k)/delt !cka
-   end do
+    else if (is_spcam_m2005) then  ! SPCAM ECPP
+       ! when ECPP is used, aqueous chemistry is done in ECPP,
+       ! and not updated here.
+       ! Minghuai Wang, 2010-02 (Minghuai.Wang@pnl.gov)
+       !
+       dvmrdt = 0.0_r8
+       dvmrcwdt = 0.0_r8
+    endif
 
-   !This should not happen since there are only
-   !production terms for these gases!!
-   do cond_vap_idx=1,N_COND_VAP
-      where(mmr_cond_vap_gasprod(:ncol,:,cond_vap_idx).lt. 0.0_r8)
-         mmr_cond_vap_gasprod(:ncol,:,cond_vap_idx) = 0.0_r8
-      end where
-   end do
-   mmr_tend_ncols(:ncol,:,ndx_h2so4) = mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_H2SO4)
-   mmr_tend_ncols(:ncol,:,ndx_soa_lv) = mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_LV)
-   mmr_tend_ncols(:ncol,:,ndx_soa_sv) = mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_SV)
+    ! condensation
+    call vmr2mmr( vmr, mmr_tend_ncols, mbar, ncol )
+    do k = 1,pver
+       mmr_cond_vap_gasprod(:ncol,k,COND_VAP_H2SO4) = adv_mass(ndx_h2so4) &
+            * (del_h2so4_gasprod(:ncol,k)+del_h2so4_aqchem(:ncol,k)) / mbar(:ncol,k)/delt
+       mmr_cond_vap_gasprod(:ncol,k,COND_VAP_ORG_LV) = adv_mass(ndx_soa_lv) &
+            * del_soa_lv_gasprod(:ncol,k) / mbar(:ncol,k)/delt
+       mmr_cond_vap_gasprod(:ncol,k,COND_VAP_ORG_SV) = adv_mass(ndx_soa_sv) &
+            * del_soa_sv_gasprod(:ncol,k) / mbar(:ncol,k)/delt
+    end do
 
-   !Rest of microphysics have pcols dimension
-   mmr_tend_pcols(:ncol,:,:) = mmr_tend_ncols(:ncol,:,:)
-   !Note use of "zm" here. In CAM5.3-implementation "zi" was used..
-   !zm is passed through the generic interface, and it should not change much
-   !to check if "zm" is below boundary layer height instead of zi
-   call condtend_sub( lchnk, mmr_tend_pcols, mmr_cond_vap_gasprod,tfld, pmid, &
-                     pdel, delt, ncol, pblh, zm, qh2o)  !cka
+    ! This should not happen since there are only
+    ! production terms for these gases! !
+    do cond_vap_idx=1,N_COND_VAP
+       where(mmr_cond_vap_gasprod(:ncol,:,cond_vap_idx).lt. 0.0_r8)
+          mmr_cond_vap_gasprod(:ncol,:,cond_vap_idx) = 0.0_r8
+       end where
+    end do
+    mmr_tend_ncols(:ncol,:,ndx_h2so4)  = mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_H2SO4)
+    mmr_tend_ncols(:ncol,:,ndx_soa_lv) = mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_LV)
+    mmr_tend_ncols(:ncol,:,ndx_soa_sv) = mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_SV)
+
+    ! Rest of microphysics have pcols dimension
+    mmr_tend_pcols(:ncol,:,:) = mmr_tend_ncols(:ncol,:,:)
+    ! Note use of "zm" here. In CAM5.3-implementation "zi" was used..
+    ! zm is passed through the generic interface, and it should not change much
+    ! to check if "zm" is below boundary layer height instead of zi
+    call condtend_sub( lchnk, mmr_tend_pcols, mmr_cond_vap_gasprod,tfld, pmid, &
+         pdel, delt, ncol, pblh, zm, qh2o)  ! cka
 
 
-   !coagulation
-   ! OS 280415  Concentratiions in cloud water is in vmr space and as a
-   ! temporary variable  (vmrcw) Coagulation between aerosol and cloud
-   ! droplets moved to after vmrcw is moved into qqcw (in mmr spac)
+    ! coagulation
+    ! OS 280415  Concentratiions in cloud water is in vmr space and as a
+    ! temporary variable  (vmrcw) Coagulation between aerosol and cloud
+    ! droplets moved to after vmrcw is moved into qqcw (in mmr spac)
 
-   call coagtend( mmr_tend_pcols, pmid, pdel, tfld, delt_inverse, ncol, lchnk)
+    call coagtend( mmr_tend_pcols, pmid, pdel, tfld, delt_inverse, ncol, lchnk)
 
-   !Convert cloud water to mmr again ==> values in buffer
-   call vmr2qqcw( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
+    ! Convert cloud water to mmr again ==> values in buffer
+    call vmr2qqcw( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
 
-   !Call cloud coagulation routines (all in mass mixing ratios)
-   call clcoag( mmr_tend_pcols, pmid, pdel, tfld, cldnum ,cldfr, delt_inverse, ncol, lchnk,loffset,pbuf)
+    ! Call cloud coagulation routines (all in mass mixing ratios)
+    call clcoag( mmr_tend_pcols, pmid, pdel, tfld, cldnum ,cldfr, delt_inverse, ncol, lchnk,loffset,pbuf)
 
-   !Make sure mmr==> vmr is done correctly
-   mmr_tend_ncols(:ncol,:,:) = mmr_tend_pcols(:ncol,:,:)
+    ! Make sure mmr==> vmr is done correctly
+    mmr_tend_ncols(:ncol,:,:) = mmr_tend_pcols(:ncol,:,:)
 
-   !Go back to volume mixing ratio for chemistry
-   call mmr2vmr( mmr_tend_ncols, vmr, mbar, ncol )
-
-    return
+    ! Go back to volume mixing ratio for chemistry
+    call mmr2vmr( mmr_tend_ncols, vmr, mbar, ncol )
 
   end subroutine aero_model_gasaerexch
 
   !=============================================================================
-  !=============================================================================
   subroutine aero_model_emissions( state, cam_in )
-    use seasalt_model, only: oslo_salt_emis_intr, seasalt_active, OMOceanSource
-    use dust_model, only: oslo_dust_emis_intr, dust_active
-    use oslo_ocean_intr, only: oslo_dms_emis_intr
-    use aerosoldef, only: l_om_ni
-    use physics_types, only: physics_state
+
+    use seasalt_model   , only: oslo_salt_emis_intr, seasalt_active, OMOceanSource
+    use dust_model      , only: oslo_dust_emis_intr, dust_active
+    use oslo_ocean_intr , only: oslo_dms_emis_intr
+    use aerosoldef      , only: l_om_ni
+    use physics_types   , only: physics_state
 
     ! Arguments:
-
     type(physics_state),    intent(in)    :: state   ! Physics state variables
     type(cam_in_t),         intent(inout) :: cam_in  ! import state
 
     ! local vars
-
-    integer :: lchnk, ncol
-    real(r8) :: sflx(pcols)   ! accumulate over all bins for output
-    real (r8), parameter :: z0=0.0001_r8  ! m roughness length over oceans--from ocean model
-
-    lchnk = state%lchnk
-    ncol = state%ncol
+    integer  :: ncol
 
     if (dust_active) then
-
        call oslo_dust_emis_intr( state, cam_in)
-
        ! some dust emis diagnostics ...
     endif
 
     if (seasalt_active) then
-
        call oslo_salt_emis_intr(state, cam_in)
-
     endif
 
     !Add whatever OM ocean source was calculated in the seasalt module
+    ncol = state%ncol
     cam_in%cflx(:ncol,l_om_ni) = cam_in%cflx(:ncol,l_om_ni) + OMOceanSource(:ncol)
 
     !Pick up correct DMS emissions (replace values from file if requested)
@@ -785,265 +702,19 @@ end subroutine aero_model_init
 
   end subroutine aero_model_emissions
 
-  !===============================================================================
+  !=============================================================================
   ! private methods
-
-
   !=============================================================================
-  !=============================================================================
-  subroutine surf_area_dens( ncol, mmr, pmid, temp, diam, beglev, endlev, sad, sfc )
-    use mo_constants,    only : pi
 
-    ! dummy args
-    integer,  intent(in)  :: ncol
-    real(r8), intent(in)  :: mmr(:,:,:)
-    real(r8), intent(in)  :: pmid(:,:)
-    real(r8), intent(in)  :: temp(:,:)
-    real(r8), intent(in)  :: diam(:,:,:)
-    integer,  intent(in)  :: beglev(:)
-    integer,  intent(in)  :: endlev(:)
-    real(r8), intent(out) :: sad(:,:)
-    real(r8),optional, intent(out) :: sfc(:,:,:)
-
-    ! local vars
-
-    !
-    ! Compute surface aero for each mode.
-    ! Total over all modes as the surface area for chemical reactions.
-    !
-
-    !oslo: do nothing for now
-    return
-
-  end subroutine surf_area_dens
-
-  !===============================================================================
-  !===============================================================================
-  subroutine modal_aero_bcscavcoef_init
-    !-----------------------------------------------------------------------
-    !
-    ! Purpose:
-    ! Computes lookup table for aerosol impaction/interception scavenging rates
-    !
-    ! Authors: R. Easter
-    !
-    !-----------------------------------------------------------------------
-
-    use shr_kind_mod,    only: r8 => shr_kind_r8
-    use modal_aero_data
-    use cam_abortutils,  only: endrun
-
-    implicit none
-
-    ! oslo : do nothing for now
-    return
-  end subroutine modal_aero_bcscavcoef_init
-
-  !===============================================================================
-  !===============================================================================
-  subroutine modal_aero_depvel_part( ncol, t, pmid, ram1, fv, vlc_dry, vlc_trb, vlc_grv,  &
-                                     radius_part, density_part, sig_part, moment, lchnk )
-
-!    calculates surface deposition velocity of particles
-!    L. Zhang, S. Gong, J. Padro, and L. Barrie
-!    A size-seggregated particle dry deposition scheme for an atmospheric aerosol module
-!    Atmospheric Environment, 35, 549-560, 2001.
-!
-!    Authors: X. Liu
-
-    !
-    ! !USES
-    !
-    use physconst,     only: pi,boltz, gravit, rair
-    use mo_drydep,     only: n_land_type, fraction_landuse
-
-    ! !ARGUMENTS:
-    !
-    implicit none
-    !
-    real(r8), intent(in) :: t(pcols,pver)       !atm temperature (K)
-    real(r8), intent(in) :: pmid(pcols,pver)    !atm pressure (Pa)
-    real(r8), intent(in) :: fv(pcols)           !friction velocity (m/s)
-    real(r8), intent(in) :: ram1(pcols)         !aerodynamical resistance (s/m)
-    real(r8), intent(in) :: radius_part(pcols,pver)    ! mean (volume/number) particle radius (m)
-    real(r8), intent(in) :: density_part(pcols,pver)   ! density of particle material (kg/m3)
-    real(r8), intent(in) :: sig_part(pcols,pver)       ! geometric standard deviation of particles
-    integer,  intent(in) :: moment ! moment of size distribution (0 for number, 2 for surface area, 3 for volume)
-    integer,  intent(in) :: ncol
-    integer,  intent(in) :: lchnk
-
-    real(r8), intent(out) :: vlc_trb(pcols)       !Turbulent deposn velocity (m/s)
-    real(r8), intent(out) :: vlc_grv(pcols,pver)       !grav deposn velocity (m/s)
-    real(r8), intent(out) :: vlc_dry(pcols,pver)       !dry deposn velocity (m/s)
-    !------------------------------------------------------------------------
-
-    !------------------------------------------------------------------------
-    ! Local Variables
-    integer  :: m,i,k,ix                !indices
-    real(r8) :: rho     !atm density (kg/m**3)
-    real(r8) :: vsc_dyn_atm(pcols,pver)   ![kg m-1 s-1] Dynamic viscosity of air
-    real(r8) :: vsc_knm_atm(pcols,pver)   ![m2 s-1] Kinematic viscosity of atmosphere
-    real(r8) :: shm_nbr       ![frc] Schmidt number
-    real(r8) :: stk_nbr       ![frc] Stokes number
-    real(r8) :: mfp_atm(pcols,pver)       ![m] Mean free path of air
-    real(r8) :: dff_aer       ![m2 s-1] Brownian diffusivity of particle
-    real(r8) :: slp_crc(pcols,pver) ![frc] Slip correction factor
-    real(r8) :: rss_trb       ![s m-1] Resistance to turbulent deposition
-    real(r8) :: rss_lmn       ![s m-1] Quasi-laminar layer resistance
-    real(r8) :: brownian      ! collection efficiency for Browning diffusion
-    real(r8) :: impaction     ! collection efficiency for impaction
-    real(r8) :: interception  ! collection efficiency for interception
-    real(r8) :: stickfrac     ! fraction of particles sticking to surface
-    real(r8) :: radius_moment(pcols,pver) ! median radius (m) for moment
-    real(r8) :: lnsig         ! ln(sig_part)
-    real(r8) :: dispersion    ! accounts for influence of size dist dispersion on bulk settling velocity
-                              ! assuming radius_part is number mode radius * exp(1.5 ln(sigma))
-
-    integer  :: lt
-    real(r8) :: lnd_frc
-    real(r8) :: wrk1, wrk2, wrk3
-
-    ! constants
-    real(r8) gamma(11)      ! exponent of schmidt number
-!   data gamma/0.54d+00,  0.56d+00,  0.57d+00,  0.54d+00,  0.54d+00, &
-!              0.56d+00,  0.54d+00,  0.54d+00,  0.54d+00,  0.56d+00, &
-!              0.50d+00/
-    data gamma/0.56e+00_r8,  0.54e+00_r8,  0.54e+00_r8,  0.56e+00_r8,  0.56e+00_r8, &
-               0.56e+00_r8,  0.50e+00_r8,  0.54e+00_r8,  0.54e+00_r8,  0.54e+00_r8, &
-               0.54e+00_r8/
-    save gamma
-
-    real(r8) alpha(11)      ! parameter for impaction
-!   data alpha/50.00d+00,  0.95d+00,  0.80d+00,  1.20d+00,  1.30d+00, &
-!               0.80d+00, 50.00d+00, 50.00d+00,  2.00d+00,  1.50d+00, &
-!             100.00d+00/
-    data alpha/1.50e+00_r8,   1.20e+00_r8,  1.20e+00_r8,  0.80e+00_r8,  1.00e+00_r8, &
-               0.80e+00_r8, 100.00e+00_r8, 50.00e+00_r8,  2.00e+00_r8,  1.20e+00_r8, &
-              50.00e+00_r8/
-    save alpha
-
-    real(r8) radius_collector(11) ! radius (m) of surface collectors
-!   data radius_collector/-1.00d+00,  5.10d-03,  3.50d-03,  3.20d-03, 10.00d-03, &
-!                          5.00d-03, -1.00d+00, -1.00d+00, 10.00d-03, 10.00d-03, &
-!                         -1.00d+00/
-    data radius_collector/10.00e-03_r8,  3.50e-03_r8,  3.50e-03_r8,  5.10e-03_r8,  2.00e-03_r8, &
-                           5.00e-03_r8, -1.00e+00_r8, -1.00e+00_r8, 10.00e-03_r8,  3.50e-03_r8, &
-                          -1.00e+00_r8/
-    save radius_collector
-
-    integer            :: iwet(11) ! flag for wet surface = 1, otherwise = -1
-!   data iwet/1,   -1,   -1,   -1,   -1,  &
-!            -1,   -1,   -1,    1,   -1,  &
-!             1/
-    data iwet/-1,  -1,   -1,   -1,   -1,  &
-              -1,   1,   -1,    1,   -1,  &
-              -1/
-    save iwet
-
-
-    !------------------------------------------------------------------------
-    do k=1,pver
-       do i=1,ncol
-
-          lnsig = log(sig_part(i,k))
-! use a maximum radius of 50 microns when calculating deposition velocity
-          radius_moment(i,k) = min(50.0e-6_r8,radius_part(i,k))*   &
-                          exp((float(moment)-1.5_r8)*lnsig*lnsig)
-          dispersion = exp(2._r8*lnsig*lnsig)
-
-          rho=pmid(i,k)/rair/t(i,k)
-
-          ! Quasi-laminar layer resistance: call rss_lmn_get
-          ! Size-independent thermokinetic properties
-          vsc_dyn_atm(i,k) = 1.72e-5_r8 * ((t(i,k)/273.0_r8)**1.5_r8) * 393.0_r8 / &
-               (t(i,k)+120.0_r8)      ![kg m-1 s-1] RoY94 p. 102
-          mfp_atm(i,k) = 2.0_r8 * vsc_dyn_atm(i,k) / &   ![m] SeP97 p. 455
-               (pmid(i,k)*sqrt(8.0_r8/(pi*rair*t(i,k))))
-          vsc_knm_atm(i,k) = vsc_dyn_atm(i,k) / rho ![m2 s-1] Kinematic viscosity of air
-
-          slp_crc(i,k) = 1.0_r8 + mfp_atm(i,k) * &
-                  (1.257_r8+0.4_r8*exp(-1.1_r8*radius_moment(i,k)/(mfp_atm(i,k)))) / &
-                  radius_moment(i,k)   ![frc] Slip correction factor SeP97 p. 464
-          vlc_grv(i,k) = (4.0_r8/18.0_r8) * radius_moment(i,k)*radius_moment(i,k)*density_part(i,k)* &
-                  gravit*slp_crc(i,k) / vsc_dyn_atm(i,k) ![m s-1] Stokes' settling velocity SeP97 p. 466
-          vlc_grv(i,k) = vlc_grv(i,k) * dispersion
-
-          vlc_dry(i,k)=vlc_grv(i,k)
-       enddo
-    enddo
-    k=pver  ! only look at bottom level for next part
-    do i=1,ncol
-       dff_aer = boltz * t(i,k) * slp_crc(i,k) / &    ![m2 s-1]
-                 (6.0_r8*pi*vsc_dyn_atm(i,k)*radius_moment(i,k)) !SeP97 p.474
-       shm_nbr = vsc_knm_atm(i,k) / dff_aer                        ![frc] SeP97 p.972
-
-       wrk2 = 0._r8
-       wrk3 = 0._r8
-       do lt = 1,n_land_type
-          lnd_frc = fraction_landuse(i,lt,lchnk)
-          if ( lnd_frc /= 0._r8 ) then
-             brownian = shm_nbr**(-gamma(lt))
-             if (radius_collector(lt) > 0.0_r8) then
-!       vegetated surface
-                stk_nbr = vlc_grv(i,k) * fv(i) / (gravit*radius_collector(lt))
-                interception = 2.0_r8*(radius_moment(i,k)/radius_collector(lt))**2.0_r8
-             else
-!       non-vegetated surface
-                stk_nbr = vlc_grv(i,k) * fv(i) * fv(i) / (gravit*vsc_knm_atm(i,k))  ![frc] SeP97 p.965
-                interception = 0.0_r8
-             endif
-             impaction = (stk_nbr/(alpha(lt)+stk_nbr))**2.0_r8
-
-             if (iwet(lt) > 0) then
-                stickfrac = 1.0_r8
-             else
-                stickfrac = exp(-sqrt(stk_nbr))
-                if (stickfrac < 1.0e-10_r8) stickfrac = 1.0e-10_r8
-             endif
-             rss_lmn = 1.0_r8 / (3.0_r8 * fv(i) * stickfrac * (brownian+interception+impaction))
-             rss_trb = ram1(i) + rss_lmn + ram1(i)*rss_lmn*vlc_grv(i,k)
-
-             wrk1 = 1.0_r8 / rss_trb
-             wrk2 = wrk2 + lnd_frc*( wrk1 )
-             wrk3 = wrk3 + lnd_frc*( wrk1 + vlc_grv(i,k) )
-          endif
-       enddo  ! n_land_type
-       vlc_trb(i) = wrk2
-       vlc_dry(i,k) = wrk3
-    enddo !ncol
-
-    return
-  end subroutine modal_aero_depvel_part
-
-  !===============================================================================
-  subroutine modal_aero_bcscavcoef_get( m, ncol, isprx, dgn_awet, scavcoefnum, scavcoefvol )
-
-    use modal_aero_data
-    !-----------------------------------------------------------------------
-    implicit none
-
-    integer,intent(in) :: m, ncol
-    logical,intent(in):: isprx(pcols,pver)
-    real(r8), intent(in) :: dgn_awet(pcols,pver,ntot_amode)
-    real(r8), intent(out) :: scavcoefnum(pcols,pver), scavcoefvol(pcols,pver)
-
-    integer i, k, jgrow
-
-    return
-  end subroutine modal_aero_bcscavcoef_get
-
-  !=============================================================================
-  !=============================================================================
   subroutine qqcw2vmr(lchnk, vmr, mbar, ncol, im, pbuf)
-    use modal_aero_data, only : qqcw_get_field
-    use physics_buffer, only : physics_buffer_desc
+
     !-----------------------------------------------------------------
     !	... Xfrom from mass to volume mixing ratio
     !-----------------------------------------------------------------
 
-    use chem_mods, only : adv_mass, gas_pcnst
-
-    implicit none
+    use modal_aero_data , only : qqcw_get_field
+    use physics_buffer  , only : physics_buffer_desc
+    use chem_mods       , only : adv_mass, gas_pcnst
 
     !-----------------------------------------------------------------
     !	... Dummy args
@@ -1073,8 +744,6 @@ end subroutine aero_model_init
     end do
   end subroutine qqcw2vmr
 
-
-  !=============================================================================
   !=============================================================================
   subroutine vmr2qqcw( lchnk, vmr, mbar, ncol, im, pbuf )
     !-----------------------------------------------------------------
@@ -1085,8 +754,6 @@ end subroutine aero_model_init
     use chem_mods,       only : adv_mass, gas_pcnst
     use modal_aero_data, only : qqcw_get_field
     use physics_buffer,  only : physics_buffer_desc
-
-    implicit none
 
     !-----------------------------------------------------------------
     !	... Dummy args
@@ -1112,7 +779,123 @@ end subroutine aero_model_init
           end do
        end if
     end do
-
   end subroutine vmr2qqcw
+
+  !=============================================================================
+  subroutine constants
+    !
+    ! A number of constants used in the emission and size-calculation in CAM-Oslo Jan 2011.
+    ! Updated by Alf Kirkev May 2013
+    ! Updated by Alf Grini February 2014
+    !
+    use shr_kind_mod, only: r8 => shr_kind_r8
+    use physconst,    only: pi
+    use const
+    use aerosoldef
+    use koagsub, only : initializeCoagulationReceivers
+    use koagsub, only : initializeCoagulationCoefficients
+    use koagsub, only : initializeCoagulationOutput
+    use oslo_utils
+
+    integer  :: kcomp,i
+    real(r8) :: rhob(0:nmodes) !density of background aerosol in mode
+    real(r8) :: rhorbc         !This has to do with fractal dimensions of bc, come back to this!!
+    real(r8) :: sumnormnk
+    real(r8) :: totalLogDelta
+    real(r8) :: logDeltaBin
+    real(r8) :: logNextEdge
+
+    rhob(:)            =-1.0_r8
+    volumeToNumber(:)  =-1.0_r8
+    numberToSurface(:) =-1.0_r8
+
+    !Prepare modal properties
+    do i=0, nmodes
+
+       if(getNumberOfTracersInMode(i) .gt. 0)then
+
+          !Approximate density of mode
+          !density of mode is density of first species in mode
+          rhob(i)  = rhopart(getTracerIndex(i,1,.false.))
+
+          !REPLACE THE EFACT-VARIABLE WITH THIS!!
+          volumeToNumber(i) = 1.0_r8 / &
+               ( DEXP ( 4.5_r8 * ( log(originalSigma(i)) * log(originalSigma(i)) ) ) &
+               *(4.0_r8/3.0_r8)*pi*(originalNumberMedianRadius(i))**3 )
+
+          numberToSurface(i) = 4.0_r8*pi*lifeCycleNumberMedianRadius(i)*lifeCycleNumberMedianRadius(i)&
+               *DEXP(log(lifeCycleSigma(i))*log(lifeCycleSigma(i)))
+       end if
+    end do
+
+
+    !Find radius in edges and midpoints of bin
+    rBinEdge(1) = rTabMin
+    totalLogDelta = log(rTabMax/rTabMin)
+    logDeltaBin = totalLogDelta / nBinsTab
+    do i=2,nBinsTab+1
+       logNextEdge = log(rBinEdge(i-1)) + logDeltaBin
+       rBinEdge(i) = DEXP(logNextEdge)
+       rBinMidPoint(i-1) = sqrt(rBinEdge(i)*rBinEdge(i-1))
+    end do
+
+    !Calculate the fraction of a mode which goes to aquous chemstry
+    numberFractionAvailableAqChem(:)=0.0_r8
+    do i=1,nbmodes
+       if(isTracerInMode(i,l_so4_a2))then
+          numberFractionAvailableAqChem(i) =  1.0_r8 -  &
+               calculateLognormalCDF(rMinAquousChemistry,originalNumberMedianRadius(i), originalSigma(i))
+       end if
+    end do
+
+    !Set the density of the fractal mode ==> we get lesser density
+    !than the emitted density, so for a given mass emitted, we get
+    !more number-concentration!! This is a way of simulating that the
+    !aerosols take up more space
+    rhorbc = calculateEquivalentDensityOfFractalMode(    &
+         rhopart(l_bc_n),                                & !emitted density
+         originalNumberMedianRadius(MODE_IDX_BC_NUC),    & !emitted size
+         2.5_r8,                                         & !fractal dim
+         originalNumberMedianRadius(MODE_IDX_BC_EXT_AC), & !diameter of mode
+         originalSigma(MODE_IDX_BC_EXT_AC))                !sigma mode
+
+    rhopart(l_bc_ax) = rhorbc
+    !fxm: not the right place for this change of value,
+    !but anyway.. this re-calculateion of tracer density
+    !influences density of mode used in coagulation
+    rhob(MODE_IDX_BC_EXT_AC)=rhorbc
+
+    !Size distribution of the modes!
+    !Unclear if this should use the radii assuming growth or not!
+    !Mostly used in code where it is sensible to assume some growth has
+    !happened, so it is used here
+    do kcomp = 0,nmodes
+       do i=1,nBinsTab
+          !dN/dlogR (does not sum to one over size range)
+          nk(kcomp,i) = calculatedNdLogR(rBinMidPoint(i), lifeCycleNumberMedianRadius(kcomp), lifeCycleSigma(kcomp))
+
+          !dN (sums to one) over the size range
+          normnk(kcomp,i) =logDeltaBin*nk(kcomp,i)
+       enddo
+    enddo  ! kcomp
+
+    !++test: Normalized size distribution must sum to one (accept 2% error)
+    do kcomp=0,nmodes
+       sumNormNk = sum(normnk(kcomp,:))
+       if(abs(sum(normnk(kcomp,:)) - 1.0_r8) .gt. 2.0e-2_r8)then
+          print*, "sum normnk", sum(normnk(kcomp,:))
+          stop
+       endif
+    enddo
+    !--test
+
+    !Initialize coagulation
+    call initializeCoagulationReceivers()
+
+    !Calculate the coagulation coefficients Note: Inaccurate density used!
+    call initializeCoagulationCoefficients(rhob, lifeCycleNumberMedianRadius)
+
+    call initializeCoagulationOutput()
+  end subroutine constants
 
 end module aero_model
