@@ -251,7 +251,7 @@ contains
     ! Added input for h2so4 and soa nucleation: soa_lv_gasprod, soa_sv_gasprod, pblh,zm,qh20 (cka)
 
     use cam_history,     only: outfld,fieldname_len
-    use koagsub,         only: normalizedCoagulationSink,receiverMode,numberOfCoagulationReceivers
+    use koagsub,         only: normalizedCoagulationSink, receiverMode,numberOfCoagulationReceivers
     use koagsub,         only: numberOfAddCoagReceivers,addReceiverMode,normCoagSinkAdd
     use constituents,    only: pcnst  ! h2so4 and soa nucleation (cka)
 

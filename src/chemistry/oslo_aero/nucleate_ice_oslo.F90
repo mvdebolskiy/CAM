@@ -30,8 +30,7 @@ use nucleate_ice,   only: nucleati_init, nucleati
 
 use aerosoldef,     only:  l_dst_a2, l_dst_a3, & 
                            MODE_IDX_DST_A2, MODE_IDX_DST_A3, &
-                           rhopart
-use modal_aero_data, only: qqcw_get_field
+                           rhopart, qqcw_get_field
 use const          , only: volumeToNumber
 
 implicit none
@@ -352,8 +351,8 @@ subroutine nucleate_ice_oslo_calc( &
 
    call physics_ptend_init(ptend, state%psetcols, 'nucleatei', lq=lq) 
 
-   cld_dst_a2 => qqcw_get_field(pbuf, l_dst_a2, lchnk, .true.)
-   cld_dst_a3 => qqcw_get_field(pbuf, l_dst_a2, lchnk, .true.) 
+   cld_dst_a2 => qqcw_get_field(pbuf, l_dst_a2)
+   cld_dst_a3 => qqcw_get_field(pbuf, l_dst_a2)
 
    itim_old = pbuf_old_tim_idx()
    call pbuf_get_field(pbuf, ast_idx, ast, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))

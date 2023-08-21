@@ -22,6 +22,7 @@ module aero_model
   use chem_mods,       only: gas_pcnst, adv_mass
   use mo_tracname,     only: solsym
   use aerosoldef,      only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
+  use aerosoldef,      only: qqcw_get_field  
   use condtend,        only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
   use koagsub,         only: coagtend, clcoag
   use sox_cldaero_mod, only: sox_cldaero_init
@@ -505,7 +506,7 @@ contains
     delt_inverse = 1.0_r8 / delt
 
     !Get height of boundary layer (needed for boundary layer nucleation)
-    call pbuf_get_field(pbuf, pblh_idx,     pblh)
+    call pbuf_get_field(pbuf, pblh_idx, pblh)
 
     ! calculate tendency due to gas phase chemistry and processes
     dvmrdt(:ncol,:,:) = (vmr(:ncol,:,:) - vmr0(:ncol,:,:)) / delt
@@ -704,7 +705,6 @@ contains
     !	... Xfrom from mass to volume mixing ratio
     !-----------------------------------------------------------------
 
-    use modal_aero_data , only : qqcw_get_field
     use physics_buffer  , only : physics_buffer_desc
     use chem_mods       , only : adv_mass, gas_pcnst
 
@@ -724,7 +724,7 @@ contains
 
     do m=1,gas_pcnst
        if( adv_mass(m) /= 0._r8 ) then
-          fldcw => qqcw_get_field(pbuf, m+im,lchnk,errorhandle=.true.)
+          fldcw => qqcw_get_field(pbuf, m+im)
           if(associated(fldcw)) then
              do k=1,pver
                 vmr(:ncol,k,m) = mbar(:ncol,k) * fldcw(:ncol,k) / adv_mass(m)
@@ -744,7 +744,6 @@ contains
 
     use m_spc_id
     use chem_mods,       only : adv_mass, gas_pcnst
-    use modal_aero_data, only : qqcw_get_field
     use physics_buffer,  only : physics_buffer_desc
 
     !-----------------------------------------------------------------
@@ -764,7 +763,7 @@ contains
     !	... The non-group species
     !-----------------------------------------------------------------
     do m = 1,gas_pcnst
-       fldcw => qqcw_get_field(pbuf, m+im,lchnk,errorhandle=.true.)
+       fldcw => qqcw_get_field(pbuf, m+im)
        if( adv_mass(m) /= 0._r8 .and. associated(fldcw)) then
           do k = 1,pver
              fldcw(:ncol,k) = adv_mass(m) * vmr(:ncol,k,m) / mbar(:ncol,k)

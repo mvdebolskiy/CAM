@@ -21,31 +21,26 @@ module microp_aero
   !
   !---------------------------------------------------------------------------------
 
-  use shr_kind_mod,     only: r8=>shr_kind_r8
-  use spmd_utils,       only: masterproc
-  use ppgrid,           only: pcols, pver, pverp
-  use ref_pres,         only: top_lev => trop_cloud_top_lev
-  use physconst,        only: rair
-  use constituents,     only: cnst_get_ind
-  use physics_types,    only: physics_state, physics_ptend, physics_ptend_init, physics_ptend_sum, &
-       physics_state_copy, physics_update
-  use physics_buffer,   only: physics_buffer_desc, pbuf_get_index, pbuf_old_tim_idx, pbuf_get_field
-  use phys_control,     only: phys_getopts, use_hetfrz_classnuc
-  use rad_constituents, only: rad_cnst_get_info, rad_cnst_get_aer_mmr, rad_cnst_get_aer_props, &
-       rad_cnst_get_mode_num
-
-  use ndrop,            only: ndrop_init, dropmixnuc
-  use ndrop_bam,        only: ndrop_bam_init, ndrop_bam_run, ndrop_bam_ccn
-
-  use cam_history,      only: addfld, add_default, outfld
-  use cam_logfile,      only: iulog
-  use cam_abortutils,       only: endrun
+  use shr_kind_mod,      only: r8=>shr_kind_r8
+  use spmd_utils,        only: masterproc
+  use ppgrid,            only: pcols, pver, pverp
+  use ref_pres,          only: top_lev => trop_cloud_top_lev
+  use physconst,         only: rair
+  use constituents,      only: cnst_get_ind
+  use physics_types,     only: physics_state, physics_ptend, physics_ptend_init, physics_ptend_sum
+  use physics_types,     only: physics_state_copy, physics_update
+  use physics_buffer,    only: physics_buffer_desc, pbuf_get_index, pbuf_old_tim_idx, pbuf_get_field
+  use phys_control,      only: phys_getopts, use_hetfrz_classnuc
+  use rad_constituents,  only: rad_cnst_get_info, rad_cnst_get_aer_mmr, rad_cnst_get_aer_props, rad_cnst_get_mode_num
+  use ndrop,             only: ndrop_init, dropmixnuc
+  use ndrop_bam,         only: ndrop_bam_init, ndrop_bam_run, ndrop_bam_ccn
+  use cam_history,       only: addfld, add_default, outfld
+  use cam_logfile,       only: iulog
   use commondefinitions, only:  nmodes_oslo => nmodes
-  use aerosoldef, only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_SO4_AC &
-       ,MODE_IDX_OMBC_INTMIX_COAT_AIT, lifeCycleNumberMedianRadius, &
-       l_dst_a2, l_dst_a3, l_bc_ai, getNumberOfTracersInMode, &
-       getTracerIndex, getCloudTracerIndex
-  use oslo_utils, only: CalculateNumberConcentration
+  use aerosoldef,        only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_SO4_AC, MODE_IDX_OMBC_INTMIX_COAT_AIT
+  use aerosoldef,        only: lifeCycleNumberMedianRadius, l_dst_a2, l_dst_a3, l_bc_ai
+  use aerosoldef,        only: getNumberOfTracersInMode, getTracerIndex, getCloudTracerIndex
+  use oslo_utils,        only: CalculateNumberConcentration
   use parmix_progncdnc
   use hetfrz_classnuc_oslo
   use nucleate_ice_oslo
@@ -161,8 +156,7 @@ contains
     !-----------------------------------------------------------------------
 
     ! Query the PBL eddy scheme
-    call phys_getopts(eddy_scheme_out          = eddy_scheme,  &
-         history_amwg_out         = history_amwg )
+    call phys_getopts(eddy_scheme_out=eddy_scheme, history_amwg_out=history_amwg )
 
     ! Access the physical properties of the aerosols that are affecting the climate
     ! by using routines from the rad_constituents module.
@@ -189,16 +183,14 @@ contains
 
     ast_idx = pbuf_get_index('AST')
 
-    cldo_idx     = pbuf_get_index('CLDO')
+    cldo_idx = pbuf_get_index('CLDO')
     clim_modal_aero = .true. !Needed to avoid ending up in BAM routines
 
     call ndrop_init()
 
     call addfld('LCLOUD', (/ 'lev' /), 'A', ' ',   'Liquid cloud fraction used in stratus activation')
-
     call addfld('WSUB',   (/ 'lev' /), 'A', 'm/s', 'Diagnostic sub-grid vertical velocity'                   )
     call addfld('WSUBI',  (/ 'lev' /), 'A', 'm/s', 'Diagnostic sub-grid vertical velocity for ice'           )
-
     if (history_amwg) then
        call add_default ('WSUB     ', 1, ' ')
     end if
@@ -212,8 +204,8 @@ contains
 
   subroutine microp_aero_readnl(nlfile)
 
-    use namelist_utils,  only: find_group_name
-    use units,           only: getunit, freeunit
+    use namelist_utils, only: find_group_name
+    use cam_abortutils, only: endrun
     use mpishorthand
 
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
@@ -229,8 +221,7 @@ contains
     !-----------------------------------------------------------------------------
 
     if (masterproc) then
-       unitn = getunit()
-       open( unitn, file=trim(nlfile), status='old' )
+       open(newunit=unitn, file=trim(nlfile), status='old' )
        call find_group_name(unitn, 'microp_aero_nl', status=ierr)
        if (ierr == 0) then
           read(unitn, microp_aero_nl, iostat=ierr)
@@ -239,9 +230,7 @@ contains
           end if
        end if
        close(unitn)
-       call freeunit(unitn)
     end if
-
 #ifdef SPMD
     ! Broadcast namelist variable
     call mpibcast(microp_aero_bulk_scale, 1, mpir8, 0, mpicom)
@@ -256,7 +245,6 @@ contains
   end subroutine microp_aero_readnl
 
   !=========================================================================================
-
   subroutine microp_aero_run (state, ptend_all, deltatin, pbuf)
 
     ! arguments
@@ -318,12 +306,8 @@ contains
     real(r8) :: wsub(pcols,pver)    ! diagnosed sub-grid vertical velocity st. dev. (m/s)
     real(r8) :: wsubi(pcols,pver)   ! diagnosed sub-grid vertical velocity ice (m/s)
     real(r8) :: nucboas
-
     real(r8) :: wght
-
-    integer :: lchnk, ncol
-
-    !++ MH_2015/04/10
+    integer  :: lchnk, ncol
     real(r8) :: factnum(pcols,pver,0:nmodes_oslo) ! activation fraction for aerosol number
     type qqcw_type
        real(r8), pointer :: fldcw(:,:) 
@@ -363,7 +347,7 @@ contains
     ncol  = state1%ncol
 
     itim_old = pbuf_old_tim_idx()
-    call pbuf_get_field(pbuf, ast_idx,      ast, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
+    call pbuf_get_field(pbuf, ast_idx, ast, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
     call pbuf_get_field(pbuf, npccn_idx, npccn)
     call pbuf_get_field(pbuf, nacon_idx, nacon)
     call pbuf_get_field(pbuf, rndst_idx, rndst)
@@ -456,7 +440,7 @@ contains
 
     if (trim(eddy_scheme) == 'CLUBB_SGS') deallocate(tke)
 
-    !Get size distributed interstitial aerosol
+    ! Get size distributed interstitial aerosol
     call parmix_progncdnc_sub( &   
          ncol                  & !I [nbr] number of columns used
          ,state%q              & !I [kg/kg] mass mixing ratio of tracers
