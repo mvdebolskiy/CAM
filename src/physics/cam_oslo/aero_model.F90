@@ -671,18 +671,14 @@ contains
   !=============================================================================
   subroutine aero_model_emissions( state, cam_in )
 
-    use seasalt_model   , only: oslo_salt_emis_intr, seasalt_active, OMOceanSource
+    use seasalt_model   , only: seasalt_emis, seasalt_active
     use dust_model      , only: oslo_dust_emis_intr, dust_active
     use oslo_ocean_intr , only: oslo_dms_emis_intr
-    use aerosoldef      , only: l_om_ni
     use physics_types   , only: physics_state
 
     ! Arguments:
-    type(physics_state),    intent(in)    :: state   ! Physics state variables
-    type(cam_in_t),         intent(inout) :: cam_in  ! import state
-
-    ! local vars
-    integer  :: ncol
+    type(physics_state), intent(in)    :: state   ! Physics state variables
+    type(cam_in_t),      intent(inout) :: cam_in  ! import state
 
     if (dust_active) then
        call oslo_dust_emis_intr( state, cam_in)
@@ -690,12 +686,8 @@ contains
     endif
 
     if (seasalt_active) then
-       call oslo_salt_emis_intr(state, cam_in)
+       call seasalt_emis(state, cam_in)
     endif
-
-    !Add whatever OM ocean source was calculated in the seasalt module
-    ncol = state%ncol
-    cam_in%cflx(:ncol,l_om_ni) = cam_in%cflx(:ncol,l_om_ni) + OMOceanSource(:ncol)
 
     !Pick up correct DMS emissions (replace values from file if requested)
     call oslo_dms_emis_intr(state, cam_in)
