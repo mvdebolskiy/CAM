@@ -62,8 +62,8 @@
   <!--
     ===============
      HEMCO Options
-     ===============
-   -->
+    ===============
+  -->
     <desc option="HEMCO"        >With Harmonized Emissions Component (HEMCO) for chemistry:</desc>
 
   <!--
@@ -86,8 +86,8 @@
     <desc option="ADIAB"        >CAM dry adiabatic configurarion (no physics forcing):</desc>
     <desc option="DABIP04"      >CAM dry adiabatic baroclinic instability (Polvani et al., 2004):</desc>
     <desc option="TJ16"         >CAM moist Held-Suarez forcing (Thatcher and Jablonowski, 2016):</desc>
-    <desc option="HS94"         >CAM dry Held-Suarez forcing (Held and Suarez (1994)):</desc>
     <desc option="GRAYRAD"      >CAM moist simple model (Frierson, 2006):</desc>
+    <desc option="HS94"         >CAM dry Held-Suarez forcing (Held and Suarez (1994)):</desc>
     <desc option="KESSLER"      >CAM moist dynamical core test with Ullrich et al. (2014) baroclinic wave IC, Kessler physics and terminator chemistry:</desc>
 
   <!--
@@ -181,8 +181,8 @@
       <value compset="_CAM\d0%CC.*%SDYN">-nlev 56</value>
       <value compset="_CAM\d0%WC.*%SDYN">-nlev 88</value>
       <value compset="_CAM\d0%WX.*%SDYN">-nlev 145</value>
-      <value compset="_CAM.*%L58">-nlev 58 -model_top lt</value>
-      <value compset="_CAM.*%L93">-nlev 93 -model_top mt</value>
+      <value compset="_CAM.*%LT">-nlev 58 -model_top lt</value>
+      <value compset="_CAM.*%MT">-nlev 93 -model_top mt</value>
 
       <!-- Simple models -->
       <value compset="_CAM%ADIAB">-phys adiabatic</value>
