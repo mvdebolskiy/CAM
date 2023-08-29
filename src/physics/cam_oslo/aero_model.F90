@@ -24,7 +24,7 @@ module aero_model
   use aerosoldef,      only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
   use aerosoldef,      only: qqcw_get_field  
   use condtend,        only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
-  use koagsub,         only: coagtend, clcoag
+  use oslo_aero_coag,  only: coagtend, clcoag
   use sox_cldaero_mod, only: sox_cldaero_init
   use intlog,          only: initlogn
   use ref_pres,        only: top_lev => clim_modal_aero_top_lev
@@ -783,9 +783,9 @@ contains
     use physconst,    only: pi
     use const
     use aerosoldef
-    use koagsub, only : initializeCoagulationReceivers
-    use koagsub, only : initializeCoagulationCoefficients
-    use koagsub, only : initializeCoagulationOutput
+    use oslo_aero_coag, only : initializeCoagulationReceivers
+    use oslo_aero_coag, only : initializeCoagulationCoefficients
+    use oslo_aero_coag, only : initializeCoagulationOutput
     use oslo_utils
 
     integer  :: kcomp,i

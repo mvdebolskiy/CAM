@@ -841,9 +841,9 @@ contains
 
      use commondefinitions
      use aerosoldef
-     use const, only: smallNumber
-     use koagsub, only: normalizedCoagulationSink
-     use condtend, only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
+     use const,          only: smallNumber
+     use oslo_aero_coag, only: normalizedCoagulationSink
+     use condtend,       only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
 
      implicit none
      !
@@ -896,7 +896,7 @@ contains
      integer :: i !counter for modes
      integer :: k !counter for levels
 
-     !Find the sink on any mode (0 is omitted here, WHY??, it does receive matter in koagsub/condtend!!))
+     !Find the sink on any mode (0 is omitted here, WHY??, it does receive matter in oslo_aero_coag/condtend!!))
      !Should either remove it from there or add something to it here!
      do i=1,nbmodes
         do k=1,pver

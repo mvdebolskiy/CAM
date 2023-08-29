@@ -1,34 +1,36 @@
-module koagsub
+module oslo_aero_coag
 
+  !----------------------------------------------------------------------
+  ! modal aerosol coagulation
+  !----------------------------------------------------------------------
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
   use phys_control, only: phys_getopts
-  use aerosoldef
   use chem_mods,    only: gas_pcnst
   use mo_tracname,  only: solsym
-  use const
-  use shr_kind_mod, only: r8 => shr_kind_r8
   use physconst,    only: rair, gravit
-  use cam_logfile,  only : iulog
+  use cam_logfile,  only: iulog
+  use aerosoldef
+  use const
 
   implicit none
   private 
 
-  real(r8), parameter :: kboltzmann = 1.3806488e-23_r8          ![m2 kg s-2 K-1]
-  real(r8), parameter :: temperatureLookupTables = 293.15_r8    !Temperature used in look up tables
-  real(r8), parameter :: mfpAir = 63.3e-9_r8                    ![m] mean free path air
-  real(r8), parameter :: viscosityAir = 1.983e-5_r8             ![Pa s] viscosity of air
+  public :: initializeCoagulationReceivers    ! called by oslo_aero/aero_model
+  public :: initializeCoagulationCoefficients ! called by oslo_aero/aero_model
+  public :: initializeCoagulationOutput       ! called by oslo_aero/aero_model
+  public :: coagtend                          ! called by oslo_aero/aero_model
+  public :: clcoag                            ! called by oslo_aero/aero_model
 
-  real(r8), parameter :: rhoh2o = 1000._r8 ! Density of water
-
-  integer, parameter :: numberOfCoagulatingModes = 6
   integer, parameter, public :: numberOfCoagulationReceivers = 6
+  integer, parameter, public :: numberOfAddCoagReceivers = 6
 
   real(r8), public :: normalizedCoagulationSink(0:nmodes,0:nmodes) ![m3/#/s]
-  real(r8), public :: NCloudCoagulationSink(0:nmodes)         ![m3/#/s]
-
-  integer, parameter, public :: numberOfAddCoagReceivers = 6
-  real(r8), public           :: normCoagSinkAdd(numberOfAddCoagReceivers) ![m3/#/s]
+  real(r8), public :: NCloudCoagulationSink(0:nmodes)              ![m3/#/s]
+  real(r8), public :: normCoagSinkAdd(numberOfAddCoagReceivers)    ![m3/#/s]
 
   !These are the modes which are coagulating (belonging to mixtures no. 0, 1, 2, 4, 12, 14)
+  integer , parameter :: numberOfCoagulatingModes = 6
   integer, public :: coagulatingMode(numberOfCoagulatingModes) =    & 
        (/MODE_IDX_BC_EXT_AC                                               &  !inert mode
        , MODE_IDX_SO4SOA_AIT, MODE_IDX_BC_AIT, MODE_IDX_OMBC_INTMIX_COAT_AIT &  !internally mixed small modes
@@ -44,7 +46,7 @@ module koagsub
   ! (belonging to mixtures no. 0, 1, 2, 4, 12, 14)
   integer, public :: addReceiverMode(numberOfAddCoagReceivers) = & 
        (/MODE_IDX_BC_EXT_AC,MODE_IDX_SO4SOA_AIT,MODE_IDX_BC_AIT, &
-       MODE_IDX_OMBC_INTMIX_COAT_AIT,MODE_IDX_BC_NUC,MODE_IDX_OMBC_INTMIX_AIT /) 
+         MODE_IDX_OMBC_INTMIX_COAT_AIT,MODE_IDX_BC_NUC,MODE_IDX_OMBC_INTMIX_AIT /) 
 
   !Coagulation moves aerosol mass to the "coagulate" species, so some
   !lifecycle species will receive mass in this routine!
@@ -62,11 +64,11 @@ module koagsub
   integer :: tableindexcloud 
   real(r8),parameter :: rcoagdroplet = 10.e-6   ! m
 
-  public :: initializeCoagulationOutput
-  public :: initializeCoagulationReceivers
-  public :: initializeCoagulationCoefficients
-  public :: coagtend
-  public :: clcoag
+  real(r8), parameter :: kboltzmann = 1.3806488e-23_r8       ![m2 kg s-2 K-1]
+  real(r8), parameter :: temperatureLookupTables = 293.15_r8 !Temperature used in look up tables
+  real(r8), parameter :: mfpAir = 63.3e-9_r8                 ![m] mean free path air
+  real(r8), parameter :: viscosityAir = 1.983e-5_r8          ![Pa s] viscosity of air
+  real(r8), parameter :: rhoh2o = 1000._r8                   ! Density of water
 
 !================================================================
 contains
@@ -162,24 +164,16 @@ contains
     real(r8), intent(in) :: rhob(0:nmodes) !density of background mode
 
     real(r8), dimension(numberOfCoagulationReceivers, numberOfCoagulatingModes, nBinsTab) :: K12 = 0.0_r8  !Coagulation coefficient (m3/s)
-
-    !nuctst3+
-    !      real(r8), dimension(nBinsTab) :: CoagCoeffMode1 = 0.0_r8  !Coagulation coefficient mode 1 with 1 (m3/s)
-    !nuctst3-
-    !ak+
     real(r8), dimension(numberOfAddCoagReceivers,nBinsTab) :: CoagCoeffModeAdd = 0.0_r8  !Coagulation coefficient mode 1 (m3/s)
-    !ak-
-
     real(r8), dimension(numberOfCoagulatingModes,nBinsTab) :: K12Cl = 0.0_r8  !Coagulation coefficient (m3/s)
-
     real(r8), dimension(nBinsTab) :: coagulationCoefficient
-    integer              :: aMode
-    integer              :: modeIndex
-    integer              :: modeIndexCoagulator  !Index of coagulating mode
-    integer              :: modeIndexReceiver    !Index of receiving mode
-    integer              :: iCoagulatingMode     !Counter for coagulating mode
-    integer              :: iReceiverMode        !Counter for receiver modes
-    integer              :: nsiz                 !counter for look up table sizes
+    integer :: aMode
+    integer :: modeIndex
+    integer :: modeIndexCoagulator  !Index of coagulating mode
+    integer :: modeIndexReceiver    !Index of receiving mode
+    integer :: iCoagulatingMode     !Counter for coagulating mode
+    integer :: iReceiverMode        !Counter for receiver modes
+    integer :: nsiz                 !counter for look up table sizes
 
     do iReceiverMode = 1, numberOfCoagulationReceivers
        do iCoagulatingMode = 1,numberOfCoagulatingModes
@@ -273,10 +267,11 @@ contains
           do nsiz=1,nBinsTab  !aerotab bin sizes   
 
              !Sum up coagulation sink for this coagulating species (for all receiving modes)
-             normalizedCoagulationSink(modeIndexReceiver, modeIndexCoagulator)      =   &   ![m3/#/s]
-                  normalizedCoagulationSink(modeIndexReceiver, modeIndexCoagulator)    &   ![m3/#/s] Previous value
-                  + normnk(modeIndexReceiver, nsiz)          &   !Normalized size distribution for receiver mode
-                  * K12(iReceiverMode, iCoagulatingMode, nsiz)                  !Koagulation coefficient (m3/#/s)
+             normalizedCoagulationSink(modeIndexReceiver, modeIndexCoagulator)      =   & ![m3/#/s]
+                  normalizedCoagulationSink(modeIndexReceiver, modeIndexCoagulator)    &  ![m3/#/s] Previous value
+                  + normnk(modeIndexReceiver, nsiz)          &                            !Normalized size distribution for receiver mode
+                  * K12(iReceiverMode, iCoagulatingMode, nsiz)                            !Coagulation coefficient (m3/#/s)
+
           end do !Look up table size
        end do    !receiver modes
     end do       !coagulator
@@ -293,10 +288,10 @@ contains
 
        do nsiz=1,nBinsTab  !aerotab bin sizes   
           !Sum up coagulation sink for this coagulating species (for all receiving modes)
-          normCoagSinkAdd(iReceiverMode)      =   &   ![m3/#/s]
-               normCoagSinkAdd(iReceiverMode)    &   ![m3/#/s] Previous value
-               + normnk(modeIndexReceiver, nsiz)          &   !Normalized size distribution for receiver mode
-               * CoagCoeffModeAdd(iReceiverMode, nsiz)                  !Koagulation coefficient (m3/#/s)
+          normCoagSinkAdd(iReceiverMode)      =  &     ![m3/#/s]
+               normCoagSinkAdd(iReceiverMode)    &     ![m3/#/s] Previous value
+               + normnk(modeIndexReceiver, nsiz) &     !Normalized size distribution for receiver mode
+               * CoagCoeffModeAdd(iReceiverMode, nsiz) !Koagulation coefficient (m3/#/s)
        end do !Look up table size
     end do    !receiver modes
     !ak-
@@ -765,4 +760,4 @@ contains
          -2.0_r8*radius
   end function calculateGFactor
 
-end module koagsub
+end module oslo_aero_coag
