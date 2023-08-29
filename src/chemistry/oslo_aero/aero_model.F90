@@ -3,40 +3,58 @@
 !===============================================================================
 module aero_model
 
-  use shr_kind_mod,    only: r8 => shr_kind_r8
-  use constituents,    only: pcnst, cnst_name, cnst_get_ind
-  use ppgrid,          only: pcols, pver, pverp
-  use phys_control,    only: phys_getopts, cam_physpkg_is
-  use cam_abortutils,  only: endrun
-  use cam_logfile,     only: iulog
-  use perf_mod,        only: t_startf, t_stopf
-  use camsrfexch,      only: cam_in_t, cam_out_t
-  use aerodep_flx,     only: aerodep_flx_prescribed
-  use physics_types,   only: physics_state, physics_ptend, physics_ptend_init
-  use physics_buffer,  only: physics_buffer_desc
-  use physics_buffer,  only: pbuf_get_field, pbuf_get_index, pbuf_set_field
-  use physconst,       only: gravit, rair, rhoh2o
-  use spmd_utils,      only: masterproc
-  use infnan,          only: nan, assignment(=)
-  use cam_history,     only: outfld, fieldname_len
-  use chem_mods,       only: gas_pcnst, adv_mass
-  use mo_tracname,     only: solsym
-  use aerosoldef,      only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
-  use aerosoldef,      only: qqcw_get_field  
-  use condtend,        only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
-  use oslo_aero_coag,  only: coagtend, clcoag
-  use sox_cldaero_mod, only: sox_cldaero_init
-  use intlog,          only: initlogn
-  use ref_pres,        only: top_lev => clim_modal_aero_top_lev
-  use mo_setsox,       only: setsox
-  use mo_mass_xforms,  only: vmr2mmr, mmr2vmr, mmr2vmri
+  use shr_kind_mod,       only: r8 => shr_kind_r8
+  use constituents,       only: pcnst, cnst_name, cnst_get_ind
+  use ppgrid,             only: pcols, pver, pverp
+  use phys_control,       only: phys_getopts, cam_physpkg_is
+  use cam_abortutils,     only: endrun
+  use cam_logfile,        only: iulog
+  use perf_mod,           only: t_startf, t_stopf
+  use camsrfexch,         only: cam_in_t, cam_out_t
+  use aerodep_flx,        only: aerodep_flx_prescribed
+  use physics_types,      only: physics_state, physics_ptend, physics_ptend_init
+  use physics_buffer,     only: physics_buffer_desc
+  use physics_buffer,     only: pbuf_get_field, pbuf_get_index, pbuf_set_field
+  use physconst,          only: gravit, rair, rhoh2o
+  use spmd_utils,         only: masterproc
+  use time_manager,       only: get_nstep
+  use cam_history,        only: outfld, fieldname_len, addfld, add_default, horiz_only
+  use chem_mods,          only: gas_pcnst, adv_mass
+  use mo_tracname,        only: solsym
+  use mo_setsox,          only: setsox
+  use mo_mass_xforms,     only: vmr2mmr, mmr2vmr, mmr2vmri
+  use mo_chem_utls,       only: get_rxt_ndx, get_spc_ndx
+  use ref_pres,           only: top_lev => clim_modal_aero_top_lev
+  use drydep_mod,         only: inidrydep
+  use wetdep,             only: wetdep_init
+  !
+  use oslo_aerosols_intr, only: oslo_aero_initialize, oslo_aero_dry_intr, oslo_aero_wet_intr
+  use oslo_utils,         only: calculateNumberConcentration
+  use aerosoldef,         only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
+  use aerosoldef,         only: qqcw_get_field, numberOfProcessModeTracers
+  use aerosoldef,         only: lifeCycleNumberMedianRadius
+  use aerosoldef,         only: getCloudTracerName
+  use aerosoldef,         only: aero_register
+  use condtend,           only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
+  use condtend,           only: registerCondensation, initializeCondensation, condtend_sub
+  use oslo_aero_coag,     only: coagtend, clcoag
+  use sox_cldaero_mod,    only: sox_cldaero_init
+  use intlog,             only: initlogn
+  use seasalt_model,      only: seasalt_init, seasalt_emis, seasalt_active
+  use dust_model,         only: dust_init, dust_emis, dust_active
+  use oslo_ocean_intr,    only: oslo_ocean_init, oslo_dms_emis_intr
+  use opttab,             only: initopt, initopt_lw
+  use commondefinitions,  only: originalSigma, originalNumberMedianRadius
+  use commondefinitions,  only: nmodes_oslo=>nmodes, nbmodes
+  use calcaersize
 #ifdef AEROCOM
-  use aerocom_opt_mod, only: initaeropt
-  use aerocom_dry_mod, only: initdryp
+  use aerocom_opt_mod,    only: initaeropt
+  use aerocom_dry_mod,    only: initdryp
 #endif
 
   implicit none
   private
+
   public :: aero_model_readnl
   public :: aero_model_register
   public :: aero_model_init
@@ -117,8 +135,6 @@ contains
 
   !=============================================================================
   subroutine aero_model_register()
-    use aerosoldef, only: aero_register
-    use condtend, only: registerCondensation
 
     call aero_register()
     call registerCondensation()
@@ -128,40 +144,14 @@ contains
   !=============================================================================
   subroutine aero_model_init( pbuf2d )
 
-    use cam_history,            only: addfld, add_default, horiz_only
-    use mo_chem_utls,           only: get_rxt_ndx, get_spc_ndx
-    use dust_model,             only: dust_init, dust_active
-    use seasalt_model,          only: seasalt_init, seasalt_active
-    use drydep_mod,             only: inidrydep
-    use wetdep,                 only: wetdep_init
-    use condtend,               only: initializeCondensation
-    use oslo_ocean_intr,        only: oslo_ocean_init
-    use oslo_aerosols_intr,     only: oslo_aero_initialize
-    use opttab,                 only: initopt, initopt_lw
-    use modal_aero_deposition , only: modal_aero_deposition_init
-
     ! args
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     ! local vars
-    character(len=*), parameter :: subrname = 'aero_model_init'
-    integer :: m, n, id
+    integer           :: m, n, id, l
     character(len=20) :: dummy
-
-    logical  :: history_aerosol ! Output MAM or SECT aerosol tendencies
-
-    integer :: l
-    character(len=6) :: test_name
-    character(len=64) :: errmes
-
+    logical           :: history_aerosol ! Output MAM or SECT aerosol tendencies
     character(len=2)  :: unit_basename  ! Units 'kg' or '1'
-    integer :: errcode
-    character(len=fieldname_len) :: field_name
-
-    character(len=32) :: spec_name
-    character(len=32) :: spec_type
-    character(len=32) :: mode_type
-    integer :: nspec
     !------------------------------------
 
     call phys_getopts(history_aerosol_out=history_aerosol, convproc_do_aer_out=convproc_do_aer)
@@ -180,7 +170,6 @@ contains
     call dust_init()
     call seasalt_init() !seasalt_emis_scale)
     call wetdep_init()
-    call modal_aero_deposition_init()
 
     nwetdep = 0
     ndrydep = 0
@@ -269,11 +258,6 @@ contains
   !=============================================================================
   subroutine aero_model_drydep  ( state, pbuf, obklen, ustar, cam_in, dt, cam_out, ptend )
 
-    use calcaersize
-    use oslo_aerosols_intr, only: oslo_aero_dry_intr
-    use aerosoldef        , only : numberOfProcessModeTracers
-    use commondefinitions, only: oslo_nmodes=>nmodes
-
     ! args
     type(physics_state),    intent(in)    :: state     ! Physics state variables
     real(r8),               intent(in)    :: obklen(:)
@@ -286,8 +270,8 @@ contains
 
     ! local vars
     integer                                         :: ncol
-    real(r8), dimension(pcols, pver, 0:oslo_nmodes) :: oslo_dgnumwet
-    real(r8), dimension(pcols, pver, 0:oslo_nmodes) :: oslo_wetdens
+    real(r8), dimension(pcols, pver, 0:nmodes_oslo) :: oslo_dgnumwet
+    real(r8), dimension(pcols, pver, 0:nmodes_oslo) :: oslo_wetdens
     real(r8), dimension(pcols, pver, numberOfProcessModeTracers) :: oslo_dgnumwet_processmodes
     real(r8), dimension(pcols, pver, numberOfProcessModeTracers) :: oslo_wetdens_processmodes
 
@@ -304,8 +288,6 @@ contains
 
   !=============================================================================
   subroutine aero_model_wetdep( state, dt, dlf, cam_out, ptend, pbuf)
-
-    use oslo_aerosols_intr, only: oslo_aero_wet_intr
 
     type(physics_state), intent(in)    :: state       ! Physics state variables
     real(r8),            intent(in)    :: dt          ! time step
@@ -328,10 +310,7 @@ contains
     ! called from mo_usrrxt
     !-------------------------------------------------------------------------
 
-    use commondefinitions, only: nmodes_oslo => nmodes
-    use const            , only: numberToSurface
-    use aerosoldef       , only: lifeCycleNumberMedianRadius
-    use oslo_utils       , only: calculateNumberConcentration
+    use const, only: numberToSurface
 
     ! dummy args
     real(r8), intent(in)    :: pmid(:,:)
@@ -429,10 +408,6 @@ contains
        zm,  qh2o, cwat, cldfr, cldnum, &
        airdens, invariants, del_h2so4_gasprod,  &
        vmr0, vmr, pbuf )
-
-    use time_manager,          only : get_nstep
-    use condtend,              only : condtend_sub
-    use aerosoldef,            only: getCloudTracerName
 
     !-----------------------------------------------------------------------
     !      ... dummy arguments
@@ -672,11 +647,6 @@ contains
   !=============================================================================
   subroutine aero_model_emissions( state, cam_in )
 
-    use seasalt_model   , only: seasalt_emis, seasalt_active
-    use dust_model      , only: dust_emis, dust_active
-    use oslo_ocean_intr , only: oslo_dms_emis_intr
-    use physics_types   , only: physics_state
-
     ! Arguments:
     type(physics_state), intent(in)    :: state   ! Physics state variables
     type(cam_in_t),      intent(inout) :: cam_in  ! import state
@@ -704,9 +674,6 @@ contains
     !-----------------------------------------------------------------
     !	... Xfrom from mass to volume mixing ratio
     !-----------------------------------------------------------------
-
-    use physics_buffer  , only : physics_buffer_desc
-    use chem_mods       , only : adv_mass, gas_pcnst
 
     !-----------------------------------------------------------------
     !	... Dummy args
@@ -743,8 +710,6 @@ contains
     !-----------------------------------------------------------------
 
     use m_spc_id
-    use chem_mods,       only : adv_mass, gas_pcnst
-    use physics_buffer,  only : physics_buffer_desc
 
     !-----------------------------------------------------------------
     !	... Dummy args

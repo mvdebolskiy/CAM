@@ -1,14 +1,14 @@
 module aerosoldef
 
   !---------------------------------------------------------------------------------
-  ! Module to set up register aerosols indexes, number of gas and particle 
+  ! Module to set up register aerosols indexes, number of gas and particle
   ! species and their scavenging rates. Tables for humidity growth
   !---------------------------------------------------------------------------------
 
   use commondefinitions
   use shr_kind_mod,   only: r8 => shr_kind_r8
   use mo_tracname,    only: solsym
-  use constituents,   only: pcnst, cnst_name,cnst_get_ind
+  use constituents,   only: pcnst, cnst_name, cnst_get_ind
   use cam_abortutils, only: endrun
 
   implicit none
@@ -31,7 +31,7 @@ module aerosoldef
   public is_process_mode         ! Check is an aerosol specie is a process mode
   public isAerosol               ! Check is specie is aerosol (i.e. gases get .FALSE. here)
   public getTracerIndex
-  public getNumberOfTracersInMode 
+  public getNumberOfTracersInMode
   public getNumberOfBackgroundTracersInMode
   public getCloudTracerIndex
   public getCloudTracerIndexDirect
@@ -59,7 +59,7 @@ module aerosoldef
   integer, parameter, public :: MODE_IDX_SS_A3                 = 10  !Coarse mode sea-salt (mode will have other comps added)
   integer, parameter, public :: MODE_IDX_SO4SOA_NUC            = 11  !SO4 and SOA nucleation mode
   integer, parameter, public :: MODE_IDX_BC_NUC                = 12  !BC nucleation mode
-  integer, parameter, public :: MODE_IDX_LUMPED_ORGANICS       = 13  !not used in lifecycle, but some extra mass goes here when max. allowed LUT conc. are too small 
+  integer, parameter, public :: MODE_IDX_LUMPED_ORGANICS       = 13  !not used in lifecycle, but some extra mass goes here when max. allowed LUT conc. are too small
   integer, parameter, public :: MODE_IDX_OMBC_INTMIX_AIT       = 14  !mix quickly formed in fire-plumes
 
   integer, parameter, public :: numberOfExternallyMixedModes = 4   !Modes 0;11-14 (13 is not used in lifecycle)
@@ -77,22 +77,21 @@ module aerosoldef
        ,MODE_IDX_SO4_AC, MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_SS_A1 &
        ,MODE_IDX_SS_A2, MODE_IDX_SS_A3 /)
 
-  ! following are species indices for individual camuio species
-  integer,public :: &
-       l_so4_na,   l_so4_a1, l_so4_a2, l_so4_ac,             &
-       l_bc_n,     l_bc_ax,    l_bc_ni,  l_bc_a,  l_bc_ai,l_bc_ac,     &
-       l_om_ni,    l_om_ai  ,l_om_ac,               &
-       l_so4_pr,   &
-       l_dst_a2,   l_dst_a3,              &
-       l_ss_a1,    l_ss_a2,    l_ss_a3, l_h2so4, &
-       l_soa_na, l_soa_a1, l_soa_lv, l_soa_sv 
+  ! species indices for individual camuio species
+  integer,public :: l_so4_na, l_so4_a1, l_so4_a2, l_so4_ac
+  integer,public :: l_bc_n, l_bc_ax, l_bc_ni, l_bc_a, l_bc_ai,l_bc_ac
+  integer,public :: l_om_ni, l_om_ai, l_om_ac
+  integer,public :: l_so4_pr
+  integer,public :: l_dst_a2, l_dst_a3
+  integer,public :: l_ss_a1, l_ss_a2, l_ss_a3, l_h2so4
+  integer,public :: l_soa_na, l_soa_a1, l_soa_lv, l_soa_sv
 
   integer :: n_aerosol_tracers !number of aerosol tracers
   integer :: imozart
 
-  !Number of transported tracers in each mode 
-  integer, parameter, dimension(0:nmodes) :: n_tracers_in_mode = (/ 1, 4, 3, 0, 5, 7, 7, 7, 7, 7, 7, 0, 1, 0, 2 /) 
-  integer, parameter, dimension(0:nmodes) :: n_background_tracers_in_mode = (/ 1,2,1,0,2,1,1,1,1,1,1,0,1,0,2 /) 
+  !Number of transported tracers in each mode
+  integer, parameter, dimension(0:nmodes) :: n_tracers_in_mode = (/ 1, 4, 3, 0, 5, 7, 7, 7, 7, 7, 7, 0, 1, 0, 2 /)
+  integer, parameter, dimension(0:nmodes) :: n_background_tracers_in_mode = (/ 1,2,1,0,2,1,1,1,1,1,1,0,1,0,2 /)
   integer, dimension(0:nmodes, max_tracers_per_mode) :: tracer_in_mode
 
   !Radius used for the modes in the lifeCycle MAY ASSUME SOME GROWTH ALREADY HAPPENED
@@ -120,10 +119,10 @@ module aerosoldef
 
   !The process modes need an "efficient size" (Why does A1 have a different size than the others??)
   real(r8), parameter, public, dimension(numberOfProcessModeTracers) :: processModeNumberMedianRadius = &
-       (/ 0.04e-6_r8, 0.1e-6_r8, 0.1e-6_r8, 0.1e-6_r8, 0.1e-6_r8, 0.04e-6_r8 /) 
+       (/ 0.04e-6_r8, 0.1e-6_r8, 0.1e-6_r8, 0.1e-6_r8, 0.1e-6_r8, 0.04e-6_r8 /)
 
-  !The process modes need an "efficient sigma"   
-  real(r8), parameter, public, dimension(numberOfProcessModeTracers) :: processModeSigma =   & 
+  !The process modes need an "efficient sigma"
+  real(r8), parameter, public, dimension(numberOfProcessModeTracers) :: processModeSigma =   &
        (/ 1.8_r8, 1.59_r8, 1.59_r8, 1.59_r8, 1.59_r8, 1.8_r8  /)
 
 
@@ -143,40 +142,40 @@ module aerosoldef
 
 contains
 
-  !For a tracer in an aerosol mode, check if this is 
-  !actually a real tracer or a process mode
+  !===============================================================================
   function is_process_mode(l_index_in, isChemistry) result(answer)
+    !For a tracer in an aerosol mode, check if this is!actually a real tracer or a process mode
+
     integer, intent(in)  :: l_index_in
     logical, intent(in)  :: isChemistry  !true if called from chemistry
-    integer              :: l_index_phys
-    logical              :: answer 
+
+    integer :: l_index_phys
+    logical :: answer
 
     l_index_phys = l_index_in
-    if(isChemistry .eqv. .true.)then
+    if (isChemistry) then
        l_index_phys = l_index_phys + iMozart - 1
     endif
 
-    !answer becomes true if tracer is a "process mode"
-    answer = .FALSE.
-    if(l_index_phys .eq. l_so4_a1 &
-         .OR. l_index_phys .eq. l_so4_a2 &
-         .OR. l_index_phys .eq. l_so4_ac &
-         .OR. l_index_phys .eq. l_bc_ac  &
-         .OR. l_index_phys .eq. l_om_ac  &
-         .OR. l_index_phys .eq. l_soa_a1 ) then
-       answer = .TRUE.
+    ! return true if tracer is a "process mode"
+    answer = .false.
+    if(l_index_phys .eq. l_so4_a1 .or. &
+       l_index_phys .eq. l_so4_a2 .or. &
+       l_index_phys .eq. l_so4_ac .or. &
+       l_index_phys .eq. l_bc_ac  .or. &
+       l_index_phys .eq. l_om_ac  .or. &
+       l_index_phys .eq. l_soa_a1 ) then
+       answer = .true.
     endif
 
-    return 
   end function is_process_mode
 
   !===============================================================================
   subroutine aero_register
-    !----------------------------------------------------------------------- 
-    ! 
-    ! Register aerosol modes and indices, should be changed to read in values 
-    ! instead of hard-coding it. 
-    ! 
+
+    !-----------------------------------------------------------------------
+    ! Register aerosol modes and indices, should be changed to read in values
+    ! instead of hard-coding it.
     !-----------------------------------------------------------------------
 
     use mpishorthand
@@ -184,42 +183,42 @@ contains
     use ppgrid,          only: pcols, pver, pverp
 
     integer :: idx_dum, l,m,mm
-    logical isAlreadyCounted(pcnst)
+    logical :: isAlreadyCounted(pcnst)
 
     !   register the species
 
-    call cnst_get_ind('SO4_NA',l_so4_na, abort=.true.)   !Aitken mode sulfate (growth from so4_n)
-    call cnst_get_ind('SO4_A1',l_so4_a1, abort=.true.)   !sulfate condensate (gas phase production)
-    call cnst_get_ind('SO4_A2',l_so4_a2, abort=.true.)   !sulfate produced in aq. chemistry
-    call cnst_get_ind('SO4_AC',l_so4_ac, abort=.true.)   !sulfate from coagulation processes
-    call cnst_get_ind('SO4_PR',l_so4_pr, abort=.true.)   !sulfate emitted as primary
+    call cnst_get_ind('SO4_NA' ,l_so4_na, abort=.true.) !Aitken mode sulfate (growth from so4_n)
+    call cnst_get_ind('SO4_A1' ,l_so4_a1, abort=.true.) !sulfate condensate (gas phase production)
+    call cnst_get_ind('SO4_A2' ,l_so4_a2, abort=.true.) !sulfate produced in aq. chemistry
+    call cnst_get_ind('SO4_AC' ,l_so4_ac, abort=.true.) !sulfate from coagulation processes
+    call cnst_get_ind('SO4_PR' ,l_so4_pr, abort=.true.) !sulfate emitted as primary
 
-    call cnst_get_ind('BC_N',l_bc_n, abort=.true.)       !emissions (mainly industry) lost through coagulation
-    call cnst_get_ind('BC_AX',l_bc_ax, abort=.true.)     !externally mixed (fluffy and impossible to activate)
-    call cnst_get_ind('BC_NI',l_bc_ni, abort=.true.)     !mixed with oc (mainly biomass), externally mixed otherwise (before condensation etc)  
-    call cnst_get_ind('BC_A',l_bc_a, abort=.true.)       !formed when bc_n grows by condensation 
-    call cnst_get_ind('BC_AI',l_bc_ai, abort=.true.)     !formed when bc_ni grows by condensation
-    call cnst_get_ind('BC_AC',l_bc_ac, abort=.true.)     !bc from coagulation processes
+    call cnst_get_ind('BC_N'   ,l_bc_n,   abort=.true.) !emissions (mainly industry) lost through coagulation
+    call cnst_get_ind('BC_AX'  ,l_bc_ax,  abort=.true.) !externally mixed (fluffy and impossible to activate)
+    call cnst_get_ind('BC_NI'  ,l_bc_ni,  abort=.true.) !mixed with oc (mainly biomass), externally mixed otherwise (before condensation etc)
+    call cnst_get_ind('BC_A'   ,l_bc_a,   abort=.true.) !formed when bc_n grows by condensation
+    call cnst_get_ind('BC_AI'  ,l_bc_ai,  abort=.true.) !formed when bc_ni grows by condensation
+    call cnst_get_ind('BC_AC'  ,l_bc_ac,  abort=.true.) !bc from coagulation processes
 
-    call cnst_get_ind('OM_NI',l_om_ni, abort=.true.)     !om (mainly from biomass), emitted
-    call cnst_get_ind('OM_AI',l_om_ai, abort=.true.)     !om formed when condensation growth of om_ni
-    call cnst_get_ind('OM_AC',l_om_ac, abort=.true.)     !om from coagulation processes
+    call cnst_get_ind('OM_NI'  ,l_om_ni,  abort=.true.) !om (mainly from biomass), emitted
+    call cnst_get_ind('OM_AI'  ,l_om_ai,  abort=.true.) !om formed when condensation growth of om_ni
+    call cnst_get_ind('OM_AC'  ,l_om_ac,  abort=.true.) !om from coagulation processes
 
-    call cnst_get_ind('DST_A2',l_dst_a2, abort=.true.)    !Dust accumulation mode
-    call cnst_get_ind('DST_A3',l_dst_a3, abort=.true.)    !Dust coarse mode
+    call cnst_get_ind('DST_A2' ,l_dst_a2, abort=.true.) !Dust accumulation mode
+    call cnst_get_ind('DST_A3' ,l_dst_a3, abort=.true.) !Dust coarse mode
 
-    call cnst_get_ind('SS_A1',l_ss_a1, abort=.true.)      !Sea salt fine mode
-    call cnst_get_ind('SS_A2',l_ss_a2, abort=.true.)      !Sea salt accumulation mode
-    call cnst_get_ind('SS_A3',l_ss_a3, abort=.true.)      !Sea salt coarse mode
+    call cnst_get_ind('SS_A1'  ,l_ss_a1,  abort=.true.) !Sea salt fine mode
+    call cnst_get_ind('SS_A2'  ,l_ss_a2,  abort=.true.) !Sea salt accumulation mode
+    call cnst_get_ind('SS_A3'  ,l_ss_a3,  abort=.true.) !Sea salt coarse mode
 
-    !cka: register SOA species
-    call cnst_get_ind('SOA_NA',l_soa_na, abort=.true.) !Aitken mode SOA with SO4 and SOA condensate
-    call cnst_get_ind('SOA_A1',l_soa_a1, abort=.true.) !SOA condensate 
-    call cnst_get_ind('SOA_LV',l_soa_lv, abort=.true.) !Gas phase low volatile SOA
-    call cnst_get_ind('SOA_SV',l_soa_sv, abort=.true.) !Gas phase semi volatile SOA
+    ! register SOA species
+    call cnst_get_ind('SOA_NA' ,l_soa_na, abort=.true.) !Aitken mode SOA with SO4 and SOA condensate
+    call cnst_get_ind('SOA_A1' ,l_soa_a1, abort=.true.) !SOA condensate
+    call cnst_get_ind('SOA_LV' ,l_soa_lv, abort=.true.) !Gas phase low volatile SOA
+    call cnst_get_ind('SOA_SV' ,l_soa_sv, abort=.true.) !Gas phase semi volatile SOA
 
     !gas phase h2so4
-    call cnst_get_ind('H2SO4', l_h2so4, abort=.true.)
+    call cnst_get_ind('H2SO4'  ,l_h2so4, abort=.true.)
 
     !Register the tracers in modes
     call registerTracersInMode()
@@ -245,8 +244,8 @@ contains
     aerosolType(l_ss_a1)  = AEROSOL_TYPE_SALT
     aerosolType(l_ss_a2)  = AEROSOL_TYPE_SALT
     aerosolType(l_ss_a3)  = AEROSOL_TYPE_SALT
-    aerosolType(l_soa_na) = AEROSOL_TYPE_OM 
-    aerosolType(l_soa_a1) = AEROSOL_TYPE_OM 
+    aerosolType(l_soa_na) = AEROSOL_TYPE_OM
+    aerosolType(l_soa_a1) = AEROSOL_TYPE_OM
 
     rhopart(:)= 1000.0_r8
 
@@ -257,11 +256,11 @@ contains
           osmoticCoefficient(mm)  = aerosol_type_osmotic_coefficient(aerosolType(mm))
           rhopart(mm)             = aerosol_type_density(aerosolType(mm))
           solubleMassFraction(mm) = aerosol_type_soluble_mass_fraction(aerosolType(mm))
-          numberOfIons(mm)        = aerosol_type_number_of_ions(aerosolType(mm)) 
+          numberOfIons(mm)        = aerosol_type_number_of_ions(aerosolType(mm))
        end do
     end do
 
-    !SPECIAL CASES OF AEROSOL PROPERTIES: 
+    !SPECIAL CASES OF AEROSOL PROPERTIES:
     !Density of bc_ax is rewritten later (calculated from fractal dimension)
     !so4_a2 is different since it is ammonium sulfate and not sulf. acid.
     rhopart(l_so4_a2) = 1769.0_r8
@@ -324,11 +323,13 @@ contains
 
   end subroutine aero_register
 
+  !=============================================================================
   function getNumberOfAerosolTracers()RESULT(numberOfTracers)
     integer :: numberOfTracers
     numberOfTracers = n_aerosol_tracers
   end function getNumberOfAerosolTracers
 
+  !=============================================================================
   function chemistryIndex(phys_index) RESULT (chemistryIndexOut)
     implicit none
     integer, intent(in) :: phys_index
@@ -336,12 +337,14 @@ contains
     chemistryIndexOut = phys_index - imozart + 1
   end function chemistryIndex
 
+  !=============================================================================
   function physicsIndex(chem_index) RESULT(physIndexOut)
     integer, intent(in) :: chem_index
     integer             :: physIndexOut
     physIndexOut = chem_index + imozart - 1
   end function physicsIndex
 
+  !=============================================================================
   function isAerosol(phys_index) RESULT(answer)
     integer, intent(in) :: phys_index
     logical answer
@@ -351,20 +354,22 @@ contains
     endif
     return
   end function isAerosol
-  !=============================================================================
 
+  !=============================================================================
   function getNumberOfTracersInMode(modeIndex) RESULT(numberOfSpecies)
     integer, intent(in)        :: modeIndex
     integer numberOfSpecies
     numberOfSpecies = n_tracers_in_mode(modeIndex)
   end function getNumberOfTracersInMode
 
+  !=============================================================================
   function getNumberOfBackgroundTracersInMode(modeIndex) RESULT (numberOfBackgroundSpecies)
     integer, intent(in)       :: modeIndex
     integer numberOfBackgroundSpecies
     numberOfBackgroundSpecies = n_background_tracers_in_mode(modeIndex)
   end function getNumberOfBackgroundTracersInMode
 
+  !=============================================================================
   function getTracerIndex(modeIndex, componentIndex, isChemistry) RESULT(tracerIndex)
     !purpose: Ask for an index in mode
     !The index is the index in the q-array
@@ -381,17 +386,20 @@ contains
     endif
   end function getTracerIndex
 
-  !Obtain an index in the physics-buffer for a component in the lifecycle scheme
+  !===============================================================================
   function getCloudTracerIndex(modeIndex, componentIndex) RESULT(cloud_tracer_index)
+
+    ! Obtain an index in the physics-buffer for a component in the lifecycle scheme
+
     integer, intent(in)   :: modeIndex
     integer, intent(in)   :: componentIndex
-    integer               :: tracerIndex
-    integer cloud_tracer_index
+
+    integer :: tracerIndex
+    integer :: cloud_tracer_index
 
     if(componentIndex == 0)then
        !Special key for number concentration of a mode
-       print*,"error no such species"
-       stop
+       call endrun("error no such species")
     else if (componentIndex > 0)then
        !Lifecycle specie in a mode
        tracerIndex = getTracerIndex(modeIndex,componentIndex,.false.)
@@ -401,14 +409,16 @@ contains
     endif
   end function getCloudTracerIndex
 
-  !returns index in pbuf for the corresponding cloud tracer with physics index "tracerIndex"
-  !returns "-1" if the tracer does not have any corresponding cloud tracer
+  !===============================================================================
   function getCloudTracerIndexDirect(tracerIndex) RESULT(cloudTracerIndexOut)
+    !returns index in pbuf for the corresponding cloud tracer with physics index "tracerIndex"
+    !returns "-1" if the tracer does not have any corresponding cloud tracer
     integer, intent(in) :: tracerIndex
     integer             :: cloudTracerIndexOut
     cloudTracerIndexOut = cloudTracerIndex(tracerIndex)
   end function getCloudTracerIndexDirect
 
+  !===============================================================================
   function getDryDensity(m,l) RESULT(density)
     integer, intent(in) :: m !mode index
     integer, intent(in) :: l !tracer index
@@ -416,12 +426,14 @@ contains
     density =  rhopart(tracer_in_mode(m,l))
   end function getDryDensity
 
+  !===============================================================================
   function getCloudTracerName(tracerIndex) RESULT(cloudTracerNameOut)
     integer, intent(in) :: tracerIndex
     character(len=20)   :: cloudTracerNameOut
     cloudTracerNameOut = trim(cloudTracerName(tracerIndex))
   end function getCloudTracerName
 
+  !===============================================================================
   subroutine fillAerosolTracerList(aerosolTracerList)
     integer, dimension (:), intent(out) :: aerosolTracerList
     logical, dimension(pcnst)          :: alreadyFound
@@ -440,6 +452,7 @@ contains
     end do
   end subroutine fillAerosolTracerList
 
+  !===============================================================================
   subroutine fillInverseAerosolTracerList(aerosolTracerList, inverseAerosolTracerList, n_aerosol_tracers)
     integer, dimension(:), intent(in)  :: aerosolTracerList
     integer, intent(in)                :: n_aerosol_tracers
@@ -452,6 +465,7 @@ contains
     end do
   end subroutine fillInverseAerosolTracerList
 
+  !===============================================================================
   subroutine registerTracersInMode()
     !Register tracer index in modes
     tracer_in_mode(:,:) = -1 !undefined
@@ -459,18 +473,18 @@ contains
     !externally mixed bc
     tracer_in_mode(MODE_IDX_BC_EXT_AC, 1:n_tracers_in_mode(MODE_IDX_BC_EXT_AC)) = (/l_bc_ax/)
 
-    !sulphate + soa, sulfate condensate. 
+    !sulphate + soa, sulfate condensate.
     tracer_in_mode(MODE_IDX_SO4SOA_AIT, 1:n_tracers_in_mode(MODE_IDX_SO4SOA_AIT) ) = &
-         (/l_so4_na, l_soa_na, l_so4_a1, l_soa_a1/) 
+         (/l_so4_na, l_soa_na, l_so4_a1, l_soa_a1/)
 
-    !bc + sulfate condensate	
+    !bc + sulfate condensate
     tracer_in_mode(MODE_IDX_BC_AIT,1:n_tracers_in_mode(MODE_IDX_BC_AIT))  = &
-         (/l_bc_a, l_so4_a1, l_soa_a1/)    
+         (/l_bc_a, l_so4_a1, l_soa_a1/)
 
     !index not used
     !tracer_in_mode(MODE_IDX_NOT_USED, 1:n_tracers_in_mode(MODE_IDX_NOT_USED)) = (/-1/)
 
-    !om / bc internally mixed with sulfate condensate and aquous phase sulfate 
+    !om / bc internally mixed with sulfate condensate and aquous phase sulfate
     tracer_in_mode(MODE_IDX_OMBC_INTMIX_COAT_AIT, 1:n_tracers_in_mode(MODE_IDX_OMBC_INTMIX_COAT_AIT))= &
          (/l_bc_ai, l_om_ai, l_so4_a1, l_so4_a2, l_soa_a1 /)
 
@@ -480,7 +494,7 @@ contains
 
     !ac-mode dust with sulfate coagulate, condensate sulfate and wet-phase sulfate
     tracer_in_mode(MODE_IDX_DST_A2, 1:n_tracers_in_mode(MODE_IDX_DST_A2)) = &
-(/l_dst_a2, l_bc_ac, l_om_ac, l_so4_a1, l_so4_ac, l_so4_a2, l_soa_a1 /)
+         (/l_dst_a2, l_bc_ac, l_om_ac, l_so4_a1, l_so4_ac, l_so4_a2, l_soa_a1 /)
 
     !coarse mode dust  with sulfate coagulate, condensate sulfate and wet-phase sulfate
     tracer_in_mode(MODE_IDX_DST_A3, 1:n_tracers_in_mode(MODE_IDX_DST_A3)) = &
@@ -511,11 +525,12 @@ contains
     tracer_in_mode(MODE_IDX_OMBC_INTMIX_AIT, 1:n_tracers_in_mode(MODE_IDX_OMBC_INTMIX_AIT)) = (/l_bc_ni, l_om_ni/)
   end subroutine registerTracersInMode
 
+  !===============================================================================
   function isTracerInMode(modeIndex, constituentIndex)RESULT(answer)
     integer, intent(in) :: modeIndex
     integer, intent(in) :: constituentIndex
     integer             :: i
-    logical             :: answer 
+    logical             :: answer
     answer = .FALSE.
     do i=1,n_tracers_in_mode(modeIndex)
        if(tracer_in_mode(modeIndex,i) == constituentIndex)then
@@ -525,8 +540,10 @@ contains
     return
   end function isTracerInMode
 
+  !===============================================================================
   function getConstituentFraction(CProcessModes, f_c, f_bc, f_aq, f_so4_cond,f_soa &
        ,Cam, f_acm, f_bcm, f_aqm, f_so4_condm,f_soam, constituentIndex,debugPrint ) RESULT(fraction)   ! mass fraction
+
     real(r8), intent(in) :: CProcessModes
     real(r8), intent(in) :: f_c
     real(r8), intent(in) :: f_bc
@@ -545,27 +562,27 @@ contains
     real(r8) :: fraction
 
     if(present(debugPrint))then
-       if(debugPrint .eqv. .true.)then
+       if(debugPrint) then
           doPrint=.true.
        endif
     endif
 
-    fraction = 1.0_r8              ! fraction = 1 for all tracers, except special cases (process modes) below 
+    fraction = 1.0_r8              ! fraction = 1 for all tracers, except special cases (process modes) below
 
     !This fraction is the mass of a certain tracer in a specific size-mode divided by the total
-    !mass of the same tracer for (i.e. summed up over) all size-modes. This total mass is what 
-    !is transported in the model, in the life cycle scheme. The word size-mode is here used for a mode in the  
-    !aerosol size-distribution, which is assumed to be log-normal prior to growth. 
+    !mass of the same tracer for (i.e. summed up over) all size-modes. This total mass is what
+    !is transported in the model, in the life cycle scheme. The word size-mode is here used for a mode in the
+    !aerosol size-distribution, which is assumed to be log-normal prior to growth.
     if((l_so4_a1 .eq. constituentIndex))then !so4 condensation
-       fraction= (cam                 &
-            *(1.0_r8-f_acm)       & !sulfate fraction 
-            *(1.0_r8-f_aqm)       & !fraction not from aq phase
-            *(f_so4_condm)        & !fraction being condensate
-            )                                     &
-            /                                     & 
-            (CProcessModes*(1.0_r8-f_c)*(1.0_r8-f_aq)*f_so4_cond+smallConcentration) !total so4 condensate 
+       fraction= (cam       &
+            *(1.0_r8-f_acm) & !sulfate fraction
+            *(1.0_r8-f_aqm) & !fraction not from aq phase
+            *(f_so4_condm)  & !fraction being condensate
+            )               &
+            /               &
+            (CProcessModes*(1.0_r8-f_c)*(1.0_r8-f_aq)*f_so4_cond+smallConcentration) !total so4 condensate
 
-       if(doPrint .eqv. .true.)then
+       if (doPrint) then
           print*, " "
           print*, "conc     ==>", CProcessmodes, cam
           print*, "modefrc  ==>", f_acm, f_aqm, f_so4_condm
@@ -592,10 +609,10 @@ contains
 
     else if(l_bc_ac .eq. constituentIndex)then  !bc coagulated
        fraction = (cam              &
-            *f_acm           & ! carbonaceous fraction 
+            *f_acm           & ! carbonaceous fraction
             *f_bcm)          & ! bc fraction of carbonaceous
             /                                &
-            (CProcessModes*f_c*f_bc+smallConcentration) 
+            (CProcessModes*f_c*f_bc+smallConcentration)
 
     else if(l_om_ac .eq. constituentIndex ) then  !oc coagulated
        fraction =  (cam          &
@@ -619,7 +636,7 @@ contains
     endif
   end function getConstituentFraction
 
-  !**********************************************
+  !===============================================================================
   subroutine inittabrh()
 
     ! Tables for hygroscopic growth
@@ -628,7 +645,7 @@ contains
     real(r8) :: rr0ss(10),rr0so4(10),rr0bcoc(10)
 
     data rr0ss / 1.00_r8, 1.00_r8, 1.02_r8, 1.57_r8, 1.88_r8, 1.97_r8, 2.12_r8, 2.35_r8, 2.88_r8, 3.62_r8 /
-    data rr0so4 / 1.00_r8, 1.34_r8, 1.39_r8, 1.52_r8, 1.62_r8, 1.69_r8, 1.78_r8, 1.92_r8, 2.22_r8, 2.79_r8 /    
+    data rr0so4 / 1.00_r8, 1.34_r8, 1.39_r8, 1.52_r8, 1.62_r8, 1.69_r8, 1.78_r8, 1.92_r8, 2.22_r8, 2.79_r8 /
     data rr0bcoc / 1.00_r8, 1.02_r8, 1.03_r8, 1.12_r8, 1.17_r8, 1.20_r8, 1.25_r8, 1.31_r8, 1.46_r8, 1.71_r8 /
 
     rdivr0(:,:)=1._r8
@@ -640,7 +657,7 @@ contains
        rdivr0(i,l_so4_ac)=rr0so4(i)
        rdivr0(i,l_so4_pr)=rr0so4(i)
 
-       rdivr0(i,l_bc_a)=rr0bcoc(i) 
+       rdivr0(i,l_bc_a)=rr0bcoc(i)
 
        rdivr0(i,l_bc_ni)=rr0bcoc(i)
        rdivr0(i,l_bc_ai)=rr0bcoc(i)
@@ -658,6 +675,7 @@ contains
     end do
   end subroutine inittabrh
 
+  !===============================================================================
   subroutine qqcw_set_ptr(index, iptr)
     integer, intent(in) :: index, iptr
     if(index>0 .and. index <= pcnst ) then
@@ -667,6 +685,7 @@ contains
     end if
   end subroutine qqcw_set_ptr
 
+  !===============================================================================
   function qqcw_get_field(pbuf, index)
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field
 
@@ -676,12 +695,10 @@ contains
 
     nullify(qqcw_get_field)
     if (index>0 .and. index <= pcnst) then
-       if (qqcw(index)>0) then 
+       if (qqcw(index)>0) then
           call pbuf_get_field(pbuf, qqcw(index), qqcw_get_field)
        endif
     end if
   end function qqcw_get_field
 
 end module aerosoldef
-
-
