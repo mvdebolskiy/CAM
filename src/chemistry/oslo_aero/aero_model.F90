@@ -28,7 +28,8 @@ module aero_model
   use drydep_mod,         only: inidrydep
   use wetdep,             only: wetdep_init
   !
-  use oslo_aerosols_intr, only: oslo_aero_initialize, oslo_aero_dry_intr, oslo_aero_wet_intr
+  use oslo_aero_depos,    only: oslo_aero_depos_init, oslo_aero_depos_dry, oslo_aero_depos_wet
+  use oslo_aero_coag,     only: coagtend, clcoag
   use oslo_utils,         only: calculateNumberConcentration
   use aerosoldef,         only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
   use aerosoldef,         only: qqcw_get_field, numberOfProcessModeTracers
@@ -37,7 +38,6 @@ module aero_model
   use aerosoldef,         only: aero_register
   use condtend,           only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
   use condtend,           only: registerCondensation, initializeCondensation, condtend_sub
-  use oslo_aero_coag,     only: coagtend, clcoag
   use sox_cldaero_mod,    only: sox_cldaero_init
   use intlog,             only: initlogn
   use seasalt_model,      only: seasalt_init, seasalt_emis, seasalt_active
@@ -46,6 +46,7 @@ module aero_model
   use opttab,             only: initopt, initopt_lw
   use commondefinitions,  only: originalSigma, originalNumberMedianRadius
   use commondefinitions,  only: nmodes_oslo=>nmodes, nbmodes
+  use const,              only: numberToSurface
   use calcaersize
 #ifdef AEROCOM
   use aerocom_opt_mod,    only: initaeropt
@@ -166,7 +167,7 @@ contains
 #endif
     call initializeCondensation()
     call oslo_ocean_init()
-    call oslo_aero_initialize(pbuf2d)
+    call oslo_aero_depos_init(pbuf2d)
     call dust_init()
     call seasalt_init() !seasalt_emis_scale)
     call wetdep_init()
@@ -259,13 +260,13 @@ contains
   subroutine aero_model_drydep  ( state, pbuf, obklen, ustar, cam_in, dt, cam_out, ptend )
 
     ! args
-    type(physics_state),    intent(in)    :: state     ! Physics state variables
+    type(physics_state),    intent(in)    :: state    ! Physics state variables
     real(r8),               intent(in)    :: obklen(:)
-    real(r8),               intent(in)    :: ustar(:)  ! sfc fric vel
-    type(cam_in_t), target, intent(in)    :: cam_in    ! import state
-    real(r8),               intent(in)    :: dt             ! time step
-    type(cam_out_t),        intent(inout) :: cam_out   ! export state
-    type(physics_ptend),    intent(out)   :: ptend     ! indivdual parameterization tendencies
+    real(r8),               intent(in)    :: ustar(:) ! sfc fric vel
+    type(cam_in_t), target, intent(in)    :: cam_in   ! import state
+    real(r8),               intent(in)    :: dt       ! time step
+    type(cam_out_t),        intent(inout) :: cam_out  ! export state
+    type(physics_ptend),    intent(out)   :: ptend    ! indivdual parameterization tendencies
     type(physics_buffer_desc),    pointer :: pbuf(:)
 
     ! local vars
@@ -280,7 +281,7 @@ contains
     call calcaersize_sub( ncol, state%t, state%q(1,1,1), state%pmid, state%pdel, &
          oslo_dgnumwet, oslo_wetdens, oslo_dgnumwet_processmodes, oslo_wetdens_processmodes)
 
-    call oslo_aero_dry_intr(state, pbuf, obklen, ustar, cam_in, dt, cam_out, ptend, &
+    call oslo_aero_depos_dry(state, pbuf, obklen, ustar, cam_in, dt, cam_out, ptend, &
          oslo_dgnumwet, oslo_wetdens, oslo_dgnumwet_processmodes, oslo_wetdens_processmodes, &
          cam_in%cflx )
 
@@ -296,13 +297,12 @@ contains
     type(physics_ptend), intent(out)   :: ptend       ! indivdual parameterization tendencies
     type(physics_buffer_desc), pointer :: pbuf(:)
 
-    call oslo_aero_wet_intr( state, dt, dlf, cam_out, ptend, pbuf)
+    call oslo_aero_depos_wet( state, dt, dlf, cam_out, ptend, pbuf)
 
   endsubroutine aero_model_wetdep
 
   !=============================================================================
-  subroutine aero_model_surfarea( &
-       mmr, radmean, relhum, pmid, temp, strato_sad, sulfate, rho, ltrop, &
+  subroutine aero_model_surfarea(mmr, radmean, relhum, pmid, temp, strato_sad, sulfate, rho, ltrop, &
        dlat, het1_ndx, pbuf, ncol, sfc, dm_aer, sad_trop, reff_trop )
 
     !-------------------------------------------------------------------------
@@ -310,9 +310,7 @@ contains
     ! called from mo_usrrxt
     !-------------------------------------------------------------------------
 
-    use const, only: numberToSurface
-
-    ! dummy args
+    ! arguments
     real(r8), intent(in)    :: pmid(:,:)
     real(r8), intent(in)    :: temp(:,:)
     real(r8), intent(in)    :: mmr(:,:,:)
@@ -326,31 +324,29 @@ contains
     real(r8), intent(in)    :: rho(:,:) ! total atm density (/cm^3)
     real(r8), intent(in)    :: sulfate(:,:)
     type(physics_buffer_desc), pointer :: pbuf(:)
-
     real(r8), intent(inout) :: sfc(:,:,:)
     real(r8), intent(inout) :: dm_aer(:,:,:)
     real(r8), intent(inout) :: sad_trop(:,:)
     real(r8), intent(out)   :: reff_trop(:,:)
 
     ! local vars
-    !HAVE TO GET RID OF THIS MODE 0!! MESSES UP EVERYTHING!!
+    ! HAVE TO GET RID OF THIS MODE 0!! MESSES UP EVERYTHING!!
     real(r8)         :: numberConcentration(pcols,pver,0:nmodes_oslo)
-    real(r8), target :: sad_mode(pcols,pver, nmodes_oslo)
-    real(r8) :: rho_air(pcols,pver)
-    integer :: l,m
-    integer :: i,k
+    real(r8), target :: sad_mode(pcols,pver,nmodes_oslo)
+    real(r8)         :: rho_air(pcols,pver)
+    integer          :: l,m,i,k
 
-    !Get air density
+    ! Get air density
     do k=1,pver
        do i=1,ncol
           rho_air(i,k) = pmid(i,k)/(temp(i,k)*287.04_r8)
        end do
     end do
-    !
-    !Get number concentrations
+
+    ! Get number concentrations
     call calculateNumberConcentration(ncol, mmr, rho_air, numberConcentration)
 
-    !Convert to area using lifecycle-radius
+    ! Convert to area using lifecycle-radius
     sad_mode = 0._r8
     sad_trop = 0._r8
     do m=1,nmodes_oslo
@@ -367,8 +363,8 @@ contains
        end do
     end do
 
-    !++ need to implement reff_trop here
-    reff_trop(:,:)=1.0e-6_r8
+    ! Need to implement reff_trop here
+    reff_trop(:,:) = 1.0e-6_r8
 
   end subroutine aero_model_surfarea
 
@@ -380,7 +376,7 @@ contains
     ! if modal_strat_sulfate = TRUE -- called from mo_gas_phase_chemdr
     !-------------------------------------------------------------------------
 
-    ! dummy args
+    ! arguments
     integer,  intent(in)    :: ncol
     real(r8), intent(in)    :: mmr(:,:,:)
     real(r8), intent(in)    :: pmid(:,:)
@@ -390,15 +386,8 @@ contains
     real(r8), intent(out)   :: strato_sad(:,:)
     real(r8), intent(out)   :: reff_strat(:,:)
 
-    ! local vars
-    real(r8), pointer, dimension(:,:,:) :: dgnumwet
-    integer :: beglev(ncol)
-    integer :: endlev(ncol)
-
     reff_strat = 0.1e-6_r8
     strato_sad = 0._r8
-    !do nothing
-    return
 
   end subroutine aero_model_strat_surfarea
 
@@ -409,47 +398,38 @@ contains
        airdens, invariants, del_h2so4_gasprod,  &
        vmr0, vmr, pbuf )
 
-    !-----------------------------------------------------------------------
-    !      ... dummy arguments
-    !-----------------------------------------------------------------------
-    integer,  intent(in) :: loffset                ! offset applied to modal aero "pointers"
-    integer,  intent(in) :: ncol                   ! number columns in chunk
-    integer,  intent(in) :: lchnk                  ! chunk index
-    integer,  intent(in) :: troplev(pcols)
-    real(r8), intent(in) :: delt                   ! time step size (sec)
-    real(r8), intent(in) :: reaction_rates(:,:,:)  ! reaction rates
-    real(r8), intent(in) :: tfld(:,:)              ! temperature (K)
-    real(r8), intent(in) :: pmid(:,:)              ! pressure at model levels (Pa)
-    real(r8), intent(in) :: pdel(:,:)              ! pressure thickness of levels (Pa)
-    real(r8), intent(in) :: mbar(:,:)              ! mean wet atmospheric mass ( amu )
-    real(r8), intent(in) :: relhum(:,:)            ! relative humidity
-    real(r8), intent(in) :: airdens(:,:)           ! total atms density (molec/cm**3)
-    real(r8), intent(in) :: invariants(:,:,:)
-    real(r8), intent(inout) :: del_h2so4_gasprod(:,:)  ![molec/molec/sec]
-    real(r8), intent(in) :: zm(:,:)
-    real(r8), intent(in) :: qh2o(:,:)
-    real(r8), intent(in) :: cwat(:,:)          ! cloud liquid water content (kg/kg)
-    real(r8), intent(in) :: cldfr(:,:)
-    real(r8), intent(in) :: cldnum(:,:)       ! droplet number concentration (#/kg)
-    real(r8), intent(in) :: vmr0(:,:,:)       ! initial mixing ratios (before gas-phase chem changes)
-    real(r8), intent(inout) :: vmr(:,:,:)         ! mixing ratios ( vmr )
-
+    ! arguments
+    integer,  intent(in)    :: loffset                ! offset applied to modal aero "pointers"
+    integer,  intent(in)    :: ncol                   ! number columns in chunk
+    integer,  intent(in)    :: lchnk                  ! chunk index
+    integer,  intent(in)    :: troplev(pcols)
+    real(r8), intent(in)    :: delt                   ! time step size (sec)
+    real(r8), intent(in)    :: reaction_rates(:,:,:)  ! reaction rates
+    real(r8), intent(in)    :: tfld(:,:)              ! temperature (K)
+    real(r8), intent(in)    :: pmid(:,:)              ! pressure at model levels (Pa)
+    real(r8), intent(in)    :: pdel(:,:)              ! pressure thickness of levels (Pa)
+    real(r8), intent(in)    :: mbar(:,:)              ! mean wet atmospheric mass ( amu )
+    real(r8), intent(in)    :: relhum(:,:)            ! relative humidity
+    real(r8), intent(in)    :: airdens(:,:)           ! total atms density (molec/cm**3)
+    real(r8), intent(in)    :: invariants(:,:,:)
+    real(r8), intent(in)    :: zm(:,:)
+    real(r8), intent(in)    :: qh2o(:,:)
+    real(r8), intent(in)    :: cwat(:,:)              ! cloud liquid water content (kg/kg)
+    real(r8), intent(in)    :: cldfr(:,:)
+    real(r8), intent(in)    :: cldnum(:,:)            ! droplet number concentration (#/kg)
+    real(r8), intent(inout) :: del_h2so4_gasprod(:,:) ! [molec/molec/sec]
+    real(r8), intent(in)    :: vmr0(:,:,:)            ! initial mixing ratios (before gas-phase chem changes)
+    real(r8), intent(inout) :: vmr(:,:,:)             ! mixing ratios ( vmr )
     type(physics_buffer_desc), pointer :: pbuf(:)
 
     ! local vars
-
-    integer :: n, m
-    integer :: i,k,l
-    integer :: nstep
-
     integer, parameter :: nmodes_aq_chem = 1
-
-    real(r8), dimension(ncol) :: wrk
-    character(len=32)         :: name
+    integer  :: n,m,i,k,l
+    integer  :: nstep
+    real(r8) :: wrk(ncol)
     real(r8) :: dvmrcwdt(ncol,pver,gas_pcnst)
     real(r8) :: dvmrdt(ncol,pver,gas_pcnst)
-    real(r8) :: vmrcw(ncol,pver,gas_pcnst)            ! cloud-borne aerosol (vmr)
-
+    real(r8) :: vmrcw(ncol,pver,gas_pcnst)   ! cloud-borne aerosol (vmr)
     real(r8) :: del_h2so4_aeruptk(ncol,pver)
     real(r8) :: del_h2so4_aqchem(ncol,pver)
     real(r8) :: mmr_cond_vap_start_of_timestep(pcols,pver,N_COND_VAP)
@@ -460,21 +440,18 @@ contains
     real(r8) :: dvmrcwdt_sv1(ncol,pver,gas_pcnst)
     real(r8) :: mmr_tend_ncols(ncol, pver, gas_pcnst)
     real(r8) :: mmr_tend_pcols(pcols, pver, gas_pcnst)
-
     integer  :: cond_vap_idx
-    real(r8) ::  aqso4(ncol,nmodes_aq_chem)           ! aqueous phase chemistry
-    real(r8) ::  aqh2so4(ncol,nmodes_aq_chem)         ! aqueous phase chemistry
-    real(r8) ::  aqso4_h2o2(ncol)                     ! SO4 aqueous phase chemistry due to H2O2
-    real(r8) ::  aqso4_o3(ncol)                       ! SO4 aqueous phase chemistry due to O3
-    real(r8) ::  xphlwc(ncol,pver)                    ! pH value multiplied by lwc
-    real(r8) ::  delt_inverse                         ! 1 / timestep
-
+    real(r8) :: aqso4(ncol,nmodes_aq_chem)   ! aqueous phase chemistry
+    real(r8) :: aqh2so4(ncol,nmodes_aq_chem) ! aqueous phase chemistry
+    real(r8) :: aqso4_h2o2(ncol)             ! SO4 aqueous phase chemistry due to H2O2
+    real(r8) :: aqso4_o3(ncol)               ! SO4 aqueous phase chemistry due to O3
+    real(r8) :: xphlwc(ncol,pver)            ! pH value multiplied by lwc
+    real(r8) :: delt_inverse                 ! 1 / timestep
     real(r8), pointer :: pblh(:)
-
+    character(len=32) :: name
     logical :: is_spcam_m2005
 
     nstep = get_nstep()
-
 
     is_spcam_m2005   = cam_physpkg_is('spcam_m2005')
 
@@ -603,8 +580,7 @@ contains
             * del_soa_sv_gasprod(:ncol,k) / mbar(:ncol,k)/delt
     end do
 
-    ! This should not happen since there are only
-    ! production terms for these gases! !
+    ! This should not happen since there are only production terms for these gases! !
     do cond_vap_idx=1,N_COND_VAP
        where(mmr_cond_vap_gasprod(:ncol,:,cond_vap_idx).lt. 0.0_r8)
           mmr_cond_vap_gasprod(:ncol,:,cond_vap_idx) = 0.0_r8
@@ -616,12 +592,12 @@ contains
 
     ! Rest of microphysics have pcols dimension
     mmr_tend_pcols(:ncol,:,:) = mmr_tend_ncols(:ncol,:,:)
+
     ! Note use of "zm" here. In CAM5.3-implementation "zi" was used..
     ! zm is passed through the generic interface, and it should not change much
     ! to check if "zm" is below boundary layer height instead of zi
     call condtend_sub( lchnk, mmr_tend_pcols, mmr_cond_vap_gasprod,tfld, pmid, &
          pdel, delt, ncol, pblh, zm, qh2o)  ! cka
-
 
     ! coagulation
     ! OS 280415  Concentratiions in cloud water is in vmr space and as a

@@ -1,3 +1,0 @@
-module oslo_aero_deposition
-
-end module oslo_aero_deposition
