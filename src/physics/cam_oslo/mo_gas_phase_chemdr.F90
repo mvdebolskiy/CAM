@@ -62,8 +62,6 @@ contains
     use rate_diags,        only : rate_diags_init
     use cam_abortutils,    only : endrun
 
-    implicit none
-
     character(len=3) :: string
     integer          :: n, m, err, ii
     logical :: history_cesm_forcing
@@ -218,7 +216,7 @@ contains
     call addfld( 'HCL_GAS',    (/ 'lev' /), 'I', 'mol/mol', 'gas-phase hcl' )
     call addfld( 'HCL_STS',    (/ 'lev' /), 'I', 'mol/mol', 'STS condensed HCL' )
 
-    !++IH: Adding extra fields for oxi-output (before and after diurnal variations.)
+    ! Adding extra fields for oxi-output (before and after diurnal variations.)
     call addfld ('OH_bef    ',  (/ 'lev' /), 'A','unit', 'OH invariants before adding diurnal variations'           )
     call addfld ('HO2_bef   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants before adding diurnal variations'          )
     call addfld ('NO3_bef   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants before adding diurnal variations'          )
@@ -329,23 +327,19 @@ contains
     use mo_chm_diags,      only : chm_diags, het_diags
     use perf_mod,          only : t_startf, t_stopf
     use gas_wetdep_opts,   only : gas_wetdep_method
-    use oxi_diurnal_var,   only : set_diurnal_invariants
+    use oslo_aero_diurnal_var, only : set_diurnal_invariants
     use physics_buffer,    only : physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
     use infnan,            only : nan, assignment(=)
     use rate_diags,        only : rate_diags_calc
     use mo_mass_xforms,    only : mmr2vmr, vmr2mmr, h2o_to_vmr, mmr2vmri
     use orbit,             only : zenith
-!
-! LINOZ
-!
+    !
+    ! LINOZ
     use lin_strat_chem,    only : do_lin_strat_chem, lin_strat_chem_solve
     use linoz_data,        only : has_linoz_data
-!
-! for aqueous chemistry and aerosol growth
-!
-    use aero_model,        only : aero_model_gasaerexch
-
-    use aero_model,        only : aero_model_strat_surfarea
+    !
+    ! for aqueous chemistry and aerosol growth
+    use aero_model,        only : aero_model_gasaerexch, aero_model_strat_surfarea
 
     implicit none
 
