@@ -36,14 +36,15 @@ module microp_aero
   use ndrop_bam,         only: ndrop_bam_init, ndrop_bam_run, ndrop_bam_ccn
   use cam_history,       only: addfld, add_default, outfld
   use cam_logfile,       only: iulog
-  use commondefinitions, only:  nmodes_oslo => nmodes
+  !
+  use commondefinitions, only: nmodes_oslo => nmodes
   use aerosoldef,        only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_SO4_AC, MODE_IDX_OMBC_INTMIX_COAT_AIT
   use aerosoldef,        only: lifeCycleNumberMedianRadius, l_dst_a2, l_dst_a3, l_bc_ai
   use aerosoldef,        only: getNumberOfTracersInMode, getTracerIndex, getCloudTracerIndex
   use oslo_utils,        only: CalculateNumberConcentration
   use parmix_progncdnc
-  use hetfrz_classnuc_oslo
-  use nucleate_ice_oslo
+  use oslo_aero_hetfrz
+  use oslo_aero_nucleate_ice
 
   implicit none
   private

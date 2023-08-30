@@ -1,28 +1,42 @@
-module hetfrz_classnuc_oslo
+module oslo_aero_hetfrz
 
-  !---------------------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  ! Calculate heterogeneous freezing rates from classical nucleation theory
   !
-  !  CAM Interfaces for hetfrz_classnuc module.
-  !
+  ! Author: 
+  !   Corinna Hoose, UiO, May 2009
+  !   Yong Wang and Xiaohong Liu, UWyo, 12/2012, 
+  !   implement in CAM5 and constrain uncertain parameters using natural dust and
+  !   BC(soot) datasets. 
+  !   Yong Wang and Xiaohong Liu, UWyo, 05/2013, implement the PDF-contact angle
+  !   approach: Y. Wang et al., Atmos. Chem. Phys., 2014.
+  !   Jack Chen, NCAR, 09/2015, modify calculation of dust activation fraction.
   !---------------------------------------------------------------------------------
 
-  use shr_kind_mod,   only: r8=>shr_kind_r8
-  use spmd_utils,     only: masterproc
-  use ppgrid,         only: pcols, pver, begchunk, endchunk
-  use physconst,      only: rair, cpair, rh2o, rhoh2o, mwh2o, tmelt, pi
-  use constituents,   only: cnst_get_ind, pcnst
-  use physics_types,  only: physics_state
-  use physics_buffer, only: physics_buffer_desc, pbuf_get_index, pbuf_old_tim_idx, pbuf_get_field
-  use physics_buffer, only: pbuf_add_field, dtype_r8
-  use phys_control,   only: phys_getopts, use_hetfrz_classnuc
-  use cam_history,    only: addfld, add_default, outfld
-  use ref_pres,       only: top_lev => trop_cloud_top_lev
-  use wv_saturation,  only: svp_water, svp_ice
-  use cam_logfile,    only: iulog
-  use error_messages, only: handle_errmsg, alloc_err
-  use cam_abortutils, only: endrun
-  use oslo_utils,     only: CalculateNumberConcentration, calculateNumberMedianRadius
-  use aerosoldef,     only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_OMBC_INTMIX_COAT_AIT
+  use shr_kind_mod,      only: r8=>shr_kind_r8
+  use shr_spfn_mod,      only: erf => shr_spfn_erf
+  use spmd_utils,        only: masterproc
+  use ppgrid,            only: pcols, pver, begchunk, endchunk
+  use physconst,         only: rair, cpair, rh2o, rhoh2o, mwh2o, tmelt, pi
+  use constituents,      only: cnst_get_ind, pcnst
+  use physics_types,     only: physics_state
+  use physics_buffer,    only: physics_buffer_desc, pbuf_get_index, pbuf_old_tim_idx, pbuf_get_field
+  use physics_buffer,    only: pbuf_add_field, dtype_r8
+  use phys_control,      only: phys_getopts, use_hetfrz_classnuc
+  use cam_history,       only: addfld, add_default, outfld
+  use ref_pres,          only: top_lev => trop_cloud_top_lev
+  use wv_saturation,     only: svp_water, svp_ice
+  use cam_logfile,       only: iulog
+  use error_messages,    only: handle_errmsg, alloc_err
+  use cam_abortutils,    only: endrun
+  !
+  use commondefinitions, only: nmodes_oslo => nmodes
+  use oslo_utils,        only: CalculateNumberConcentration, calculateNumberMedianRadius
+  use aerosoldef,        only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_OMBC_INTMIX_COAT_AIT
+  use aerosoldef,        only: getNumberOfTracersInMode, getTracerIndex
+  use aerosoldef,        only: qqcw_get_field
+  use aerosoldef,        only: l_dst_a2, l_dst_a3, l_bc_ai, l_bc_ac
+  use aerosoldef,        only: lifeCycleNumberMedianRadius, lifeCycleSigma
 
   implicit none
   private
@@ -33,6 +47,11 @@ module hetfrz_classnuc_oslo
   public :: hetfrz_classnuc_oslo_init
   public :: hetfrz_classnuc_oslo_calc
   public :: hetfrz_classnuc_oslo_save_cbaero
+
+  private :: get_aer_num
+  private :: hetfrz_classnuc_calc
+  private :: collkernel
+  private :: hetfrz_classnuc_init_pdftheta
 
   ! Namelist variables
   logical :: hist_hetfrz_classnuc = .false.
@@ -58,7 +77,18 @@ module hetfrz_classnuc_oslo
   ! The basis is converted from mass to volume.
   real(r8), allocatable :: aer_cb(:,:,:,:)
 
-  logical :: pdf_imm_in = .true.
+  ! PDF theta model 
+  ! some variables for PDF theta model
+  ! immersion freezing
+  !
+  ! With the original value of pdf_n_theta set to 101 the dust activation
+  ! fraction between -15 and 0 C could be overestimated.  This problem was
+  ! eliminated by increasing pdf_n_theta to 301.  To reduce the expense of
+  ! computing the dust activation fraction the integral is only evaluated
+  ! where dim_theta is non-zero.  This was determined to be between
+  ! dim_theta index values of 53 through 113.  These loop bounds are
+  ! hardcoded in the variables i1 and i2.
+
   integer, parameter :: pdf_n_theta = 301
   integer, parameter :: i1 = 53
   integer, parameter :: i2 = 113
@@ -67,6 +97,7 @@ module hetfrz_classnuc_oslo
   real(r8) :: pdf_d_theta
   real(r8) :: dim_f_imm_dust_a1(pdf_n_theta) = 0.0_r8
   real(r8) :: dim_f_imm_dust_a3(pdf_n_theta) = 0.0_r8
+  logical  :: pdf_imm_in = .true.
 
 !===============================================================================
 contains
@@ -74,7 +105,7 @@ contains
 
   subroutine hetfrz_classnuc_oslo_readnl(nlfile)
 
-    use namelist_utils,  only: find_group_name
+    use namelist_utils, only: find_group_name
     use mpishorthand
 
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
@@ -303,9 +334,6 @@ contains
        numberConcentration, volumeConcentration, &
        f_acm, f_bcm, f_aqm, f_so4_condm, f_soam, &
        hygroscopicity, lnsigma, cam, volumeCore, volumeCoat)
-
-    use commondefinitions, only:  nmodes_oslo => nmodes
-    use aerosoldef, only : getNumberOfTracersInMode, getTracerIndex
 
     ! arguments
     type(physics_state), target, intent(in) :: state
@@ -597,10 +625,6 @@ contains
 
   subroutine hetfrz_classnuc_oslo_save_cbaero(state, pbuf)
 
-    use commondefinitions, only: nmodes_oslo => nmodes
-    use aerosoldef,        only: getTracerIndex, getNumberOfTracersInMode
-    use aerosoldef,        only: qqcw_get_field
-
     ! Save the required cloud borne aerosol constituents.
     type(physics_state),         intent(in)    :: state
     type(physics_buffer_desc),   pointer       :: pbuf(:)
@@ -642,11 +666,6 @@ contains
        total_cloudborne_aer_num,           &
        hetraer, awcam, awfacm, dstcoat,    &
        na500, tot_na500)
-
-    use commondefinitions, only: nmodes_oslo => nmodes
-    use aerosoldef,        only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_OMBC_INTMIX_COAT_AIT
-    use aerosoldef,        only: l_dst_a2, l_dst_a3, l_bc_ai, l_bc_ac
-    use aerosoldef,        only: lifeCycleNumberMedianRadius, lifeCycleSigma
 
     ! input
     real(r8), intent(in) :: qaerpt(0:nmodes_oslo)   ! aerosol number and mass mixing ratios(instertitial)
@@ -1406,8 +1425,6 @@ contains
 
   subroutine hetfrz_classnuc_init_pdftheta()
 
-    use shr_spfn_mod,  only: erf => shr_spfn_erf
-
     ! Local variables:
     real(r8) :: theta_min, theta_max
     real(r8) :: x1_imm, x2_imm
@@ -1447,4 +1464,4 @@ contains
 
   end subroutine hetfrz_classnuc_init_pdftheta
 
-end module hetfrz_classnuc_oslo
+end module oslo_aero_hetfrz
