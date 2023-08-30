@@ -1,4 +1,4 @@
-module opttab
+module oslo_aero_sw_tables
 
   ! Purpose: To read in SW look-up tables for calculation of aerosol optical properties,
   ! and to define the grid for discrete input-values in these look-up tables.
@@ -114,11 +114,6 @@ contains
   subroutine initopt()
 
     !---------------------------------------------------------------
-    ! Modified by Egil Storen/NoSerC July 2002.
-    ! The sequence of the indices in arrays om1, g1, be1 and ke1
-    ! (common block /tab1/) has been rearranged to avoid cache
-    ! problems while running subroutine interpol1. Files also
-    ! involved by this modification: interpol1.F and opttab.h.
     ! Modified for new aerosol schemes by Alf Kirkevaag in January
     ! 2006. Modified for new wavelength bands and look-up tables
     ! by Alf Kirkevaag in December 2013, and for SOA in August 2015.
@@ -548,23 +543,18 @@ contains
   subroutine initopt_lw
 
     !---------------------------------------------------------------
-    !   Modified by Egil Storen/NoSerC July 2002.
-    !   The sequence of the indices in arrays om1, g1, be1 and ke1
-    !   (common block /tab1/) has been rearranged to avoid cache
-    !   problems while running subroutine interpol1. Files also
-    !   involved by this modification: interpol1.F and opttab.h.
     !   Modified for new aerosol schemes by Alf Kirkevaag in January
-    !   2006. Based on opttab.F90 and modified for new wavelength
+    !   2006. Modified for new wavelength
     !   bands and look-up tables by Alf Kirkevaag in January 2014,
     !   and for SOA in August 2015.
     !---------------------------------------------------------------
 
-    integer kcomp, iwl, irelh, ictot, ifac, ifbc, ifaq
-    integer ifombg, ifbcbg
-    integer ic, ifil, lin, linmax
-    real(r8) catot, relh, frac, fabc, fraq, frombg, frbcbg
-    real(r8) spabs
-    real(r8) rh2(10)
+    integer  :: kcomp, iwl, irelh, ictot, ifac, ifbc, ifaq
+    integer  :: ifombg, ifbcbg
+    integer  :: ic, ifil, lin, linmax
+    real(r8) :: catot, relh, frac, fabc, fraq, frombg, frbcbg
+    real(r8) :: spabs
+    real(r8) :: rh2(10)
     real(r8) :: eps2 = 1.e-2_r8
     real(r8) :: eps3 = 1.e-3_r8
     real(r8) :: eps4 = 1.e-4_r8
@@ -574,28 +564,17 @@ contains
 
     call oslo_getopts(aerotab_table_dir_out = aerotab_table_dir)
 
-    open(40,file=trim(aerotab_table_dir)//'/lwkcomp1.out' &
-         ,form="formatted",status="old")
-    open(41,file=trim(aerotab_table_dir)//'/lwkcomp2.out' &
-         ,form="formatted",status="old")
-    open(42,file=trim(aerotab_table_dir)//'/lwkcomp3.out' &
-         ,form="formatted",status="old")
-    open(43,file=trim(aerotab_table_dir)//'/lwkcomp4.out' &
-         ,form="formatted",status="old")
-    open(44,file=trim(aerotab_table_dir)//'/lwkcomp5.out' &
-         ,form="formatted",status="old")
-    open(45,file=trim(aerotab_table_dir)//'/lwkcomp6.out' &
-         ,form="formatted",status="old")
-    open(46,file=trim(aerotab_table_dir)//'/lwkcomp7.out' &
-         ,form="formatted",status="old")
-    open(47,file=trim(aerotab_table_dir)//'/lwkcomp8.out' &
-         ,form="formatted",status="old")
-    open(48,file=trim(aerotab_table_dir)//'/lwkcomp9.out' &
-         ,form="formatted",status="old")
-    open(49,file=trim(aerotab_table_dir)//'/lwkcomp10.out'&
-         ,form="formatted",status="old")
-    open(50,file=trim(aerotab_table_dir)//'/lwkcomp0.out'&
-         ,form="formatted",status="old")
+    open(40,file=trim(aerotab_table_dir)//'/lwkcomp1.out'  ,form="formatted",status="old")
+    open(41,file=trim(aerotab_table_dir)//'/lwkcomp2.out'  ,form="formatted",status="old")
+    open(42,file=trim(aerotab_table_dir)//'/lwkcomp3.out'  ,form="formatted",status="old")
+    open(43,file=trim(aerotab_table_dir)//'/lwkcomp4.out'  ,form="formatted",status="old")
+    open(44,file=trim(aerotab_table_dir)//'/lwkcomp5.out'  ,form="formatted",status="old")
+    open(45,file=trim(aerotab_table_dir)//'/lwkcomp6.out'  ,form="formatted",status="old")
+    open(46,file=trim(aerotab_table_dir)//'/lwkcomp7.out'  ,form="formatted",status="old")
+    open(47,file=trim(aerotab_table_dir)//'/lwkcomp8.out'  ,form="formatted",status="old")
+    open(48,file=trim(aerotab_table_dir)//'/lwkcomp9.out'  ,form="formatted",status="old")
+    open(49,file=trim(aerotab_table_dir)//'/lwkcomp10.out' ,form="formatted",status="old")
+    open(50,file=trim(aerotab_table_dir)//'/lwkcomp0.out'  ,form="formatted",status="old")
 
     !     Skipping the header-text in all input files (Later: use it to check AeroTab - CAM5-Oslo consistency!)
     do ifil = 40,50
@@ -611,13 +590,8 @@ contains
     ifil = 11
     linmax=nlwbands
     do lin = 1,linmax
-
        read(39+ifil,996) kcomp, iwl, relh, spabs
-
        ka0(iwl)=spabs  ! unit m^2/g
-
-       !      write(*,*) 'kcomp, ka =', kcomp, ka0(iwl)
-
     end do
 
     do iwl=1,nlwbands
@@ -627,9 +601,7 @@ contains
           stop
        endif
     enddo
-
     write(iulog,*)'lw mode 0 ok'
-
 
     !ccccccccc1ccccccccc2ccccccccc3ccccccccc4ccccccccc5ccccccccc6ccccccccc7cc
     !       Mode 1 (H2SO4 + condesate from H2SO4 and SOA)
@@ -734,10 +706,6 @@ contains
 72        continue
 
           ka2to3(iwl,irelh,ictot,ifac,kcomp)=spabs  ! unit m^2/g
-
-          !      write(*,*) 'kcomp, ka =', kcomp, ka2to3(iwl,irelh,ictot,ifac,kcomp)
-          !      if(ifil==2) write(iulog,*) 'iwl,irelh,ictot,ifac,kcomp,ka =', &
-          !                  iwl,irelh,ictot,kcomp,ka2to3(iwl,irelh,ictot,ifac,kcomp)
 
        end do  ! lin
     end do    ! ifil
@@ -984,14 +952,12 @@ contains
     real(r8) :: eps10 = 1.e-10_r8
     !------------------------------------------------------------------------
     !
-    ! write(*,*) 'Before xrh-loop'
     do k=1,pver
        do icol=1,ncol
           xrh(icol,k)  = min(max(rhum(icol,k),rh(1)),rh(10))
        end do
     end do
 
-    ! write(*,*) 'Before rh-loop'
     do irelh=1,9
        do k=1,pver
           do icol=1,ncol
@@ -1001,7 +967,6 @@ contains
           end do
        end do
     end do
-    ! write(*,*) 'xrh, irh1, irh2 =', xrh(1,26), irh1(1,26), irh2(1,26)
 
     do k=1,pver
        do icol=1,ncol
@@ -2800,4 +2765,4 @@ contains
     enddo
   end subroutine checkTableHeader
 
-end module opttab
+end module oslo_aero_sw_tables

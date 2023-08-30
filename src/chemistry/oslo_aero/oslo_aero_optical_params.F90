@@ -1,33 +1,37 @@
-module pmxsub_mod
+module oslo_aero_optical_params
+
+  ! Optical parameters for a composite aerosol is calculated by interpolation
+  ! from the tables kcomp1.out-kcomp14.out.
+
+  use ppgrid
+  use shr_kind_mod,   only: r8 => shr_kind_r8
+  use cam_history,    only: outfld
+  use constituents,   only: pcnst
+  use physconst,      only: rair,pi
+  use physics_types,  only: physics_state
+  use wv_saturation,  only: qsat_water
+  !
+  use oslo_utils,     only: calculateNumberConcentration
+  use oslo_aero_conc, only: calculateBulkProperties, partitionMass
+  use commondefinitions
+  use const
+  use aerosoldef
+  use oslo_aero_sw_tables
 
   implicit none
+  private
+
+  public :: oslo_aero_optical_params_calc
 
 !===============================================================================
 contains
 !===============================================================================
 
-  subroutine pmxsub(lchnk, ncol, pint, pmid, coszrs, state, t, cld, qm1, Nnatk, &
-       per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs,                &
-       volc_ext_sun, volc_omega_sun, volc_g_sun,                                &
-       volc_ext_earth, volc_omega_earth,                                        &
+  subroutine oslo_aero_optical_params_calc(lchnk, ncol, pint, pmid,                &
+       coszrs, state, t, cld, qm1, Nnatk,                                          &
+       per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs,                   &
+       volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, &
        aodvis, absvis)
-
-    ! Optical parameters for a composite aerosol is calculated by interpolation
-    ! from the tables kcomp1.out-kcomp14.out.
-
-    use ppgrid
-    use shr_kind_mod, only: r8 => shr_kind_r8
-    use cam_history,  only: outfld
-    use constituents, only: pcnst
-    use physconst,    only: rair,pi
-    use oslo_utils, only: calculateNumberConcentration
-    use parmix_progncdnc, only: calculateBulkProperties, partitionMass
-    use opttab
-    use const
-    use aerosoldef
-    use commondefinitions
-    use physics_types, only: physics_state
-    use wv_saturation, only: qsat_water
 
     ! Input arguments
     integer , intent(in) :: lchnk                                 ! chunk identifier
@@ -115,8 +119,8 @@ contains
     !-------------------------------------------------------------------------
 
     ! calculate relative humidity for table lookup into rh grid
-    call qsat_water(state%t(1:ncol,1:pver), state%pmid(1:ncol,1:pver), &
-         es(1:ncol,1:pver), qs(1:ncol,1:pver))
+    call qsat_water(state%t(1:ncol,1:pver), state%pmid(1:ncol,1:pver), es(1:ncol,1:pver), qs(1:ncol,1:pver))
+
     rht(1:ncol,1:pver) = state%q(1:ncol,1:pver,1) / qs(1:ncol,1:pver)
     rh_temp(1:ncol,1:pver) = min(rht(1:ncol,1:pver),1._r8)
 
@@ -518,6 +522,9 @@ contains
     call outfld('ABSVVOLC',absvisvolc ,pcols,lchnk)
     call outfld('BVISVOLC',bevisvolc ,pcols,lchnk)
 
-  end subroutine pmxsub
+  end subroutine oslo_aero_optical_params_calc
 
-end module pmxsub_mod
+
+
+
+end module oslo_aero_optical_params

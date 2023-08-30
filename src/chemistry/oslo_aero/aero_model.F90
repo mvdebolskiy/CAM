@@ -28,29 +28,29 @@ module aero_model
   use drydep_mod,         only: inidrydep
   use wetdep,             only: wetdep_init
   !
-  use oslo_aero_depos,    only: oslo_aero_depos_init, oslo_aero_depos_dry, oslo_aero_depos_wet
-  use oslo_aero_coag,     only: coagtend, clcoag
-  use oslo_utils,         only: calculateNumberConcentration
-  use aerosoldef,         only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
-  use aerosoldef,         only: qqcw_get_field, numberOfProcessModeTracers
-  use aerosoldef,         only: lifeCycleNumberMedianRadius
-  use aerosoldef,         only: getCloudTracerName
-  use aerosoldef,         only: aero_register
-  use condtend,           only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
-  use condtend,           only: registerCondensation, initializeCondensation, condtend_sub
-  use sox_cldaero_mod,    only: sox_cldaero_init
-  use intlog,             only: initlogn
-  use seasalt_model,      only: seasalt_init, seasalt_emis, seasalt_active
-  use dust_model,         only: dust_init, dust_emis, dust_active
-  use oslo_ocean_intr,    only: oslo_ocean_init, oslo_dms_emis_intr
-  use opttab,             only: initopt, initopt_lw
-  use commondefinitions,  only: originalSigma, originalNumberMedianRadius
-  use commondefinitions,  only: nmodes_oslo=>nmodes, nbmodes
-  use const,              only: numberToSurface
+  use oslo_aero_depos,         only: oslo_aero_depos_init, oslo_aero_depos_dry, oslo_aero_depos_wet
+  use oslo_aero_coag,          only: coagtend, clcoag
+  use oslo_utils,              only: calculateNumberConcentration
+  use aerosoldef,              only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
+  use aerosoldef,              only: qqcw_get_field, numberOfProcessModeTracers
+  use aerosoldef,              only: lifeCycleNumberMedianRadius
+  use aerosoldef,              only: getCloudTracerName
+  use aerosoldef,              only: aero_register
+  use condtend,                only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
+  use condtend,                only: registerCondensation, initializeCondensation, condtend_sub
+  use sox_cldaero_mod,         only: sox_cldaero_init
+  use intlog,                  only: initlogn
+  use seasalt_model,           only: seasalt_init, seasalt_emis, seasalt_active
+  use dust_model,              only: dust_init, dust_emis, dust_active
+  use oslo_ocean_intr,         only: oslo_ocean_init, oslo_dms_emis_intr
+  use oslo_aero_sw_tables,     only: initopt, initopt_lw
+  use commondefinitions,       only: originalSigma, originalNumberMedianRadius
+  use commondefinitions,       only: nmodes_oslo=>nmodes, nbmodes
+  use const,                   only: numberToSurface
   use calcaersize
 #ifdef AEROCOM
-  use aerocom_opt_mod,    only: initaeropt
-  use aerocom_dry_mod,    only: initdryp
+  use aerocom_opt_mod,         only: initaeropt
+  use aerocom_dry_mod,         only: initdryp
 #endif
 
   implicit none

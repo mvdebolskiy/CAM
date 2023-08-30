@@ -26,7 +26,7 @@ module microp_aero
   use ppgrid,            only: pcols, pver, pverp
   use ref_pres,          only: top_lev => trop_cloud_top_lev
   use physconst,         only: rair
-  use constituents,      only: cnst_get_ind
+  use constituents,      only: cnst_get_ind, pcnst
   use physics_types,     only: physics_state, physics_ptend, physics_ptend_init, physics_ptend_sum
   use physics_types,     only: physics_state_copy, physics_update
   use physics_buffer,    only: physics_buffer_desc, pbuf_get_index, pbuf_old_tim_idx, pbuf_get_field
@@ -42,7 +42,7 @@ module microp_aero
   use aerosoldef,        only: lifeCycleNumberMedianRadius, l_dst_a2, l_dst_a3, l_bc_ai
   use aerosoldef,        only: getNumberOfTracersInMode, getTracerIndex, getCloudTracerIndex
   use oslo_utils,        only: CalculateNumberConcentration
-  use parmix_progncdnc
+  use oslo_aero_conc
   use oslo_aero_hetfrz
   use oslo_aero_nucleate_ice
 
@@ -442,30 +442,9 @@ contains
     if (trim(eddy_scheme) == 'CLUBB_SGS') deallocate(tke)
 
     ! Get size distributed interstitial aerosol
-    call parmix_progncdnc_sub( &   
-         ncol                  & !I [nbr] number of columns used
-         ,state%q              & !I [kg/kg] mass mixing ratio of tracers
-         ,rho                  & !I [kg/m3] air density
-         ,CProcessModes        & !O [kg/m3] added mass (total distributed all background modes)
-         ,f_c                  & !O 
-         ,f_bc                 & !O 
-         ,f_aq                 & !O 
-         ,f_so4_cond           & !O 
-         ,f_soa                &    
-         ,cam                  & !O
-         ,f_acm                & !O [frc] carbon fraction in mode
-         ,f_bcm                & !O [frc] fraction of c being bc
-         ,f_aqm                & !O [frc] fraction of sulfate being aquous
-         ,f_so4_condm          & !O [frc] fraction of non-aquous SO4 being condensate
-         ,f_soam               &
-         ,numberConcentration  & !O [#/m3] number concentration
-         ,volumeConcentration  & !O [m3/m3] volume concentration
-         ,hygroscopicity       & !O [mol/mol]
-         ,lnsigma              & !O [-] log sigma 
-         ,hasAerosol           & !I [t/f] do we have this type of aerosol here?
-         ,volumeCore           &
-         ,volumeCoat           &
-         )
+    call oslo_aero_conc_calc(ncol, state%q, rho, CProcessModes, &
+         f_c, f_bc, f_aq, f_so4_cond, f_soa, cam, f_acm, f_bcm, f_aqm, f_so4_condm, f_soam, &
+         numberConcentration, volumeConcentration, hygroscopicity, lnsigma, hasAerosol, volumeCore, volumeCoat)
 
     !ICE Nucleation
     call nucleate_ice_oslo_calc(state1, wsubi, pbuf, deltatin, ptend_loc, numberConcentration)

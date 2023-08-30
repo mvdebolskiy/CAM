@@ -3,14 +3,16 @@ module aerocom_mod
 #ifdef AEROCOM
   
   use ppgrid
-  use shr_kind_mod, only: r8 => shr_kind_r8
-  use cam_history,  only: outfld
-  use constituents, only: pcnst
-  use const
-  use aerosoldef
-  use commondefinitions
+  use shr_kind_mod,    only: r8 => shr_kind_r8
+  use cam_history,     only: outfld
+  use physics_types,   only: physics_state
+  !
   use aerocom_opt_mod, only: extinction_coeffs, extinction_coeffsn
   use aerocom_dry_mod, only: aerodry_prop
+  use aerosoldef
+  use commondefinitions
+  use oslo_aero_sw_tables
+  use const
 
   public :: aerocom
   public :: opticsAtConstRh
@@ -1453,7 +1455,7 @@ contains
     irfmax=1
 #endif  ! AEROCOM_INSITU
 
-    !     Note: using xrhnull etc as proxy for constant RH input values (see opttab.F90)
+    !     Note: using xrhnull etc as proxy for constant RH input values (see oslo_aero_sw_tables.F90)
     do irf=1,irfmax
        do k=1,pver
           do icol=1,ncol
@@ -1475,21 +1477,8 @@ contains
        xfombg, ifombg1, vnbc, vaitbc, v_soana)
 
     ! Extra AeroCom diagnostics requiring table look-ups with constant/fixed RH,
-    ! i.e. for RH = (/"00","40","55","65","75","85" /) (see opttab.F90)
+    ! i.e. for RH = (/"00","40","55","65","75","85" /) (see oslo_aero_sw_tables.F90)
 
-    use ppgrid
-    use shr_kind_mod, only: r8 => shr_kind_r8
-    use cam_history,  only: outfld
-    use constituents, only: pcnst
-    use opttab
-    use const
-    use aerosoldef
-    use commondefinitions
-    use physics_types,   only: physics_state
-    use aeroopt_mod, only : extinction_coeffs, extinction_coeffsn
-
-    implicit none
-    !
     ! Input arguments
     !
     integer,  intent(in) :: lchnk                      ! chunk identifier
@@ -1787,13 +1776,6 @@ contains
     ! Written by Alf Kirkevaag in November 2011, based on interpol1to3 in optinterpol.F90
     ! called by NorESM/physpkg
 
-    use ppgrid
-    use shr_kind_mod, only: r8 => shr_kind_r8
-    use opttab,       only: rh
-    use commondefinitions, only: nmodes
-
-    implicit none
-    !
     ! Input arguments
     integer, intent(in)  :: lchnk                      ! chunk identifier
     integer, intent(in)  :: ncol                       ! number of atmospheric columns
@@ -1815,7 +1797,7 @@ contains
     real(r8) :: t_xrh, t_rh1, t_rh2
     parameter (e=2.718281828)
 
-    ! Relative humidity intries from opttab.F90:  
+    ! Relative humidity intries from oslo_aero_sw_tables
     ! rh = (/ 0.0_r8,  0.37_r8, 0.47_r8, 0.65_r8, 0.75_r8, &
     !         0.8_r8,  0.85_r8, 0.9_r8,  0.95_r8, 0.995_r8 /)
     ! Humidity growth factors which are consistent with the aerosol optics look-up tables:

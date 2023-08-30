@@ -21,9 +21,11 @@ module ndrop
   use cam_abortutils,   only: endrun
   use cam_logfile,      only: iulog
   use phys_control,     only: use_hetfrz_classnuc
+  !
   use aerosoldef
-  use parmix_progncdnc
-  use oslo_utils,       only: calculateNumberMedianRadius
+  use commondefinitions, only: nmodes, nbmodes
+  use const,             only: smallNumber
+  use oslo_utils,        only: calculateNumberMedianRadius
 
   implicit none
 
@@ -1555,8 +1557,7 @@ contains
   !===============================================================================
 
   subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
-       na, nmode, volume, hygro,  &
-       fn, fm, fluxn, fluxm, flux_fullact, lnsigman )
+       na, nmode, volume, hygro, fn, fm, fluxn, fluxm, flux_fullact, lnsigman )
 
     !      calculates number, surface, and mass fraction of aerosols activated as CCN
     !      calculates flux of cloud droplets, surface area, and aerosol mass into cloud
@@ -1752,9 +1753,7 @@ contains
              zeta(m)=twothird*sqrtalw*aten/sqrtg
           enddo
 
-          call maxsat(zeta,eta,nmode,smc,smax &
-               ,f1_var, f2_var         &
-               )
+          call maxsat(zeta, eta, nmode, smc, smax, f1_var, f2_var)
 
           lnsmax=log(smax)
 
@@ -1908,16 +1907,14 @@ contains
              eta(m)=etafactor1*etafactor2(m)
              zeta(m)=twothird*sqrtalw*aten/sqrtg
              if(present(lnsigman))then
-                f1_var(m)          = 0.5_r8*exp(2.5_r8*lnsigman(m)*lnsigman(m))
-                f2_var(m)          = 1._r8 + 0.25_r8*lnsigman(m)
+                f1_var(m) = 0.5_r8*exp(2.5_r8*lnsigman(m)*lnsigman(m))
+                f2_var(m) = 1._r8 + 0.25_r8*lnsigman(m)
              else
                 call endrun("Problem with variable std. dev single updraft")
              endif
           enddo
 
-          call maxsat(zeta,eta,nmode,smc,smax &
-               ,f1_var, f2_var         &
-               )
+          call maxsat(zeta, eta, nmode, smc, smax, f1_var, f2_var)
 
           lnsmax=log(smax)
           xmincoeff=alogaten-twothird*(lnsmax-alog2)-alog3

@@ -43,7 +43,9 @@ module radiation
   use perf_mod,            only: t_startf, t_stopf
   use cam_logfile,         only: iulog
   use prescribed_volcaero, only: has_prescribed_volcaero, has_prescribed_volcaero_cmip6, solar_bands, terrestrial_bands
-  use pmxsub_mod,          only: pmxsub
+  !
+  use oslo_aero_optical_params,  only: oslo_aero_optical_params_calc
+  use commondefinitions, only:  nmodes, nbmodes
 
   implicit none
   private
@@ -1194,12 +1196,10 @@ contains
 
           ! No aerocom variables passed for now
           ! dod440, dod550, dod870, abs550, abs550alt
-          call pmxsub(lchnk, ncol, 10.0_r8*state%pint, state%pmid,  &
+          call oslo_aero_optical_params_calc(lchnk, ncol, 10.0_r8*state%pint, state%pmid,  &
                coszrs, state, state%t, cld, qdirind, Nnatk, &
-               per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, &
-               per_lw_abs, &
-               volc_ext_sun, volc_omega_sun, volc_g_sun, & 
-               volc_ext_earth, volc_omega_earth, & 
+               per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, &
+               volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, & 
                aodvis, absvis)
 
           call get_variability(sfac)

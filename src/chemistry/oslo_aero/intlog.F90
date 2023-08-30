@@ -1,14 +1,13 @@
 module intlog
 
-  use shr_kind_mod,      only: r8 => shr_kind_r8
-  use ppgrid,            only: pcols
-  use commondefinitions, only: nmodes, nbmodes
-  use opttab,            only: nbmp1, cate, fac, faq, fbc, cat
-  use lininterpol_mod,   only: lininterpol3dim, lininterpol4dim
+  use shr_kind_mod,        only: r8 => shr_kind_r8
+  use ppgrid,              only: pcols
+  use cam_logfile,         only: iulog
+  use oslo_control,        only: oslo_getopts,dir_string_length
+  use commondefinitions,   only: nmodes, nbmodes
+  use oslo_aero_sw_tables, only: cate, fac, faq, fbc, cat
+  use lininterpol_mod,     only: lininterpol3dim, lininterpol4dim
   use aerosoldef
-
-  use cam_logfile,  only: iulog
-  use oslo_control, only: oslo_getopts,dir_string_length
 
   implicit none
   private

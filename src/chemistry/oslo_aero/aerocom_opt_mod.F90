@@ -2,13 +2,13 @@ module aerocom_opt_mod
 
 #ifdef AEROCOM
 
-  use shr_kind_mod      , only : r8 => shr_kind_r8
-  use ppgrid            , only : pcols, pver
-  use commondefinitions , only : nmodes, nbmodes
-  use opttab            , only : cate, cat, fac, faq, fbc, rh, fombg, fbcbg
-  use oslo_control      , only : oslo_getopts, dir_string_length
-  use cam_logfile       , only : iulog
-  use lininterpol_mod   , only : lininterpol3dim, lininterpol4dim, lininterpol5dim
+  use shr_kind_mod      ,              only : r8 => shr_kind_r8
+  use ppgrid            ,              only : pcols, pver
+  use commondefinitions ,              only : nmodes, nbmodes
+  use oslo_aero_sw_tables            , only : cate, cat, fac, faq, fbc, rh, fombg, fbcbg
+  use oslo_control      ,              only : oslo_getopts, dir_string_length
+  use cam_logfile       ,              only : iulog
+  use lininterpol_mod   ,              only : lininterpol3dim, lininterpol4dim, lininterpol5dim
 
   implicit none
   private

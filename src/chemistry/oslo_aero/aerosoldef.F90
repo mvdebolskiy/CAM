@@ -129,7 +129,7 @@ module aerosoldef
   real(r8), parameter, public, dimension(numberOfProcessModeTracers) :: belowCloudScavengingCoefficientProcessModes = &
        (/0.02_r8, 0.01_r8, 0.02_r8, 0.02_r8, 0.02_r8, 0.02_r8 /)
 
-  !Growth of aerosols, duplicated in opttab!!  AK: NB oppdaterte tall i opttab, rh der er ikke helt lik rhtab...
+  !Growth of aerosols, duplicated in oslo_aero_sw_tables
   real(r8), public,dimension (10)      :: rhtab
   real(r8), public,dimension (10,pcnst):: rdivr0(10,pcnst)
 
