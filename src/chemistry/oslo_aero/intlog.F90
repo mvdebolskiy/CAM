@@ -1,4 +1,4 @@
-module intlog
+module oslo_aero_interp_log
 
   use shr_kind_mod,        only: r8 => shr_kind_r8
   use ppgrid,              only: pcols
@@ -737,5 +737,5 @@ contains
     enddo
   end subroutine checkTableHeader
 
-end module intlog
+end module oslo_aero_interp_log
 

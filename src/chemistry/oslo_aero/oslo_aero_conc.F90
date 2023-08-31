@@ -1,15 +1,15 @@
 module oslo_aero_conc
 
-  use shr_kind_mod ,      only: r8 => shr_kind_r8
-  use ppgrid       ,      only: pcols, pver
-  use physconst    ,      only: density_water =>rhoh2o, molecularWeightWater=>mwh2o, pi
-  use constituents ,      only: pcnst, cnst_name
+  use shr_kind_mod ,        only: r8 => shr_kind_r8
+  use ppgrid       ,        only: pcols, pver
+  use physconst    ,        only: density_water =>rhoh2o, molecularWeightWater=>mwh2o, pi
+  use constituents ,        only: pcnst, cnst_name
   !
-  use intlog,             only: intlog1to3_sub, intlog4_sub, intlog5to10_sub
-  use oslo_utils,         only: calculateNumberConcentration
-  use const,              only: smallNumber, volumeToNumber,smallNumber
-  use oslo_aero_coag,     only: normalizedCoagulationSink
-  use oslo_aero_condtend, only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
+  use oslo_aero_interp_log, only: intlog1to3_sub, intlog4_sub, intlog5to10_sub
+  use oslo_utils,           only: calculateNumberConcentration
+  use const,                only: smallNumber, volumeToNumber,smallNumber
+  use oslo_aero_coag,       only: normalizedCoagulationSink
+  use oslo_aero_condtend,   only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
   use commondefinitions
   use aerosoldef
 

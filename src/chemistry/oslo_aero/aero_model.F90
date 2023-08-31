@@ -3,54 +3,54 @@
 !===============================================================================
 module aero_model
 
-  use shr_kind_mod,       only: r8 => shr_kind_r8
-  use constituents,       only: pcnst, cnst_name, cnst_get_ind
-  use ppgrid,             only: pcols, pver, pverp
-  use phys_control,       only: phys_getopts, cam_physpkg_is
-  use cam_abortutils,     only: endrun
-  use cam_logfile,        only: iulog
-  use perf_mod,           only: t_startf, t_stopf
-  use camsrfexch,         only: cam_in_t, cam_out_t
-  use aerodep_flx,        only: aerodep_flx_prescribed
-  use physics_types,      only: physics_state, physics_ptend, physics_ptend_init
-  use physics_buffer,     only: physics_buffer_desc
-  use physics_buffer,     only: pbuf_get_field, pbuf_get_index, pbuf_set_field
-  use physconst,          only: gravit, rair, rhoh2o
-  use spmd_utils,         only: masterproc
-  use time_manager,       only: get_nstep
-  use cam_history,        only: outfld, fieldname_len, addfld, add_default, horiz_only
-  use chem_mods,          only: gas_pcnst, adv_mass
-  use mo_tracname,        only: solsym
-  use mo_setsox,          only: setsox
-  use mo_mass_xforms,     only: vmr2mmr, mmr2vmr, mmr2vmri
-  use mo_chem_utls,       only: get_rxt_ndx, get_spc_ndx
-  use ref_pres,           only: top_lev => clim_modal_aero_top_lev
-  use drydep_mod,         only: inidrydep
-  use wetdep,             only: wetdep_init
+  use shr_kind_mod,         only: r8 => shr_kind_r8
+  use constituents,         only: pcnst, cnst_name, cnst_get_ind
+  use ppgrid,               only: pcols, pver, pverp
+  use phys_control,         only: phys_getopts, cam_physpkg_is
+  use cam_abortutils,       only: endrun
+  use cam_logfile,          only: iulog
+  use perf_mod,             only: t_startf, t_stopf
+  use camsrfexch,           only: cam_in_t, cam_out_t
+  use aerodep_flx,          only: aerodep_flx_prescribed
+  use physics_types,        only: physics_state, physics_ptend, physics_ptend_init
+  use physics_buffer,       only: physics_buffer_desc
+  use physics_buffer,       only: pbuf_get_field, pbuf_get_index, pbuf_set_field
+  use physconst,            only: gravit, rair, rhoh2o
+  use spmd_utils,           only: masterproc
+  use time_manager,         only: get_nstep
+  use cam_history,          only: outfld, fieldname_len, addfld, add_default, horiz_only
+  use chem_mods,            only: gas_pcnst, adv_mass
+  use mo_tracname,          only: solsym
+  use mo_setsox,            only: setsox
+  use mo_mass_xforms,       only: vmr2mmr, mmr2vmr, mmr2vmri
+  use mo_chem_utls,         only: get_rxt_ndx, get_spc_ndx
+  use ref_pres,             only: top_lev => clim_modal_aero_top_lev
+  use drydep_mod,           only: inidrydep
+  use wetdep,               only: wetdep_init
   !
-  use oslo_aero_depos,         only: oslo_aero_depos_init, oslo_aero_depos_dry, oslo_aero_depos_wet
-  use oslo_aero_coag,          only: coagtend, clcoag
-  use oslo_utils,              only: calculateNumberConcentration
-  use aerosoldef,              only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
-  use aerosoldef,              only: qqcw_get_field, numberOfProcessModeTracers
-  use aerosoldef,              only: lifeCycleNumberMedianRadius
-  use aerosoldef,              only: getCloudTracerName
-  use aerosoldef,              only: aero_register
-  use oslo_aero_condtend,      only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
-  use oslo_aero_condtend,      only: registerCondensation, initializeCondensation, condtend_sub
-  use sox_cldaero_mod,         only: sox_cldaero_init
-  use intlog,                  only: initlogn
-  use seasalt_model,           only: seasalt_init, seasalt_emis, seasalt_active
-  use dust_model,              only: dust_init, dust_emis, dust_active
-  use oslo_ocean_intr,         only: oslo_ocean_init, oslo_dms_emis_intr
-  use oslo_aero_sw_tables,     only: initopt, initopt_lw
-  use commondefinitions,       only: originalSigma, originalNumberMedianRadius
-  use commondefinitions,       only: nmodes_oslo=>nmodes, nbmodes
-  use const,                   only: numberToSurface
+  use oslo_aero_depos,      only: oslo_aero_depos_init, oslo_aero_depos_dry, oslo_aero_depos_wet
+  use oslo_aero_coag,       only: coagtend, clcoag
+  use oslo_utils,           only: calculateNumberConcentration
+  use aerosoldef,           only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
+  use aerosoldef,           only: qqcw_get_field, numberOfProcessModeTracers
+  use aerosoldef,           only: lifeCycleNumberMedianRadius
+  use aerosoldef,           only: getCloudTracerName
+  use aerosoldef,           only: aero_register
+  use oslo_aero_condtend,   only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4
+  use oslo_aero_condtend,   only: registerCondensation, initializeCondensation, condtend
+  use sox_cldaero_mod,      only: sox_cldaero_init
+  use oslo_aero_interp_log, only: initlogn
+  use seasalt_model,        only: seasalt_init, seasalt_emis, seasalt_active
+  use dust_model,           only: dust_init, dust_emis, dust_active
+  use oslo_ocean_intr,      only: oslo_ocean_init, oslo_dms_emis_intr
+  use oslo_aero_sw_tables,  only: initopt, initopt_lw
+  use commondefinitions,    only: originalSigma, originalNumberMedianRadius
+  use commondefinitions,    only: nmodes_oslo=>nmodes, nbmodes
+  use const,                only: numberToSurface
   use calcaersize
 #ifdef AEROCOM
-  use aerocom_opt_mod,         only: initaeropt
-  use aerocom_dry_mod,         only: initdryp
+  use aerocom_opt_mod,      only: initaeropt
+  use aerocom_dry_mod,      only: initdryp
 #endif
 
   implicit none
@@ -593,17 +593,17 @@ contains
     ! Rest of microphysics have pcols dimension
     mmr_tend_pcols(:ncol,:,:) = mmr_tend_ncols(:ncol,:,:)
 
+    ! Condensation
     ! Note use of "zm" here. In CAM5.3-implementation "zi" was used..
     ! zm is passed through the generic interface, and it should not change much
     ! to check if "zm" is below boundary layer height instead of zi
-    call condtend_sub( lchnk, mmr_tend_pcols, mmr_cond_vap_gasprod,tfld, pmid, &
+    call condtend( lchnk, mmr_tend_pcols, mmr_cond_vap_gasprod,tfld, pmid, &
          pdel, delt, ncol, pblh, zm, qh2o)  ! cka
 
-    ! coagulation
+    ! Coagulation
     ! OS 280415  Concentratiions in cloud water is in vmr space and as a
     ! temporary variable  (vmrcw) Coagulation between aerosol and cloud
     ! droplets moved to after vmrcw is moved into qqcw (in mmr spac)
-
     call coagtend( mmr_tend_pcols, pmid, pdel, tfld, delt_inverse, ncol, lchnk)
 
     ! Convert cloud water to mmr again ==> values in buffer
