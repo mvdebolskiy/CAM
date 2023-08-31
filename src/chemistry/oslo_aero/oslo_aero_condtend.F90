@@ -1,18 +1,25 @@
-module condtend
+module oslo_aero_condtend
 
-  use shr_kind_mod, only: r8 => shr_kind_r8
-  use phys_control, only: phys_getopts
-  use chem_mods,    only: gas_pcnst
-  use mo_tracname,  only: solsym
-  use ppgrid,       only: pcols, pver, pverp
-  use const
-  use cam_history,  only: outfld
-  use aerosoldef
-  use physconst,    only: rair, gravit, pi, avogad
-  use commondefinitions
-  use chem_mods,    only: adv_mass !molecular weights from mozart
+  use shr_kind_mod,       only: r8 => shr_kind_r8
+  use ppgrid,             only : pcols, pver, pverp
+  use phys_control,       only: phys_getopts
+  use chem_mods,          only: gas_pcnst
+  use mo_tracname,        only: solsym
+  use cam_history,        only: addfld, add_default, fieldname_len, horiz_only, outfld
+  use physconst,          only: rair, gravit, pi, avogad
+  use chem_mods,          only: adv_mass !molecular weights from mozart
+  use wv_saturation,      only : qsat_water
+  use m_spc_id,           only : id_H2SO4, id_soa_lv
+  !
+  use oslo_aero_coag,     only: normalizedCoagulationSink, receiverMode,numberOfCoagulationReceivers
+  use oslo_aero_coag,     only: numberOfAddCoagReceivers,addReceiverMode,normCoagSinkAdd
+  use constituents,       only: pcnst  ! h2so4 and soa nucleation (cka)
+  use aerosoldef        ! only: MODE_IDX_SO4SOA_AIT, rhopart, l_so4_a1, l_soa_lv, l_so4_na, l_soa_na
+  use commondefinitions ! only: originalNumberMedianRadius
+  use const             ! only: volumeToNumber
 
   implicit none
+  private
 
   integer, parameter :: N_COND_VAP = 3
   integer, parameter :: COND_VAP_H2SO4 = 1
@@ -20,6 +27,7 @@ module condtend
   integer, parameter :: COND_VAP_ORG_SV = 3
 
   real(r8) , public  :: normalizedCondensationSink(0:nmodes,N_COND_VAP) ! [m3/#/s] condensation sink per particle in mode i
+
   integer  , private :: lifeCycleReceiver(gas_pcnst)                    ! [-] array of transformation of life cycle tracers
   real(r8) , private :: stickingCoefficient(0:nmodes,N_COND_VAP)        ! [-] stickingCoefficient for H2SO4 on a mode
   integer  , private :: cond_vap_map(N_COND_VAP)
@@ -77,8 +85,6 @@ contains
     !condensation coefficients:
     !Theory: Poling et al, "The properties of gases and liquids"
     !5th edition, eqn 11-4-4
-
-    use cam_history, only: addfld, add_default, fieldname_len, horiz_only
 
     real(r8), parameter :: aunit = 1.6606e-27_r8  ![kg] Atomic mass unit
     real(r8), parameter :: boltz = 1.3806e-23_r8   ![J/K/molec]
@@ -249,11 +255,6 @@ contains
     ! used the h2so4 lifetime onto the particles, and not a given
     ! increase in particle radius. Will be improved in future versions of the model
     ! Added input for h2so4 and soa nucleation: soa_lv_gasprod, soa_sv_gasprod, pblh,zm,qh20 (cka)
-
-    use cam_history,     only: outfld,fieldname_len
-    use oslo_aero_coag,  only: normalizedCoagulationSink, receiverMode,numberOfCoagulationReceivers
-    use oslo_aero_coag,  only: numberOfAddCoagReceivers,addReceiverMode,normCoagSinkAdd
-    use constituents,    only: pcnst  ! h2so4 and soa nucleation (cka)
 
     ! arguments
     integer,  intent(in) :: lchnk                      ! chunk identifier
@@ -615,14 +616,6 @@ contains
     !  (3) First version published ACP (Risto Makkonen)
     !      ACP, vol 14, no 10, pp 5127 http://www.atmos-chem-phys.net/14/5127/2014/acp-14-5127-2014.html
     ! Modified Spring 2015, cka
-
-    use wv_saturation,     only : qsat_water
-    use ppgrid,            only : pcols, pver, pverp
-    use aerosoldef,        only : MODE_IDX_SO4SOA_AIT, rhopart, l_so4_a1, l_soa_lv, l_so4_na, l_soa_na
-    use commondefinitions, only : originalNumberMedianRadius
-    use phys_control,      only : phys_getopts
-    use m_spc_id,          only : id_H2SO4, id_soa_lv
-    use const,             only : volumeToNumber
 
     !-- Arguments
     integer,  intent(in)  :: lchnk                    ! chunk identifier
@@ -1021,4 +1014,4 @@ contains
 
   end subroutine appformrate
 
-end module condtend
+end module oslo_aero_condtend

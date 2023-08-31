@@ -36,8 +36,8 @@ module aero_model
   use aerosoldef,              only: lifeCycleNumberMedianRadius
   use aerosoldef,              only: getCloudTracerName
   use aerosoldef,              only: aero_register
-  use condtend,                only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
-  use condtend,                only: registerCondensation, initializeCondensation, condtend_sub
+  use oslo_aero_condtend,      only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4, condtend_sub
+  use oslo_aero_condtend,      only: registerCondensation, initializeCondensation, condtend_sub
   use sox_cldaero_mod,         only: sox_cldaero_init
   use intlog,                  only: initlogn
   use seasalt_model,           only: seasalt_init, seasalt_emis, seasalt_active

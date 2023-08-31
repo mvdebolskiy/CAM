@@ -1,17 +1,15 @@
 module oslo_aero_conc
 
-  use const        ,  only : volumeToNumber,smallNumber
-  use physconst    ,  only: density_water =>rhoh2o, molecularWeightWater=>mwh2o
-  use ppgrid       ,  only : pcols, pver
-  use shr_kind_mod ,  only: r8 => shr_kind_r8
-  use physconst    ,  only: pi
-  use constituents ,  only: pcnst, cnst_name
+  use shr_kind_mod ,      only: r8 => shr_kind_r8
+  use ppgrid       ,      only: pcols, pver
+  use physconst    ,      only: density_water =>rhoh2o, molecularWeightWater=>mwh2o, pi
+  use constituents ,      only: pcnst, cnst_name
   !
-  use intlog,         only: intlog1to3_sub, intlog4_sub, intlog5to10_sub
-  use oslo_utils,     only: calculateNumberConcentration
-  use const,          only: smallNumber
-  use oslo_aero_coag, only: normalizedCoagulationSink
-  use condtend,       only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
+  use intlog,             only: intlog1to3_sub, intlog4_sub, intlog5to10_sub
+  use oslo_utils,         only: calculateNumberConcentration
+  use const,              only: smallNumber, volumeToNumber,smallNumber
+  use oslo_aero_coag,     only: normalizedCoagulationSink
+  use oslo_aero_condtend, only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
   use commondefinitions
   use aerosoldef
 
@@ -99,21 +97,8 @@ contains
   end subroutine oslo_aero_conc_calc
 
   !******************************************************************
-  subroutine calculateBulkProperties(  &
-       ncol                   &
-       ,qm                     & !I [kg/kg] transported tracers
-       ,rho_air                & !I [kg/m3] air density
-       ,numberConcentration    & !O [#/m3]
-       ,CProcessModes          & !O [kg/m3] total added material
-       ,f_c                    & !O [-] fraction of aerosol which is carbon
-       ,f_bc                   & !O [-] fraction of carbon which is bc
-       ,f_aq                   & !O [-] fraction of sulfate which is aq.
-       ,f_so4_cond             & !O [-] fraction of non-aq so4 which is condensate
-       ,f_soa                  & !O [-] fraction of OM which is SOA
-       ,f_aitbc                & !O [-] fraction of bc in the background tracer mode
-       ,f_nbc                  & !O [-] fraction of bc in the background tracer mode 14
-       ,f_soana                & !O [-] fraction of soa in background int-mix mode (1)
-       )
+  subroutine calculateBulkProperties( ncol, qm, rho_air, numberConcentration, CProcessModes, &
+       f_c, f_bc, f_aq, f_so4_cond, f_soa, f_aitbc, f_nbc, f_soana)
 
     !----------------------------------------------
     ! Create bulk properties (dependent on tracers, not size modes)
@@ -688,7 +673,7 @@ contains
   subroutine modalapp2d(ncol,Nnatkbg,Ca,f_c,f_bc,f_aq,f_so4_cond,f_soa,Cam,fcm,fbcm,faqm,fso4condm,fsoam)
 
     !     Calculation of the apportionment of internally mixed SO4, BC and OC
-    !     mass between the various background mineral and sea-salt modes. 
+    !     mass between the various background mineral and sea-salt modes.
     !     Now also Aitken-modes are subject to condensation of H2SO4, and both n and
     !     Aitken modes may coagulate onto the mineral/sea-salt background aerosol.
     !SOA
