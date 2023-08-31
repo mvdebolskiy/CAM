@@ -5,26 +5,26 @@ module oslo_aero_depos
   ! deposition at the surface into the fields passed to the coupler.
   !------------------------------------------------------------------------------------------------
 
-  use shr_kind_mod,         only: r8 => shr_kind_r8
-  use ppgrid,               only: pcols, pver, pverp, begchunk, endchunk
-  use constituents,         only: pcnst, cnst_name
-  use phys_control,         only: phys_getopts
-  use cam_abortutils,       only: endrun
-  use camsrfexch,           only: cam_in_t, cam_out_t
-  use time_manager,         only: is_first_step
-  use aerodep_flx,          only: aerodep_flx_prescribed
-  use mo_drydep,            only: n_land_type, fraction_landuse
-  use physics_types,        only: physics_state, physics_ptend, physics_ptend_init
-  use physics_buffer,       only: physics_buffer_desc, pbuf_get_chunk, pbuf_get_field, pbuf_get_index
-  use physconst,            only: gravit, rair, rhoh2o, boltz, pi
-  use cam_history,          only: outfld, fieldname_len, addfld, add_default, horiz_only
-  use ref_pres,             only: top_lev => clim_modal_aero_top_lev
-  use drydep_mod,           only: d3ddflux, calcram
-  use wetdep,               only: wetdepa_v2, wetdep_inputs_set, wetdep_inputs_t
-  use dust_sediment_mod,    only: dust_sediment_tend, dust_sediment_vel
+  use shr_kind_mod,            only: r8 => shr_kind_r8
+  use ppgrid,                  only: pcols, pver, pverp, begchunk, endchunk
+  use constituents,            only: pcnst, cnst_name
+  use phys_control,            only: phys_getopts
+  use cam_abortutils,          only: endrun
+  use camsrfexch,              only: cam_in_t, cam_out_t
+  use time_manager,            only: is_first_step
+  use aerodep_flx,             only: aerodep_flx_prescribed
+  use mo_drydep,               only: n_land_type, fraction_landuse
+  use physics_types,           only: physics_state, physics_ptend, physics_ptend_init
+  use physics_buffer,          only: physics_buffer_desc, pbuf_get_chunk, pbuf_get_field, pbuf_get_index
+  use physconst,               only: gravit, rair, rhoh2o, boltz, pi
+  use cam_history,             only: outfld, fieldname_len, addfld, add_default, horiz_only
+  use ref_pres,                only: top_lev => clim_modal_aero_top_lev
+  use drydep_mod,              only: calcram
+  use wetdep,                  only: wetdepa_v2, wetdep_inputs_set, wetdep_inputs_t
   !
-  ! use aerosoldef,           only: l_bc_n,l_bc_ax,l_bc_ni,l_bc_a,l_bc_ai,l_bc_ac
-  ! use aerosoldef,           only: l_om_ni,l_om_ai,l_om_ac,l_dst_a2,l_dst_a3
+  ! use aerosoldef,            only: l_bc_n,l_bc_ax,l_bc_ni,l_bc_a,l_bc_ai,l_bc_ac
+  ! use aerosoldef,            only: l_om_ni,l_om_ai,l_om_ac,l_dst_a2,l_dst_a3
+  use oslo_aero_dust_sediment, only: oslo_aero_dust_sediment_tend, oslo_aero_dust_sediment_vel
   use aerosoldef
   use commondefinitions
 
@@ -276,8 +276,8 @@ contains
     aerdepdrycw(:,:)=0._r8
 
     ! calc ram and fv over ocean and sea ice ...
-    call calcram( ncol,landfrac,icefrac,ocnfrac,obklen,&
-         ustar,ram1in,ram1,state%t(:,pver),state%pmid(:,pver),&
+    call calcram( ncol,landfrac,icefrac,ocnfrac,obklen, &
+         ustar,ram1in,ram1,state%t(:,pver),state%pmid(:,pver), &
          state%pdel(:,pver),fvin,fv)
 
     call outfld( 'airFV', fv(:), pcols, lchnk )
@@ -388,19 +388,14 @@ contains
 
                 call outfld( trim(cnst_name(mm))//'DDV', pvmzaer(:,2:pverp), pcols, lchnk )
 
-                if(.true.) then ! use phil's method
-                   ! convert from meters/sec to pascals/sec, use density from layer above in conversion
-                   pvmzaer(:ncol,2:pverp) = pvmzaer(:ncol,2:pverp) * rho(:ncol,:)*gravit
+                ! use phil's method
+                ! convert from meters/sec to pascals/sec, use density from layer above in conversion
+                pvmzaer(:ncol,2:pverp) = pvmzaer(:ncol,2:pverp) * rho(:ncol,:)*gravit
 
-                   ! calculate the tendencies and sfc fluxes from the above velocities
-                   call dust_sediment_tend( &
-                        ncol,             dt,       state%pint(:,:), state%pmid, state%pdel, state%t , &
-                        state%q(:,:,mm),  pvmzaer,  ptend%q(:,:,mm), sflx, interfaceTendToLowestLayer  )
-                else   
-                   ! use charlie's method
-                   call d3ddflux( ncol, vlc_dry(:,:,jvlc), state%q(:,:,mm), state%pmid, &
-                        state%pdel, tvs, sflx, ptend%q(:,:,mm), dt )
-                endif
+                ! calculate the tendencies and sfc fluxes from the above velocities
+                call oslo_aero_dust_sediment_tend(ncol, dt, state%pint(:,:), state%pmid, state%pdel, state%t , &
+                        state%q(:,:,mm),  pvmzaer,  ptend%q(:,:,mm), sflx, &
+                        dusttend_to_ll_out=interfaceTendToLowestLayer)
 
                 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 !%%%%%% FIX FOR SHORT DRYDEP LIFE-TIMES
@@ -474,19 +469,14 @@ contains
                 pvmzaer(:ncol,1)=0._r8
                 pvmzaer(:ncol,2:pverp) = vlc_dry(:ncol,:,jvlc)
 
-                if(.true.) then ! use phil's method
-                   ! convert from meters/sec to pascals/sec
-                   ! pvprogseasalts(:,1) is assumed zero, use density from layer above in conversion
-                   pvmzaer(:ncol,2:pverp) = pvmzaer(:ncol,2:pverp) * rho(:ncol,:)*gravit
+                ! Hardwire the method from Phil
+                ! convert from meters/sec to pascals/sec
+                ! pvprogseasalts(:,1) is assumed zero, use density from layer above in conversion
+                pvmzaer(:ncol,2:pverp) = pvmzaer(:ncol,2:pverp) * rho(:ncol,:)*gravit
 
-                   ! calculate the tendencies and sfc fluxes from the above velocities
-                   call dust_sediment_tend( &
-                        ncol,             dt,       state%pint(:,:), state%pmid, state%pdel, state%t , &
-                        fldcw(:,:),  pvmzaer,  dqdt_tmp(:,:), sflx  )
-                else   !use charlie's method
-                   call d3ddflux( ncol, vlc_dry(:,:,jvlc), fldcw(:,:), state%pmid, &
-                        state%pdel, tvs, sflx, dqdt_tmp(:,:), dt )
-                endif
+                ! calculate the tendencies and sfc fluxes from the above velocities
+                call oslo_aero_dust_sediment_tend(ncol, dt, state%pint(:,:), state%pmid, state%pdel, state%t, &
+                     fldcw(:,:), pvmzaer, dqdt_tmp(:,:), sflx)
 
                 ! apportion dry deposition into turb and gravitational settling for tapes
                 dep_trb = 0._r8
