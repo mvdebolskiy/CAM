@@ -15,7 +15,7 @@ module aero_model
   use physics_types,        only: physics_state, physics_ptend, physics_ptend_init
   use physics_buffer,       only: physics_buffer_desc
   use physics_buffer,       only: pbuf_get_field, pbuf_get_index, pbuf_set_field
-  use physconst,            only: gravit, rair, rhoh2o
+  use physconst,            only: gravit, rair, rhoh2o, pi
   use spmd_utils,           only: masterproc
   use time_manager,         only: get_nstep
   use cam_history,          only: outfld, fieldname_len, addfld, add_default, horiz_only
@@ -30,14 +30,17 @@ module aero_model
   !
   use oslo_aero_depos,      only: oslo_aero_depos_init, oslo_aero_depos_dry, oslo_aero_depos_wet
   use oslo_aero_coag,       only: coagtend, clcoag
-  use oslo_utils,           only: calculateNumberConcentration
+  use oslo_aero_coag,       only: initializeCoagulationReceivers
+  use oslo_aero_coag,       only: initializeCoagulationCoefficients
+  use oslo_aero_coag,       only: initializeCoagulationOutput
+  use oslo_aero_utils,      only: calculateNumberConcentration
+  use oslo_aero_condtend,   only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4
+  use oslo_aero_condtend,   only: registerCondensation, initializeCondensation, condtend
   use aerosoldef,           only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
   use aerosoldef,           only: qqcw_get_field, numberOfProcessModeTracers
   use aerosoldef,           only: lifeCycleNumberMedianRadius
   use aerosoldef,           only: getCloudTracerName
   use aerosoldef,           only: aero_register
-  use oslo_aero_condtend,   only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4
-  use oslo_aero_condtend,   only: registerCondensation, initializeCondensation, condtend
   use sox_cldaero_mod,      only: sox_cldaero_init
   use oslo_aero_interp_log, only: initlogn
   use seasalt_model,        only: seasalt_init, seasalt_emis, seasalt_active
@@ -66,7 +69,7 @@ module aero_model
   public :: aero_model_surfarea       ! tropopspheric aerosol wet surface area for chemistry
   public :: aero_model_strat_surfarea ! stratospheric aerosol wet surface area for chemistry
 
-  private :: constants
+  private :: aero_model_constants
 
   ! Misc private data
   integer :: nmodes ! number of modes
@@ -157,7 +160,7 @@ contains
 
     call phys_getopts(history_aerosol_out=history_aerosol, convproc_do_aer_out=convproc_do_aer)
 
-    call constants
+    call aero_model_constants
     call initopt
     call initlogn
     call initopt_lw
@@ -714,21 +717,17 @@ contains
   end subroutine vmr2qqcw
 
   !=============================================================================
-  subroutine constants
+  subroutine aero_model_constants()
     !
     ! A number of constants used in the emission and size-calculation in CAM-Oslo Jan 2011.
     ! Updated by Alf Kirkev May 2013
     ! Updated by Alf Grini February 2014
-    !
-    use shr_kind_mod, only: r8 => shr_kind_r8
-    use physconst,    only: pi
+
     use const
     use aerosoldef
-    use oslo_aero_coag, only : initializeCoagulationReceivers
-    use oslo_aero_coag, only : initializeCoagulationCoefficients
-    use oslo_aero_coag, only : initializeCoagulationOutput
-    use oslo_utils
+    use oslo_aero_utils
 
+    ! local variables
     integer  :: kcomp,i
     real(r8) :: rhob(0:nmodes) !density of background aerosol in mode
     real(r8) :: rhorbc         !This has to do with fractal dimensions of bc, come back to this!!
@@ -759,7 +758,6 @@ contains
                *DEXP(log(lifeCycleSigma(i))*log(lifeCycleSigma(i)))
        end if
     end do
-
 
     !Find radius in edges and midpoints of bin
     rBinEdge(1) = rTabMin
@@ -828,6 +826,7 @@ contains
     call initializeCoagulationCoefficients(rhob, lifeCycleNumberMedianRadius)
 
     call initializeCoagulationOutput()
-  end subroutine constants
+
+  end subroutine aero_model_constants
 
 end module aero_model

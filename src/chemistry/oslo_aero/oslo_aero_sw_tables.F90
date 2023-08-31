@@ -44,7 +44,6 @@ module oslo_aero_sw_tables
   use lininterpol_mod   , only: lininterpol3dim, lininterpol4dim, lininterpol5dim
 
   implicit none
-
   private
 
   ! Interfaces

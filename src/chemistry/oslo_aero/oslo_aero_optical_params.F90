@@ -3,20 +3,20 @@ module oslo_aero_optical_params
   ! Optical parameters for a composite aerosol is calculated by interpolation
   ! from the tables kcomp1.out-kcomp14.out.
 
-  use ppgrid
-  use shr_kind_mod,   only: r8 => shr_kind_r8
-  use cam_history,    only: outfld
-  use constituents,   only: pcnst
-  use physconst,      only: rair,pi
-  use physics_types,  only: physics_state
-  use wv_saturation,  only: qsat_water
+  use shr_kind_mod,    only: r8 => shr_kind_r8
+  use ppgrid,          only: pcols, pver, pverp 
+  use constituents,    only: pcnst
+  use cam_history,     only: outfld
+  use physconst,       only: rair,pi
+  use physics_types,   only: physics_state
+  use wv_saturation,   only: qsat_water
   !
-  use oslo_utils,     only: calculateNumberConcentration
-  use oslo_aero_conc, only: calculateBulkProperties, partitionMass
+  use oslo_aero_utils, only: calculateNumberConcentration
+  use oslo_aero_conc,  only: calculateBulkProperties, partitionMass
+  use oslo_aero_sw_tables
   use commondefinitions
   use const
   use aerosoldef
-  use oslo_aero_sw_tables
 
   implicit none
   private
@@ -188,12 +188,12 @@ contains
     ! Avoid very small numbers
     do k=1,pver
        do icol=1,ncol
-          Ca(icol,k)        = max(eps,Ca(icol,k))
-          f_c(icol,k)       = max(eps,f_c(icol,k))
-          f_bc(icol,k)      = max(eps,f_bc(icol,k))
-          f_aq(icol,k)      = max(eps,f_aq(icol,k))
-          fnbc(icol,k)      = max(eps,fnbc(icol,k))
-          faitbc(icol,k)    = max(eps,faitbc(icol,k))
+          Ca(icol,k)     = max(eps,Ca(icol,k))
+          f_c(icol,k)    = max(eps,f_c(icol,k))
+          f_bc(icol,k)   = max(eps,f_bc(icol,k))
+          f_aq(icol,k)   = max(eps,f_aq(icol,k))
+          fnbc(icol,k)   = max(eps,fnbc(icol,k))
+          faitbc(icol,k) = max(eps,faitbc(icol,k))
        end do
     end do
 
@@ -230,7 +230,6 @@ contains
          focm, fcm, xfac, ifac1, fbcm, xfbc, ifbc1, faqm, xfaq, ifaq1)
 
     ! (Wet) Optical properties for each of the aerosol modes:
-
     lw_on = .true.  ! No LW optics needed for RH=0 (interpol returns 0-values)
 
     ! BC(ax) mode (dry only):
@@ -523,8 +522,5 @@ contains
     call outfld('BVISVOLC',bevisvolc ,pcols,lchnk)
 
   end subroutine oslo_aero_optical_params_calc
-
-
-
 
 end module oslo_aero_optical_params

@@ -6,10 +6,10 @@ module oslo_aero_conc
   use constituents ,        only: pcnst, cnst_name
   !
   use oslo_aero_interp_log, only: intlog1to3_sub, intlog4_sub, intlog5to10_sub
-  use oslo_utils,           only: calculateNumberConcentration
-  use const,                only: smallNumber, volumeToNumber,smallNumber
+  use oslo_aero_utils,      only: calculateNumberConcentration
   use oslo_aero_coag,       only: normalizedCoagulationSink
   use oslo_aero_condtend,   only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
+  use const,                only: smallNumber, volumeToNumber,smallNumber
   use commondefinitions
   use aerosoldef
 

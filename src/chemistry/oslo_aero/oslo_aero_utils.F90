@@ -1,12 +1,13 @@
-module oslo_utils
+module oslo_aero_utils
 
   use shr_kind_mod,      only: r8 => shr_kind_r8
   use ppgrid,            only: pcols, pver
+  use physconst,         only: pi
   use constituents,      only: pcnst
+  !
   use aerosoldef,        only: getDryDensity, getNumberOfBackgroundTracersInMode, getTracerIndex
   use const,             only: volumeToNumber, rbinMidPoint, rbinEdge, nBinsTab, nmodes
   use commondefinitions, only: originalNumberMedianRadius
-  use physconst,         only: pi
 
   implicit none
   private
@@ -23,11 +24,13 @@ contains
 
   subroutine calculateNumberConcentration(ncol, q, rho_air, numberConcentration)
 
-    integer, intent(in)   :: ncol                                !number of columns used
-    real(r8), intent(in)  :: q(pcols,pver,pcnst)                 ![kg/kg] mass mixing ratios
-    real(r8), intent(in)  :: rho_air(pcols,pver)                 ![kg/m3] air density
-    real(r8), intent(out) :: numberConcentration(pcols,pver,0:nmodes)   ![#/m3] number concentration
+    ! arguments
+    integer  , intent(in)  :: ncol                                     !number of columns used
+    real(r8) , intent(in)  :: q(pcols,pver,pcnst)                      ![kg/kg] mass mixing ratios
+    real(r8) , intent(in)  :: rho_air(pcols,pver)                      ![kg/m3] air density
+    real(r8) , intent(out) :: numberConcentration(pcols,pver,0:nmodes) ![#/m3] number concentration
 
+    ! local variables
     integer :: m, l, mm, k
 
     numberConcentration(:,:,:) = 0.0_r8
@@ -164,4 +167,4 @@ contains
 
   end function calculateLognormalCDF
 
-end module oslo_utils
+end module oslo_aero_utils

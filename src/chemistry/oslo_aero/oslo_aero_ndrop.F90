@@ -21,7 +21,7 @@ module oslo_aero_ndrop
   use cam_abortutils,    only: endrun
   use cam_logfile,       only: iulog
   !
-  use oslo_utils,        only: calculateNumberMedianRadius
+  use oslo_aero_utils,   only: calculateNumberMedianRadius
   use aerosoldef,        only: getNumberOfTracersInMode, getNumberOfAerosolTracers, getTracerIndex
   use aerosoldef,        only: getCloudTracerName, getCloudTracerIndex, getConstituentFraction
   use aerosoldef,        only: fillAerosolTracerList, fillInverseAerosolTracerList 

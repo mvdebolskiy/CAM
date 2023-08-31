@@ -30,8 +30,8 @@ module oslo_aero_hetfrz
   use error_messages,    only: handle_errmsg, alloc_err
   use cam_abortutils,    only: endrun
   !
+  use oslo_aero_utils,   only: CalculateNumberConcentration, calculateNumberMedianRadius
   use commondefinitions, only: nmodes_oslo => nmodes
-  use oslo_utils,        only: CalculateNumberConcentration, calculateNumberMedianRadius
   use aerosoldef,        only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_OMBC_INTMIX_COAT_AIT
   use aerosoldef,        only: getNumberOfTracersInMode, getTracerIndex
   use aerosoldef,        only: qqcw_get_field

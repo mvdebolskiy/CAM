@@ -21,30 +21,32 @@ module microp_aero
   !
   !---------------------------------------------------------------------------------
 
-  use shr_kind_mod,      only: r8=>shr_kind_r8
-  use spmd_utils,        only: masterproc
-  use ppgrid,            only: pcols, pver, pverp
-  use ref_pres,          only: top_lev => trop_cloud_top_lev
-  use physconst,         only: rair
-  use constituents,      only: cnst_get_ind, pcnst
-  use physics_types,     only: physics_state, physics_ptend, physics_ptend_init, physics_ptend_sum
-  use physics_types,     only: physics_state_copy, physics_update
-  use physics_buffer,    only: physics_buffer_desc, pbuf_get_index, pbuf_old_tim_idx, pbuf_get_field
-  use phys_control,      only: phys_getopts, use_hetfrz_classnuc
-  use rad_constituents,  only: rad_cnst_get_info, rad_cnst_get_aer_mmr, rad_cnst_get_aer_props, rad_cnst_get_mode_num
-  use oslo_aero_ndrop,   only: ndrop_init_oslo, dropmixnuc_oslo
-  use ndrop_bam,         only: ndrop_bam_init, ndrop_bam_run, ndrop_bam_ccn
-  use cam_history,       only: addfld, add_default, outfld
-  use cam_logfile,       only: iulog
+  use shr_kind_mod,           only: r8=>shr_kind_r8
+  use spmd_utils,             only: masterproc
+  use ppgrid,                 only: pcols, pver, pverp
+  use ref_pres,               only: top_lev => trop_cloud_top_lev
+  use physconst,              only: rair
+  use constituents,           only: cnst_get_ind, pcnst
+  use physics_types,          only: physics_state, physics_ptend, physics_ptend_init, physics_ptend_sum
+  use physics_types,          only: physics_state_copy, physics_update
+  use physics_buffer,         only: physics_buffer_desc, pbuf_get_index, pbuf_old_tim_idx, pbuf_get_field
+  use phys_control,           only: phys_getopts, use_hetfrz_classnuc
+  use rad_constituents,       only: rad_cnst_get_info, rad_cnst_get_aer_mmr, rad_cnst_get_aer_props, rad_cnst_get_mode_num
+  use ndrop_bam,              only: ndrop_bam_init, ndrop_bam_run, ndrop_bam_ccn
+  use cam_history,            only: addfld, add_default, outfld
+  use cam_logfile,            only: iulog
   !
-  use commondefinitions, only: nmodes_oslo => nmodes
-  use aerosoldef,        only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_SO4_AC, MODE_IDX_OMBC_INTMIX_COAT_AIT
-  use aerosoldef,        only: lifeCycleNumberMedianRadius, l_dst_a2, l_dst_a3, l_bc_ai
-  use aerosoldef,        only: getNumberOfTracersInMode, getTracerIndex, getCloudTracerIndex
-  use oslo_utils,        only: CalculateNumberConcentration
-  use oslo_aero_conc
-  use oslo_aero_hetfrz
-  use oslo_aero_nucleate_ice
+  use oslo_aero_utils,        only: CalculateNumberConcentration
+  use oslo_aero_ndrop,        only: ndrop_init_oslo, dropmixnuc_oslo
+  use oslo_aero_conc,         only: oslo_aero_conc_calc
+  use oslo_aero_hetfrz,       only: hetfrz_classnuc_oslo_register, hetfrz_classnuc_oslo_init, hetfrz_classnuc_oslo_readnl
+  use oslo_aero_hetfrz,       only: hetfrz_classnuc_oslo_calc, hetfrz_classnuc_oslo_save_cbaero
+  use oslo_aero_nucleate_ice, only: nucleate_ice_oslo_register, nucleate_ice_oslo_init, nucleate_ice_oslo_readnl
+  use oslo_aero_nucleate_ice, only: nucleate_ice_oslo_calc, use_preexisting_ice
+  use commondefinitions,      only: nmodes_oslo => nmodes
+  use aerosoldef,             only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_SO4_AC, MODE_IDX_OMBC_INTMIX_COAT_AIT
+  use aerosoldef,             only: lifeCycleNumberMedianRadius, l_dst_a2, l_dst_a3, l_bc_ai
+  use aerosoldef,             only: getNumberOfTracersInMode, getTracerIndex, getCloudTracerIndex
 
   implicit none
   private
@@ -106,7 +108,7 @@ module microp_aero
 
   integer :: npccn_idx, rndst_idx, nacon_idx
 
-  logical  :: separate_dust = .false.
+  logical :: separate_dust = .false.
 
   !=========================================================================================
 contains
