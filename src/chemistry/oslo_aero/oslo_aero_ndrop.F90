@@ -1,36 +1,47 @@
-module ndrop
+module oslo_aero_ndrop
 
   !---------------------------------------------------------------------------------
-  ! Purpose:
-  !   CAM Interface for droplet activation by modal aerosols
+  !  Droplet activation by oslo modal aerosols
+  !  Compute vertical diffusion and nucleation of cloud droplets
   !---------------------------------------------------------------------------------
 
-  use shr_kind_mod,     only: r8 => shr_kind_r8
-  use spmd_utils,       only: masterproc
-  use ppgrid,           only: pcols, pver, pverp
-  use physconst,        only: pi, rhoh2o, mwh2o, r_universal, rh2o
-  use physconst,        only: gravit, latvap, cpair, epsilo, rair
-  use constituents,     only: pcnst, cnst_get_ind, cnst_name, cnst_spec_class_gas, cnst_species_class
-  use physics_types,    only: physics_state, physics_ptend, physics_ptend_init
-  use physics_buffer,   only: physics_buffer_desc, pbuf_get_index, pbuf_get_field
-  use wv_saturation,    only: qsat
-  use phys_control,     only: phys_getopts
-  use ref_pres,         only: top_lev => trop_cloud_top_lev
-  use shr_spfn_mod,     only: erf => shr_spfn_erf
-  use cam_history,      only: addfld, add_default, horiz_only, fieldname_len, outfld
-  use cam_abortutils,   only: endrun
-  use cam_logfile,      only: iulog
-  use phys_control,     only: use_hetfrz_classnuc
+  use shr_kind_mod,      only: r8 => shr_kind_r8
+  use spmd_utils,        only: masterproc
+  use ppgrid,            only: pcols, pver, pverp
+  use physconst,         only: pi, rhoh2o, mwh2o, r_universal, rh2o
+  use physconst,         only: gravit, latvap, cpair, rair
+  use constituents,      only: pcnst, cnst_get_ind, cnst_name, cnst_spec_class_gas, cnst_species_class
+  use physics_types,     only: physics_state, physics_ptend, physics_ptend_init
+  use physics_buffer,    only: physics_buffer_desc, pbuf_get_index, pbuf_get_field
+  use wv_saturation,     only: qsat
+  use phys_control,      only: phys_getopts, use_hetfrz_classnuc
+  use ref_pres,          only: top_lev => trop_cloud_top_lev
+  use shr_spfn_mod,      only: erf => shr_spfn_erf
+  use cam_history,       only: addfld, add_default, horiz_only, fieldname_len, outfld
+  use cam_abortutils,    only: endrun
+  use cam_logfile,       only: iulog
   !
-  use aerosoldef
+  use oslo_utils,        only: calculateNumberMedianRadius
+  use aerosoldef,        only: getNumberOfTracersInMode, getNumberOfAerosolTracers, getTracerIndex
+  use aerosoldef,        only: getCloudTracerName, getCloudTracerIndex, getConstituentFraction
+  use aerosoldef,        only: fillAerosolTracerList, fillInverseAerosolTracerList 
   use commondefinitions, only: nmodes, nbmodes
   use const,             only: smallNumber
-  use oslo_utils,        only: calculateNumberMedianRadius
 
   implicit none
+  private
 
-  public :: ndrop_init, dropmixnuc, activate_modal
+  ! public routines
+  public :: ndrop_init_oslo
+  public :: dropmixnuc_oslo
 
+  ! private routines
+  private :: explmix_oslo
+  private :: maxsat_oslo
+  private :: ccncalc_oslo
+  private :: activate_modal_oslo
+
+  ! private variables
   real(r8) :: t0            ! reference temperature
   real(r8) :: aten
   real(r8) :: surften       ! surface tension of water w/respect to air (N/m)
@@ -39,10 +50,11 @@ module ndrop
   real(r8) :: sq2, sqpi
 
   integer,  parameter :: psat=7    ! number of supersaturations to calc ccn concentration
-  real(r8), parameter :: supersat(psat)= & ! supersaturation (%) to determine ccn concentration
-       (/ 0.02_r8, 0.05_r8, 0.1_r8, 0.15_r8, 0.2_r8, 0.5_r8, 1.0_r8 /)
-  character(len=8) :: ccn_name(psat)= &
-       (/'CCN1','CCN2','CCN3','CCN4','CCN5','CCN6','CCN7'/)
+
+  ! supersaturation (%) to determine ccn concentration
+  real(r8), parameter :: supersat(psat)= (/ 0.02_r8, 0.05_r8, 0.1_r8, 0.15_r8, 0.2_r8, 0.5_r8, 1.0_r8 /)
+
+  character(len=8) :: ccn_name(psat)= (/'CCN1','CCN2','CCN3','CCN4','CCN5','CCN6','CCN7'/)
 
   ! indices in state and pbuf structures
   integer :: numliq_idx = -1
@@ -88,7 +100,7 @@ module ndrop
 contains
 !===============================================================================
 
-  subroutine ndrop_init
+  subroutine ndrop_init_oslo()
 
     integer            :: ii, l, lptr, m, mm
     integer            :: nspec_max    ! max number of species in a mode
@@ -123,7 +135,7 @@ contains
     ! get info about the modal aerosols
     ! get ntot_amode
     ! TODO: make these local variables and don't allocate
-    ntot_amode = nmodes !from opttab
+    ntot_amode = nmodes
     allocate( &
          nspec_amode(ntot_amode),  &
          sigmag_amode(ntot_amode), &
@@ -148,11 +160,10 @@ contains
        ncnst_tot = ncnst_tot + nspec_amode(m) + 1
     end do
 
-    allocate( &
-         mam_idx(ntot_amode,0:nspec_max),      &
-         mam_cnst_idx(ntot_amode,0:nspec_max), &
-         fieldname(ncnst_tot),                 &
-         fieldname_cw(ncnst_tot)               )
+    allocate(mam_idx(ntot_amode,0:nspec_max))
+    allocate(mam_cnst_idx(ntot_amode,0:nspec_max))
+    allocate(fieldname(ncnst_tot))
+    allocate(fieldname_cw(ncnst_tot))
 
     ! Local indexing compresses the mode and number/mass indicies into one index.
     ! This indexing is used by the pointer arrays used to reference state and pbuf
@@ -168,18 +179,19 @@ contains
     ! Add dropmixnuc tendencies for all modal aerosol species
 
     call phys_getopts(history_amwg_out = history_amwg, &
-         history_aerosol_out = history_aerosol, &
-         prog_modal_aero_out=prog_modal_aero)
+         history_aerosol_out = history_aerosol, prog_modal_aero_out=prog_modal_aero)
 
     prog_modal_aero = .TRUE.
     n_aerosol_tracers = getNumberOfAerosolTracers()
     call fillAerosolTracerList(aerosolTracerList)
     call fillInverseAerosolTracerList(aerosolTracerList, inverseAerosolTracerList, n_aerosol_tracers)
-    do ii=1,n_aerosol_tracers
-       print*, "aerosolTracerList", ii, aerosolTracerList(ii), inverseAerosolTracerList(aerosolTracerList(ii))
-    end do
+    if (masterproc) then
+       do ii=1,n_aerosol_tracers
+          write(iulog,*) "aerosolTracerList", ii, aerosolTracerList(ii), inverseAerosolTracerList(aerosolTracerList(ii))
+       end do
+    end if
 
-    lq(:)=.FALSE.  !Initialize
+    lq(:) = .false.  !Initialize
 
     !Set up tendencies for tracers (output)
     do m=1,ntot_amode
@@ -252,76 +264,66 @@ contains
     call addfld('NDROPSNK', (/ 'lev' /), 'A', '#/kg/s', 'Droplet number loss by microphysics')
     call addfld('NDROPCOL', horiz_only,  'A', '#/m2', 'Column droplet number')
 
-  end subroutine ndrop_init
+  end subroutine ndrop_init_oslo
 
   !===============================================================================
 
-  subroutine dropmixnuc( &
-       state, ptend, dtmicro, pbuf, wsub,          &  ! Input
-       cldn, cldo, cldliqf,                        &
-       hasAerosol, &
-       CProcessModes, f_c, f_bc, f_aq, f_so4_cond, &
-       f_soa,                                      &
-       cam, f_acm, f_bcm, f_aqm, f_so4_condm,      &
-       f_soam,                                     &
-       numberConcentration, volumeConcentration,   &
-       hygroscopicity, lnsigma,                    &
-       tendnd,                                     &  ! Output
-       fn_in)
+  subroutine dropmixnuc_oslo( state, ptend, dtmicro, pbuf, wsub,                    &
+       cldn, cldo, cldliqf, hasAerosol, CProcessModes, f_c, f_bc, f_aq, f_so4_cond, &
+       f_soa, cam, f_acm, f_bcm, f_aqm, f_so4_condm, f_soam,                        &
+       numberConcentration, volumeConcentration,  hygroscopicity, lnsigma, tendnd, fn_in)
 
     ! vertical diffusion and nucleation of cloud droplets
     ! assume cloud presence controlled by cloud fraction
     ! doesn't distinguish between warm, cold clouds
 
     ! arguments
-    type(physics_state), target, intent(in)    :: state
-    type(physics_ptend),         intent(out)   :: ptend
-    real(r8),                    intent(in)    :: dtmicro     ! time step for microphysics (s)
-    type(physics_buffer_desc),   pointer       :: pbuf(:)
-    real(r8), intent(in) :: wsub(pcols,pver)    ! subgrid vertical velocity
-    real(r8), intent(in) :: cldn(pcols,pver)    ! cloud fraction
-    real(r8), intent(in) :: cldo(pcols,pver)    ! cloud fraction on previous time step
-    real(r8), intent(in) :: cldliqf(pcols,pver) ! liquid cloud fraction (liquid / (liquid + ice))
-    logical , intent(in) :: hasAerosol(pcols, pver, nmodes)
-    real(r8), intent(in) :: CProcessModes(pcols,pver)
-    real(r8), intent(in) :: cam(pcols,pver,nbmodes)
-    real(r8), intent(in) :: f_c(pcols,pver)
-    real(r8), intent(in) :: f_aq(pcols,pver)
-    real(r8), intent(in) :: f_bc(pcols,pver)
-    real(r8), intent(in) :: f_so4_cond(pcols,pver)
-    real(r8), intent(in) :: f_soa(pcols,pver)
-    real(r8), intent(in) :: f_acm(pcols,pver, nbmodes)
-    real(r8), intent(in) :: f_bcm(pcols,pver, nbmodes)
-    real(r8), intent(in) :: f_aqm(pcols, pver, nbmodes)
-    real(r8), intent(in) :: f_so4_condm(pcols, pver, nbmodes)            !Needed in "get component fraction
-    real(r8), intent(in) :: f_soam(pcols,pver,nbmodes)
-    real(r8), intent(in) :: numberConcentration(pcols,pver,0:nmodes) ![#/m3] number concentraiton
-    real(r8), intent(in) :: volumeConcentration(pcols,pver,nmodes)   ![m3/m3] volume concentration
-    real(r8), intent(in) :: hygroscopicity(pcols,pver,nmodes)        ![-] hygroscopicity
-    real(r8), intent(in) :: lnsigma(pcols,pver,nmodes)               ![-] log(base e) sigma
-    real(r8), intent(out) :: tendnd(pcols,pver) ! change in droplet number concentration (#/kg/s)
+    type(physics_state), target, intent(in)  :: state
+    type(physics_ptend),         intent(out) :: ptend
+    real(r8),                    intent(in)  :: dtmicro                                  ! time step for microphysics (s)
+    type(physics_buffer_desc),   pointer     :: pbuf(:)
+    real(r8),                    intent(in)  :: wsub(pcols,pver)                         ! subgrid vertical velocity
+    real(r8),                    intent(in)  :: cldn(pcols,pver)                         ! cloud fraction
+    real(r8),                    intent(in)  :: cldo(pcols,pver)                         ! cloud fraction on previous time step
+    real(r8),                    intent(in)  :: cldliqf(pcols,pver)                      ! liquid cloud fraction (liquid / (liquid + ice))
+    logical ,                    intent(in)  :: hasAerosol(pcols, pver, nmodes)
+    real(r8),                    intent(in)  :: CProcessModes(pcols,pver)
+    real(r8),                    intent(in)  :: f_c(pcols,pver)
+    real(r8),                    intent(in)  :: f_bc(pcols,pver)
+    real(r8),                    intent(in)  :: f_aq(pcols,pver)
+    real(r8),                    intent(in)  :: f_so4_cond(pcols,pver)
+    real(r8),                    intent(in)  :: f_soa(pcols,pver)
+    real(r8),                    intent(in)  :: cam(pcols,pver,nbmodes)
+    real(r8),                    intent(in)  :: f_acm(pcols,pver, nbmodes)
+    real(r8),                    intent(in)  :: f_bcm(pcols,pver, nbmodes)
+    real(r8),                    intent(in)  :: f_aqm(pcols, pver, nbmodes)
+    real(r8),                    intent(in)  :: f_so4_condm(pcols, pver, nbmodes)        !Needed in "get component fraction
+    real(r8),                    intent(in)  :: f_soam(pcols,pver,nbmodes)
+    real(r8),                    intent(in)  :: numberConcentration(pcols,pver,0:nmodes) ![#/m3] number concentraiton
+    real(r8),                    intent(in)  :: volumeConcentration(pcols,pver,nmodes)   ![m3/m3] volume concentration
+    real(r8),                    intent(in)  :: hygroscopicity(pcols,pver,nmodes)        ![-] hygroscopicity
+    real(r8),                    intent(in)  :: lnsigma(pcols,pver,nmodes)               ![-] log(base e) sigma
+    real(r8),                    intent(out) :: tendnd(pcols,pver)                       ! change in droplet number concentration (#/kg/s)
 
     ! Local variables
-    integer  :: lchnk               ! chunk identifier
-    integer  :: ncol                ! number of columns
-    real(r8), pointer :: ncldwtr(:,:) ! droplet number concentration (#/kg)
-    real(r8), pointer :: temp(:,:)    ! temperature (K)
-    real(r8), pointer :: omega(:,:)   ! vertical velocity (Pa/s)
-    real(r8), pointer :: pmid(:,:)    ! mid-level pressure (Pa)
-    real(r8), pointer :: pint(:,:)    ! pressure at layer interfaces (Pa)
-    real(r8), pointer :: pdel(:,:)    ! pressure thickess of layer (Pa)
-    real(r8), pointer :: rpdel(:,:)   ! inverse of pressure thickess of layer (/Pa)
-    real(r8), pointer :: zm(:,:)      ! geopotential height of level (m)
-
-    real(r8), pointer :: kvh(:,:)     ! vertical diffusivity (m2/s)
-
-    type(ptr2d_t), allocatable :: raer(:)     ! aerosol mass, number mixing ratios
+    integer  :: lchnk                           ! chunk identifier
+    integer  :: ncol                            ! number of columns
+    real(r8), pointer :: ncldwtr(:,:)           ! droplet number concentration (#/kg)
+    real(r8), pointer :: temp(:,:)              ! temperature (K)
+    real(r8), pointer :: omega(:,:)             ! vertical velocity (Pa/s)
+    real(r8), pointer :: pmid(:,:)              ! mid-level pressure (Pa)
+    real(r8), pointer :: pint(:,:)              ! pressure at layer interfaces (Pa)
+    real(r8), pointer :: pdel(:,:)              ! pressure thickess of layer (Pa)
+    real(r8), pointer :: rpdel(:,:)             ! inverse of pressure thickess of layer (/Pa)
+    real(r8), pointer :: zm(:,:)                ! geopotential height of level (m)
+    real(r8), pointer :: kvh(:,:)               ! vertical diffusivity (m2/s)
+    type(ptr2d_t), allocatable :: raer(:)       ! aerosol mass, number mixing ratios
     type(ptr2d_t), allocatable :: qqcw(:)
-    real(r8) :: raertend(pver)  ! tendency of aerosol mass, number mixing ratios
-    real(r8) :: qqcwtend(pver)  ! tendency of cloudborne aerosol mass, number mixing ratios
+    real(r8) :: raertend(pver)                  ! tendency of aerosol mass, number mixing ratios
+    real(r8) :: qqcwtend(pver)                  ! tendency of cloudborne aerosol mass, number mixing ratios
 
     real(r8), parameter :: zkmin = 0.01_r8, zkmax = 100._r8
-    real(r8), parameter :: wmixmin = 0.1_r8        ! minimum turbulence vertical velocity (m/s)
+    real(r8), parameter :: wmixmin = 0.1_r8     ! minimum turbulence vertical velocity (m/s)
     real(r8) :: sq2pi
 
     integer  :: i, k, l, m, mm, n
@@ -330,7 +332,7 @@ contains
     integer  :: lptr
     integer  :: nsubmix, nsubmix_bnd
     integer, save :: count_submix(100)
-    integer  :: phase ! phase of aerosol
+    integer  :: phase                           ! phase of aerosol
 
     real(r8) :: arg
     real(r8) :: dtinv
@@ -338,60 +340,60 @@ contains
     real(r8) :: lcldn(pcols,pver)
     real(r8) :: lcldo(pcols,pver)
 
-    real(r8) :: zs(pver) ! inverse of distance between levels (m)
-    real(r8) :: qcld(pver) ! cloud droplet number mixing ratio (#/kg)
-    real(r8) :: qncld(pver)     ! droplet number nucleated on cloud boundaries
-    real(r8) :: srcn(pver)       ! droplet source rate (/s)
-    real(r8) :: cs(pcols,pver)      ! air density (kg/m3)
-    real(r8) :: csbot(pver)       ! air density at bottom (interface) of layer (kg/m3)
-    real(r8) :: csbot_cscen(pver) ! csbot(i)/cs(i,k)
-    real(r8) :: dz(pcols,pver)      ! geometric thickness of layers (m)
+    real(r8) :: zs(pver)                        ! inverse of distance between levels (m)
+    real(r8) :: qcld(pver)                      ! cloud droplet number mixing ratio (#/kg)
+    real(r8) :: qncld(pver)                     ! droplet number nucleated on cloud boundaries
+    real(r8) :: srcn(pver)                      ! droplet source rate (/s)
+    real(r8) :: cs(pcols,pver)                  ! air density (kg/m3)
+    real(r8) :: csbot(pver)                     ! air density at bottom (interface) of layer (kg/m3)
+    real(r8) :: csbot_cscen(pver)               ! csbot(i)/cs(i,k)
+    real(r8) :: dz(pcols,pver)                  ! geometric thickness of layers (m)
 
-    real(r8) :: wtke(pcols,pver)     ! turbulent vertical velocity at base of layer k (m/s)
-    real(r8) :: wtke_cen(pcols,pver) ! turbulent vertical velocity at center of layer k (m/s)
+    real(r8) :: wtke(pcols,pver)                ! turbulent vertical velocity at base of layer k (m/s)
+    real(r8) :: wtke_cen(pcols,pver)            ! turbulent vertical velocity at center of layer k (m/s)
     real(r8) :: wbar, wmix, wmin, wmax
 
-    real(r8) :: zn(pver)   ! g/pdel (m2/g) for layer
-    real(r8) :: flxconv    ! convergence of flux into lowest layer
+    real(r8) :: zn(pver)                        ! g/pdel (m2/g) for layer
+    real(r8) :: flxconv                         ! convergence of flux into lowest layer
 
-    real(r8) :: wdiab           ! diabatic vertical velocity
-    real(r8) :: ekd(pver)       ! diffusivity for droplets (m2/s)
-    real(r8) :: ekk(0:pver)     ! density*diffusivity for droplets (kg/m3 m2/s)
-    real(r8) :: ekkp(pver)      ! zn*zs*density*diffusivity
-    real(r8) :: ekkm(pver)      ! zn*zs*density*diffusivity
+    real(r8) :: wdiab                           ! diabatic vertical velocity
+    real(r8) :: ekd(pver)                       ! diffusivity for droplets (m2/s)
+    real(r8) :: ekk(0:pver)                     ! density*diffusivity for droplets (kg/m3 m2/s)
+    real(r8) :: ekkp(pver)                      ! zn*zs*density*diffusivity
+    real(r8) :: ekkm(pver)                      ! zn*zs*density*diffusivity
 
     real(r8) :: dum, dumc
     real(r8) :: tmpa
     real(r8) :: dact
-    real(r8) :: fluxntot         ! (#/cm2/s)
+    real(r8) :: fluxntot                        ! (#/cm2/s)
     real(r8) :: dtmix
     real(r8) :: alogarg
-    real(r8) :: overlapp(pver), overlapm(pver) ! cloud overlap
+    real(r8) :: overlapp(pver), overlapm(pver)  ! cloud overlap
 
-    real(r8) :: nsource(pcols,pver)            ! droplet number source (#/kg/s)
-    real(r8) :: ndropmix(pcols,pver)           ! droplet number mixing (#/kg/s)
-    real(r8) :: ndropcol(pcols)               ! column droplet number (#/m2)
+    real(r8) :: nsource(pcols,pver)             ! droplet number source (#/kg/s)
+    real(r8) :: ndropmix(pcols,pver)            ! droplet number mixing (#/kg/s)
+    real(r8) :: ndropcol(pcols)                 ! column droplet number (#/m2)
     real(r8) :: cldo_tmp, cldn_tmp
     real(r8) :: tau_cld_regenerate
     real(r8) :: zeroaer(pver)
-    real(r8) :: taumix_internal_pver_inv ! 1/(internal mixing time scale for k=pver) (1/s)
+    real(r8) :: taumix_internal_pver_inv        ! 1/(internal mixing time scale for k=pver) (1/s)
 
-    real(r8), allocatable :: nact(:,:)  ! fractional aero. number  activation rate (/s)
-    real(r8), allocatable :: mact(:,:)  ! fractional aero. mass    activation rate (/s)
+    real(r8), allocatable :: nact(:,:)          ! fractional aero. number  activation rate (/s)
+    real(r8), allocatable :: mact(:,:)          ! fractional aero. mass    activation rate (/s)
 
-    real(r8), allocatable :: raercol(:,:,:)    ! single column of aerosol mass, number mixing ratios
-    real(r8), allocatable :: raercol_cw(:,:,:) ! same as raercol but for cloud-borne phase
+    real(r8), allocatable :: raercol(:,:,:)     ! single column of aerosol mass, number mixing ratios
+    real(r8), allocatable :: raercol_cw(:,:,:)  ! same as raercol but for cloud-borne phase
 
-    !to avoid excessive calls to boundary layer scheme
+                                                !to avoid excessive calls to boundary layer scheme
     real(r8), allocatable :: raercol_tracer(:,:,:)
     real(r8), allocatable :: raercol_cw_tracer(:,:,:)
     real(r8), allocatable :: mact_tracer(:,:)
     real(r8), allocatable :: mfullact_tracer(:,:)
 
     real(r8)              :: na(pcols), va(pcols), hy(pcols)
-    real(r8), allocatable :: naermod(:)  ! (1/m3)
-    real(r8), allocatable :: hygro(:)    ! hygroscopicity of aerosol mode
-    real(r8), allocatable :: vaerosol(:) ! interstit+activated aerosol volume conc (cm3/cm3)
+    real(r8), allocatable :: naermod(:)         ! (1/m3)
+    real(r8), allocatable :: hygro(:)           ! hygroscopicity of aerosol mode
+    real(r8), allocatable :: vaerosol(:)        ! interstit+activated aerosol volume conc (cm3/cm3)
 
     real(r8)              :: source(pver)
 
@@ -796,7 +798,7 @@ contains
 
           if (cldn_tmp-cldo_tmp > 0.01_r8) then
 
-             ! rce-comment - use wtke at layer centers for new-cloud activation
+             ! use wtke at layer centers for new-cloud activation
              wbar  = wtke_cen(i,k)
              wmix  = 0._r8
              wmin  = 0._r8
@@ -804,15 +806,14 @@ contains
              wdiab = 0._r8
 
              ! load aerosol properties, assuming external mixtures
-
              naermod(:) = 0.0_r8
              vaerosol(:) = 0.0_r8
              hygro(:) = 0.0_r8
              lnsigman(:) = log(2.0_r8)
 
-             m=0
+             m = 0
              do kcomp = 1,nmodes
-                if(hasAerosol(i,k,kcomp) .eqv. .TRUE.)then
+                if(hasAerosol(i,k,kcomp)) then
                    m = m + 1
                    naermod(m) = numberConcentration(i,k,kcomp)
                    vaerosol(m) = volumeConcentration(i,k,kcomp)
@@ -822,17 +823,16 @@ contains
                 end if
              end do
              numberOfModes = m
-             !Call the activation procedure
-             if(numberOfModes .gt. 0)then
+
+             ! Call the activation procedure
+             if (numberOfModes .gt. 0)then
                 if (use_hetfrz_classnuc) then
-                   call activate_modal( &
-                        wbar, wmix, wdiab, wmin, wmax,                       &
+                   call activate_modal_oslo( wbar, wmix, wdiab, wmin, wmax,       &
                         temp(i,k), cs(i,k), naermod, numberOfModes,          &
                         vaerosol, hygro, fn_in(i,k,1:nmodes), fm, fluxn,     &
                         fluxm, flux_fullact(k), lnsigman)
                 else
-                   call activate_modal( &
-                        wbar, wmix, wdiab, wmin, wmax,                       &
+                   call activate_modal_oslo( wbar, wmix, wdiab, wmin, wmax,       &
                         temp(i,k), cs(i,k), naermod, numberOfModes,          &
                         vaerosol, hygro, fn, fm, fluxn,                      &
                         fluxm, flux_fullact(k), lnsigman)
@@ -898,12 +898,11 @@ contains
        ! ......................................................................
        ! start of k-loop for calc of old cloud activation tendencies ..........
        !
-       ! rce-comment
-       !    changed this part of code to use current cloud fraction (cldn) exclusively
-       !    consider case of cldo(:)=0, cldn(k)=1, cldn(k+1)=0
-       !    previous code (which used cldo below here) would have no cloud-base activation
-       !       into layer k.  however, activated particles in k mix out to k+1,
-       !       so they are incorrectly depleted with no replacement
+       ! use current cloud fraction (cldn) exclusively
+       ! consider case of cldo(:)=0, cldn(k)=1, cldn(k+1)=0
+       ! previous code (which used cldo below here) would have no cloud-base activation
+       ! into layer k.  however, activated particles in k mix out to k+1,
+       ! so they are incorrectly depleted with no replacement
 
        ! old_cloud_main_k_loop
        do k = top_lev, pver
@@ -958,21 +957,15 @@ contains
                 numberOfModes = m
                 if(numberOfModes .gt. 0)then
                    if (use_hetfrz_classnuc) then
-                      call activate_modal( &
-                           wbar, wmix, wdiab, wmin, wmax,                       &
-                           temp(i,k), cs(i,k), naermod, numberOfModes , &
-                           vaerosol, hygro, fn_in(i,k,:), fm, fluxn,                      &
-                           fluxm, flux_fullact(k)                       &
-                           ,lnsigman                                    &
-                           )
+                      call activate_modal_oslo(wbar, wmix, wdiab, wmin, wmax, &
+                           temp(i,k), cs(i,k), naermod, numberOfModes ,  &
+                           vaerosol, hygro, fn_in(i,k,:), fm, fluxn,     &
+                           fluxm, flux_fullact(k), lnsigman)
                    else
-                      call activate_modal( &
-                           wbar, wmix, wdiab, wmin, wmax,                       &
-                           temp(i,k), cs(i,k), naermod, numberOfModes , &
-                           vaerosol, hygro, fn, fm, fluxn,                      &
-                           fluxm, flux_fullact(k)                       &
-                           ,lnsigman                                    &
-                           )
+                      call activate_modal_oslo(wbar, wmix, wdiab, wmin, wmax, &
+                           temp(i,k), cs(i,k), naermod, numberOfModes ,  &
+                           vaerosol, hygro, fn, fm, fluxn,               &
+                           fluxm, flux_fullact(k), lnsigman)
                    end if
                 endif
 
@@ -1012,34 +1005,32 @@ contains
 
                 fluxntot = 0.0_r8
 
-                ! rce-comment 1
-                !    flux of activated mass into layer k (in kg/m2/s)
-                !       = "actmassflux" = dumc*fluxm*raercol(kp1,lmass)*csbot(k)
-                !    source of activated mass (in kg/kg/s) = flux divergence
-                !       = actmassflux/(cs(i,k)*dz(i,k))
-                !    so need factor of csbot_cscen = csbot(k)/cs(i,k)
-                !                   dum=1./(dz(i,k))
+                ! flux of activated mass into layer k (in kg/m2/s)
+                !    = "actmassflux" = dumc*fluxm*raercol(kp1,lmass)*csbot(k)
+                ! source of activated mass (in kg/kg/s) = flux divergence
+                !    = actmassflux/(cs(i,k)*dz(i,k))
+                ! so need factor of csbot_cscen = csbot(k)/cs(i,k)
+                !                            dum=1./(dz(i,k))
                 dum=csbot_cscen(k)/(dz(i,k))
 
-                ! rce-comment 2
-                !    code for k=pver was changed to use the following conceptual model
-                !    in k=pver, there can be no cloud-base activation unless one considers
-                !       a scenario such as the layer being partially cloudy,
-                !       with clear air at bottom and cloudy air at top
-                !    assume this scenario, and that the clear/cloudy portions mix with
-                !       a timescale taumix_internal = dz(i,pver)/wtke_cen(i,pver)
-                !    in the absence of other sources/sinks, qact (the activated particle
-                !       mixratio) attains a steady state value given by
-                !          qact_ss = fcloud*fact*qtot
-                !       where fcloud is cloud fraction, fact is activation fraction,
-                !       qtot=qact+qint, qint is interstitial particle mixratio
-                !    the activation rate (from mixing within the layer) can now be
-                !       written as
-                !          d(qact)/dt = (qact_ss - qact)/taumix_internal
-                !                     = qtot*(fcloud*fact*wtke/dz) - qact*(wtke/dz)
-                !    note that (fcloud*fact*wtke/dz) is equal to the nact/mact
-                !    also, d(qact)/dt can be negative.  in the code below
-                !       it is forced to be >= 0
+                ! code for k=pver was changed to use the following conceptual model
+                ! in k=pver, there can be no cloud-base activation unless one considers
+                !    a scenario such as the layer being partially cloudy,
+                !    with clear air at bottom and cloudy air at top
+                ! assume this scenario, and that the clear/cloudy portions mix with
+                !    a timescale taumix_internal = dz(i,pver)/wtke_cen(i,pver)
+                ! in the absence of other sources/sinks, qact (the activated particle
+                !    mixratio) attains a steady state value given by
+                !       qact_ss = fcloud*fact*qtot
+                !    where fcloud is cloud fraction, fact is activation fraction,
+                !    qtot=qact+qint, qint is interstitial particle mixratio
+                ! the activation rate (from mixing within the layer) can now be
+                !    written as
+                !       d(qact)/dt = (qact_ss - qact)/taumix_internal
+                !                  = qtot*(fcloud*fact*wtke/dz) - qact*(wtke/dz)
+                ! note that (fcloud*fact*wtke/dz) is equal to the nact/mact
+                ! also, d(qact)/dt can be negative.  in the code below
+                !    it is forced to be >= 0
                 !
                 ! steve --
                 !    you will likely want to change this.  i did not really understand
@@ -1077,7 +1068,6 @@ contains
           else  ! i.e: cldn(i,k) < 0.01_r8
 
              ! no liquid cloud
-
              nsource(i,k) = nsource(i,k) - qcld(k)*dtinv
              qcld(k)      = 0.0_r8
 
@@ -1109,8 +1099,8 @@ contains
 
        ! load new droplets in layers above, below clouds
 
-       dtmin     = dtmicro
-       ekk(top_lev-1)    = 0.0_r8
+       dtmin = dtmicro
+       ekk(top_lev-1) = 0.0_r8
        ekk(pver) = 0.0_r8
        do k = top_lev, pver-1
           ! rce-comment -- ekd(k) is eddy-diffusivity at k/k+1 interface
@@ -1170,8 +1160,6 @@ contains
           end if
        end do
 
-
-       ! rce-comment
        !    the activation source(k) = mact(k,m)*raercol(kp1,lmass)
        !       should not exceed the rate of transfer of unactivated particles
        !       from kp1 to k which = ekkp(k)*raercol(kp1,lmass)
@@ -1209,8 +1197,7 @@ contains
        end do    !m
 
        do lptr2=1,n_aerosol_tracers
-          mact_tracer(:,lptr2) = mact_tracer(:,lptr2)  &
-               /(mfullact_tracer(:,lptr2) + smallNumber)
+          mact_tracer(:,lptr2) = mact_tracer(:,lptr2) /(mfullact_tracer(:,lptr2) + smallNumber)
        end do
 
        ! old_cloud_nsubmix_loop
@@ -1239,10 +1226,8 @@ contains
           end do
 
           !mixing of cloud droplets
-          call explmix(  &
-               qcld, srcn, ekkp, ekkm, overlapp,  &
-               overlapm, qncld, zero, zero, pver, &
-               dtmix, .false.)
+          call explmix_oslo(qcld, srcn, ekkp, ekkm, overlapp,  &
+               overlapm, qncld, zero, zero, pver, dtmix, .false.)
 
           !Mix number concentrations consistently!!
           do m = 1, ntot_amode
@@ -1257,15 +1242,11 @@ contains
              source(pver) = max(0.0_r8, tmpa)
              flxconv = 0._r8
 
-             call explmix( &
-                  raercol_cw(:,mm,nnew), source, ekkp, ekkm, overlapp, &
-                  overlapm, raercol_cw(:,mm,nsav), zero, zero, pver,   &
-                  dtmix, .false.)
+             call explmix_oslo( raercol_cw(:,mm,nnew), source, ekkp, ekkm, overlapp, &
+                  overlapm, raercol_cw(:,mm,nsav), zero, zero, pver, dtmix, .false.)
 
-             call explmix( &
-                  raercol(:,mm,nnew), source, ekkp, ekkm, overlapp,  &
-                  overlapm, raercol(:,mm,nsav), zero, flxconv, pver, &
-                  dtmix, .true., raercol_cw(:,mm,nsav))
+             call explmix_oslo( raercol(:,mm,nnew), source, ekkp, ekkm, overlapp,  &
+                  overlapm, raercol(:,mm,nsav), zero, flxconv, pver, dtmix, .true., raercol_cw(:,mm,nsav))
           end do
 
           do lptr2=1,n_aerosol_tracers
@@ -1278,15 +1259,12 @@ contains
              source(pver) = max(0.0_r8, tmpa)
              flxconv = 0.0_r8
 
-             call explmix( &
-                  raercol_cw_tracer(:,lptr2,nnew), source, ekkp, ekkm, overlapp, &
-                  overlapm, raercol_cw_tracer(:,lptr2,nsav), zero, zero, pver,   &
-                  dtmix, .false.)
+             call explmix_oslo(raercol_cw_tracer(:,lptr2,nnew), source, ekkp, ekkm, overlapp, &
+                  overlapm, raercol_cw_tracer(:,lptr2,nsav), zero, zero, pver,  dtmix, .false.)
 
-             call explmix( &
-                  raercol_tracer(:,lptr2,nnew), source, ekkp, ekkm, overlapp,  &
-                  overlapm, raercol_tracer(:,lptr2,nsav), zero, flxconv, pver, &
-                  dtmix, .true., raercol_cw_tracer(:,lptr2,nsav))
+             call explmix_oslo(raercol_tracer(:,lptr2,nnew), source, ekkp, ekkm, overlapp,  &
+                  overlapm, raercol_tracer(:,lptr2,nsav), zero, flxconv, pver, dtmix, .true., &
+                  raercol_cw_tracer(:,lptr2,nsav))
 
           end do !Number of aerosol tracers
        end do ! old_cloud_nsubmix_loop
@@ -1476,40 +1454,37 @@ contains
     deallocate(mact_tracer)
     deallocate(mfullact_tracer)
 
-  end subroutine dropmixnuc
+  end subroutine dropmixnuc_oslo
 
   !===============================================================================
 
-  subroutine explmix( q, src, ekkp, ekkm, overlapp, overlapm, &
+  subroutine explmix_oslo( q, src, ekkp, ekkm, overlapp, overlapm, &
        qold, surfrate, flxconv, pver, dt, is_unact, qactold )
 
-    !  explicit integration of droplet/aerosol mixing
-    !     with source due to activation/nucleation
+    ! explicit integration of droplet/aerosol mixing with source due to activation/nucleation
 
-
-    integer, intent(in) :: pver ! number of levels
-    real(r8), intent(out) :: q(pver) ! mixing ratio to be updated
-    real(r8), intent(in) :: qold(pver) ! mixing ratio from previous time step
-    real(r8), intent(in) :: src(pver) ! source due to activation/nucleation (/s)
-    real(r8), intent(in) :: ekkp(pver) ! zn*zs*density*diffusivity (kg/m3 m2/s) at interface
-    ! below layer k  (k,k+1 interface)
-    real(r8), intent(in) :: ekkm(pver) ! zn*zs*density*diffusivity (kg/m3 m2/s) at interface
-    ! above layer k  (k,k+1 interface)
+    integer,  intent(in) :: pver           ! number of levels
+    real(r8), intent(out):: q(pver)        ! mixing ratio to be updated
+    real(r8), intent(in) :: qold(pver)     ! mixing ratio from previous time step
+    real(r8), intent(in) :: src(pver)      ! source due to activation/nucleation (/s)
+    real(r8), intent(in) :: ekkp(pver)     ! zn*zs*density*diffusivity (kg/m3 m2/s) at interface
+                                           ! below layer k  (k,k+1 interface)
+    real(r8), intent(in) :: ekkm(pver)     ! zn*zs*density*diffusivity (kg/m3 m2/s) at interface
+                                           ! above layer k  (k,k+1 interface)
     real(r8), intent(in) :: overlapp(pver) ! cloud overlap below
     real(r8), intent(in) :: overlapm(pver) ! cloud overlap above
-    real(r8), intent(in) :: surfrate ! surface exchange rate (/s)
-    real(r8), intent(in) :: flxconv ! convergence of flux from surface
-    real(r8), intent(in) :: dt ! time step (s)
-    logical, intent(in) :: is_unact ! true if this is an unactivated species
-    real(r8), intent(in),optional :: qactold(pver)
-    ! mixing ratio of ACTIVATED species from previous step
-    ! *** this should only be present
-    !     if the current species is unactivated number/sfc/mass
+    real(r8), intent(in) :: surfrate       ! surface exchange rate (/s)
+    real(r8), intent(in) :: flxconv        ! convergence of flux from surface
+    real(r8), intent(in) :: dt             ! time step (s)
+    logical,  intent(in) :: is_unact       ! true if this is an unactivated species
+    real(r8), intent(in),optional :: qactold(pver) ! mixing ratio of ACTIVATED species from previous step
+                                                   ! *** this should only be present if the current species
+                                                   ! is unactivated number/sfc/mass
 
     integer k,kp1,km1
 
     if ( is_unact ) then
-       !     the qactold*(1-overlap) terms are resuspension of activated material
+       ! the qactold*(1-overlap) terms are resuspension of activated material
        do k=top_lev,pver
           kp1=min(k+1,pver)
           km1=max(k-1,top_lev)
@@ -1517,81 +1492,60 @@ contains
                qactold(kp1)*(1.0_r8-overlapp(k)))               &
                + ekkm(k)*(qold(km1) - qold(k) +     &
                qactold(km1)*(1.0_r8-overlapm(k))) )
-          !        force to non-negative
-          !        if(q(k)<-1.e-30)then
-          !           write(iulog,*)'q=',q(k),' in explmix'
           q(k)=max(q(k),0._r8)
-          !        endif
        end do
 
-       !     diffusion loss at base of lowest layer
+       ! diffusion loss at base of lowest layer
        q(pver)=q(pver)-surfrate*qold(pver)*dt+flxconv*dt
-       !        force to non-negative
-       !        if(q(pver)<-1.e-30)then
-       !           write(iulog,*)'q=',q(pver),' in explmix'
        q(pver)=max(q(pver),0._r8)
-       !        endif
     else
        do k=top_lev,pver
           kp1=min(k+1,pver)
           km1=max(k-1,top_lev)
           q(k) = qold(k) + dt*(src(k) + ekkp(k)*(overlapp(k)*qold(kp1)-qold(k)) +      &
                ekkm(k)*(overlapm(k)*qold(km1)-qold(k)) )
-          !        force to non-negative
-          !        if(q(k)<-1.e-30)then
-          !           write(iulog,*)'q=',q(k),' in explmix'
-          q(k)=max(q(k),0._r8)
-          !        endif
+          q(k) = max(q(k),0._r8) ! force to non-negative if (q(k)<-1.e-30) then
        end do
-       !     diffusion loss at base of lowest layer
-       q(pver)=q(pver)-surfrate*qold(pver)*dt+flxconv*dt
-       !        force to non-negative
-       !        if(q(pver)<-1.e-30)then
-       !           write(iulog,*)'q=',q(pver),' in explmix'
-       q(pver)=max(q(pver),0._r8)
-
+       q(pver)=q(pver)-surfrate*qold(pver)*dt+flxconv*dt ! diffusion loss at base of lowest layer
+       q(pver)=max(q(pver),0._r8) ! force to non-negative if(q(pver)<-1.e-30)then
     end if
 
-  end subroutine explmix
+  end subroutine explmix_oslo
 
   !===============================================================================
 
-  subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
+  subroutine activate_modal_oslo(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
        na, nmode, volume, hygro, fn, fm, fluxn, fluxm, flux_fullact, lnsigman )
 
-    !      calculates number, surface, and mass fraction of aerosols activated as CCN
-    !      calculates flux of cloud droplets, surface area, and aerosol mass into cloud
-    !      assumes an internal mixture within each of up to nmode multiple aerosol modes
-    !      a gaussiam spectrum of updrafts can be treated.
+    ! calculates number, surface, and mass fraction of aerosols activated as CCN
+    ! calculates flux of cloud droplets, surface area, and aerosol mass into cloud
+    ! assumes an internal mixture within each of up to nmode multiple aerosol modes
+    ! a gaussiam spectrum of updrafts can be treated.
 
-    !      mks units
+    ! mks units
 
-    !      Abdul-Razzak and Ghan, A parameterization of aerosol activation.
-    !      2. Multiple aerosol types. J. Geophys. Res., 105, 6837-6844.
+    ! Abdul-Razzak and Ghan, A parameterization of aerosol activation.
+    ! 2. Multiple aerosol types. J. Geophys. Res., 105, 6837-6844.
 
 
-    !      input
-
-    real(r8), intent(in) :: wbar          ! grid cell mean vertical velocity (m/s)
-    real(r8), intent(in) :: sigw          ! subgrid standard deviation of vertical vel (m/s)
-    real(r8), intent(in) :: wdiab         ! diabatic vertical velocity (0 if adiabatic)
-    real(r8), intent(in) :: wminf         ! minimum updraft velocity for integration (m/s)
-    real(r8), intent(in) :: wmaxf         ! maximum updraft velocity for integration (m/s)
-    real(r8), intent(in) :: tair          ! air temperature (K)
-    real(r8), intent(in) :: rhoair        ! air density (kg/m3)
-    real(r8), intent(in) :: na(:)      ! aerosol number concentration (/m3)
-    integer,  intent(in) :: nmode      ! number of aerosol modes
-    real(r8), intent(in) :: volume(:)  ! aerosol volume concentration (m3/m3)
-    real(r8), intent(in) :: hygro(:)   ! hygroscopicity of aerosol mode
-    real(r8), intent(in), optional :: lnsigman(:)
-
-    !      output
-
-    real(r8), intent(out) :: fn(:)      ! number fraction of aerosols activated
-    real(r8), intent(out) :: fm(:)      ! mass fraction of aerosols activated
-    real(r8), intent(out) :: fluxn(:)   ! flux of activated aerosol number fraction into cloud (cm/s)
-    real(r8), intent(out) :: fluxm(:)   ! flux of activated aerosol mass fraction into cloud (cm/s)
-    real(r8), intent(out) :: flux_fullact   ! flux of activated aerosol fraction assuming 100% activation (cm/s)
+    ! arguments
+    real(r8) , intent(in) :: wbar          ! grid cell mean vertical velocity (m/s)
+    real(r8) , intent(in) :: sigw          ! subgrid standard deviation of vertical vel (m/s)
+    real(r8) , intent(in) :: wdiab         ! diabatic vertical velocity (0 if adiabatic)
+    real(r8) , intent(in) :: wminf         ! minimum updraft velocity for integration (m/s)
+    real(r8) , intent(in) :: wmaxf         ! maximum updraft velocity for integration (m/s)
+    real(r8) , intent(in) :: tair          ! air temperature (K)
+    real(r8) , intent(in) :: rhoair        ! air density (kg/m3)
+    real(r8) , intent(in) :: na(:)         ! aerosol number concentration (/m3)
+    integer  , intent(in) :: nmode         ! number of aerosol modes
+    real(r8) , intent(in) :: volume(:)     ! aerosol volume concentration (m3/m3)
+    real(r8) , intent(in) :: hygro(:)      ! hygroscopicity of aerosol mode
+    real(r8) , intent(in) :: lnsigman(:)
+    real(r8) , intent(out) :: fn(:)        ! number fraction of aerosols activated
+    real(r8) , intent(out) :: fm(:)        ! mass fraction of aerosols activated
+    real(r8) , intent(out) :: fluxn(:)     ! flux of activated aerosol number fraction into cloud (cm/s)
+    real(r8) , intent(out) :: fluxm(:)     ! flux of activated aerosol mass fraction into cloud (cm/s)
+    real(r8) , intent(out) :: flux_fullact ! flux of activated aerosol fraction assuming 100% activation (cm/s)
 
     ! used for consistency check -- this should match (ekd(k)*zs(k))
     ! also, fluxm/flux_fullact gives fraction of aerosol mass flux!that is activated
@@ -1648,7 +1602,7 @@ contains
     real(r8) grow
     character(len=*), parameter :: subname='activate_modal'
     integer m,n
-    !      numerical integration parameters
+    ! numerical integration parameters
     real(r8), parameter :: eps=0.3_r8,fmax=0.99_r8,sds=3._r8
 
     real(r8), parameter :: namin=1.e6_r8   ! minimum aerosol number concentration (/m3)
@@ -1667,83 +1621,76 @@ contains
 
     if(sigw.le.1.e-5_r8.and.wbar.le.0._r8)return
 
-    pres=rair*rhoair*tair
-    diff0=0.211e-4_r8*(p0/pres)*(tair/t0)**1.94_r8
-    conduct0=(5.69_r8+0.017_r8*(tair-t0))*4.186e2_r8*1.e-5_r8 ! convert to J/m/s/deg
-    call qsat(tair, pres, es, qs)
-    dqsdt=latvap/(rh2o*tair*tair)*qs
-    alpha=gravit*(latvap/(cpair*rh2o*tair*tair)-1._r8/(rair*tair))
-    gamma=(1.0_r8+latvap/cpair*dqsdt)/(rhoair*qs)
-    etafactor2max=1.e10_r8/(alpha*wmaxf)**1.5_r8 ! this should make eta big if na is very small.
+    pres = rair*rhoair*tair
+    diff0 = 0.211e-4_r8*(p0/pres)*(tair/t0)**1.94_r8
+    conduct0 = (5.69_r8+0.017_r8*(tair-t0))*4.186e2_r8*1.e-5_r8 ! convert to J/m/s/deg
 
-    grow  = 1._r8/(rhoh2o/(diff0*rhoair*qs)  &
-         + latvap*rhoh2o/(conduct0*tair)*(latvap/(rh2o*tair) - 1._r8))
+    call qsat(tair, pres, es, qs)
+
+    dqsdt = latvap/(rh2o*tair*tair)*qs
+    alpha = gravit*(latvap/(cpair*rh2o*tair*tair)-1._r8/(rair*tair))
+    gamma = (1.0_r8+latvap/cpair*dqsdt)/(rhoair*qs)
+    etafactor2max = 1.e10_r8/(alpha*wmaxf)**1.5_r8 ! this should make eta big if na is very small.
+
+    grow  =  1._r8/(rhoh2o/(diff0*rhoair*qs) + latvap*rhoh2o/(conduct0*tair)*(latvap/(rh2o*tair) - 1._r8))
     sqrtg = sqrt(grow)
     beta  = 2._r8*pi*rhoh2o*grow*gamma
 
     do m=1,nmode
 
        if(volume(m).gt.1.e-39_r8.and.na(m).gt.1.e-39_r8)then
-          !            number mode radius (m)
-          !           write(iulog,*)'alogsig,volc,na=',alogsig(m),volc(m),na(m)
-          if(present(lnsigman))then
-             exp45logsig_var(m) = exp(4.5_r8*lnsigman(m)*lnsigman(m))
-             amcube(m)=(3._r8*volume(m)/(4._r8*pi*exp45logsig_var(m)*na(m)))  ! only if variable size dist
-             f1_var(m)          = 0.5_r8*exp(2.5_r8*lnsigman(m)*lnsigman(m))
-             f2_var(m)          = 1._r8 + 0.25_r8*lnsigman(m)
-          else
-             call endrun("Problem with variable std. dev")
-          endif
-          !           growth coefficent Abdul-Razzak & Ghan 1998 eqn 16
-          !           should depend on mean radius of mode to account for gas kinetic effects
-          !           see Fountoukis and Nenes, JGR2005 and Meskhidze et al., JGR2006
-          !           for approriate size to use for effective diffusivity.
-          etafactor2(m)=1._r8/(na(m)*beta*sqrtg)
+          ! number mode radius (m)
+          exp45logsig_var(m) = exp(4.5_r8*lnsigman(m)*lnsigman(m))
+          amcube(m) = (3._r8*volume(m)/(4._r8*pi*exp45logsig_var(m)*na(m)))  ! only if variable size dist
+          f1_var(m) = 0.5_r8*exp(2.5_r8*lnsigman(m)*lnsigman(m))
+          f2_var(m) = 1._r8 + 0.25_r8*lnsigman(m)
+
+          ! growth coefficent Abdul-Razzak & Ghan 1998 eqn 16
+          ! should depend on mean radius of mode to account for gas kinetic effects
+          ! see Fountoukis and Nenes, JGR2005 and Meskhidze et al., JGR2006
+          ! for approriate size to use for effective diffusivity.
+          etafactor2(m) = 1._r8/(na(m)*beta*sqrtg)
           if(hygro(m).gt.1.e-10_r8)then
-             smc(m)=2._r8*aten*sqrt(aten/(27._r8*hygro(m)*amcube(m))) ! only if variable size dist
+             smc(m) = 2._r8*aten*sqrt(aten/(27._r8*hygro(m)*amcube(m))) ! only if variable size dist
           else
-             smc(m)=100._r8
+             smc(m) = 100._r8
           endif
-          !	    write(iulog,*)'sm,hygro,amcube=',smcrit(m),hygro(m),amcube(m)
        else
-          smc(m)=1._r8
-          etafactor2(m)=etafactor2max ! this should make eta big if na is very small.
+          smc(m) = 1._r8
+          etafactor2(m) = etafactor2max ! this should make eta big if na is very small.
        endif
-       lnsm(m)=log(smc(m)) ! only if variable size dist
-       !	 write(iulog,'(a,i4,4g12.2)')'m,na,amcube,hygro,sm,lnsm=', &
-       !                   m,na(m),amcube(m),hygro(m),sm(m),lnsm(m)
+       lnsm(m) = log(smc(m)) ! only if variable size dist
     enddo
 
     if(sigw.gt.1.e-5_r8)then ! spectrum of updrafts
 
-       wmax=min(wmaxf,wbar+sds*sigw)
-       wmin=max(wminf,-wdiab)
-       wmin=max(wmin,wbar-sds*sigw)
-       w=wmin
-       dwmax=eps*sigw
-       dw=dwmax
-       dfmax=0.2_r8
-       dfmin=0.1_r8
+       wmax = min(wmaxf,wbar+sds*sigw)
+       wmin = max(wminf,-wdiab)
+       wmin = max(wmin,wbar-sds*sigw)
+       w = wmin
+       dwmax = eps*sigw
+       dw = dwmax
+       dfmax = 0.2_r8
+       dfmin = 0.1_r8
        if (wmax <= w) return
        do m=1,nmode
-          sumflxn(m)=0._r8
-          sumfn(m)=0._r8
-          fnold(m)=0._r8
-          sumflxm(m)=0._r8
-          sumfm(m)=0._r8
-          fmold(m)=0._r8
+          sumflxn(m) = 0._r8
+          sumfn(m) = 0._r8
+          fnold(m) = 0._r8
+          sumflxm(m) = 0._r8
+          sumfm(m) = 0._r8
+          fmold(m) = 0._r8
        enddo
-       sumflx_fullact=0._r8
+       sumflx_fullact = 0._r8
 
-       fold=0._r8
-       wold=0._r8
-       gold=0._r8
+       fold = 0._r8
+       wold = 0._r8
+       gold = 0._r8
 
        dwmin = min( dwmax, 0.01_r8 )
        do n = 1, nx
 
 100       wnuc=w+wdiab
-          !           write(iulog,*)'wnuc=',wnuc
           alw=alpha*wnuc
           sqrtalw=sqrt(alw)
           etafactor1=alw*sqrtalw
@@ -1753,7 +1700,7 @@ contains
              zeta(m)=twothird*sqrtalw*aten/sqrtg
           enddo
 
-          call maxsat(zeta, eta, nmode, smc, smax, f1_var, f2_var)
+          call maxsat_oslo(zeta,eta,nmode,smc,smax,f1_var,f2_var)
 
           lnsmax=log(smax)
 
@@ -1763,7 +1710,7 @@ contains
 
           dwnew = dw
           if(fnew-fold.gt.dfmax.and.n.gt.1)then
-             !              reduce updraft increment for greater accuracy in integration
+             ! reduce updraft increment for greater accuracy in integration
              if (dw .gt. 1.01_r8*dwmin) then
                 dw=0.7_r8*dw
                 dw=max(dw,dwmin)
@@ -1775,7 +1722,7 @@ contains
           endif
 
           if(fnew-fold.lt.dfmin)then
-             !              increase updraft increment to accelerate integration
+             ! increase updraft increment to accelerate integration
              dwnew=min(1.5_r8*dw,dwmax)
           endif
           fold=fnew
@@ -1786,12 +1733,12 @@ contains
           xmincoeff=alogaten-twothird*(lnsmax-alog2)-alog3
 
           do m=1,nmode
-             !              modal
+              ! modal
              x=twothird*(lnsm(m)-lnsmax)/(sq2*lnsigman(m))
              fn(m)=0.5_r8*(1._r8-erf(x))
              fnmin=min(fn(m),fnmin)
-             !               integration is second order accurate
-             !               assumes linear variation of f*g with w
+             ! integration is second order accurate
+             ! assumes linear variation of f*g with w
              fnbar=(fn(m)*g+fnold(m)*gold)
              arg=x-1.5_r8*sq2*lnsigman(m)
              fm(m)=0.5_r8*(1._r8-erf(arg))
@@ -1804,15 +1751,14 @@ contains
                      +(fm(m)*g*w+fmold(m)*gold*wold))*dw
              endif
              sumfn(m)=sumfn(m)+0.5_r8*fnbar*dw
-             !	       write(iulog,'(a,9g10.2)')'lnsmax,lnsm(m),x,fn(m),fnold(m),g,gold,fnbar,dw=',lnsmax,lnsm(m),x,fn(m),fnold(m),g,gold,fnbar,dw
              fnold(m)=fn(m)
              sumfm(m)=sumfm(m)+0.5_r8*fmbar*dw
              fmold(m)=fm(m)
           enddo
-          !           same form as sumflxm but replace the fm with 1.0
+          ! same form as sumflxm but replace the fm with 1.0
           sumflx_fullact = sumflx_fullact &
                + sixth*(wb*(g+gold) + (g*w+gold*wold))*dw
-          !            sumg=sumg+0.5_r8*(g+gold)*dw
+          ! sumg=sumg+0.5_r8*(g+gold)*dw
           gold=g
           wold=w
           dw=dwnew
@@ -1825,8 +1771,8 @@ contains
              write(iulog,*)'wnuc=',wnuc
              write(iulog,*)'na=',(na(m),m=1,nmode)
              write(iulog,*)'fn=',(fn(m),m=1,nmode)
-             !   dump all subr parameters to allow testing with standalone code
-             !   (build a driver that will read input and call activate)
+             ! dump all subr parameters to allow testing with standalone code
+             ! (build a driver that will read input and call activate)
              write(iulog,*)'wbar,sigw,wdiab,tair,rhoair,nmode='
              write(iulog,*) wbar,sigw,wdiab,tair,rhoair,nmode
              write(iulog,*)'na=',na
@@ -1841,15 +1787,15 @@ contains
        ndist(n)=ndist(n)+1
        if(w.lt.wmaxf)then
 
-          !            contribution from all updrafts stronger than wmax
-          !            assuming constant f (close to fmax)
+          ! contribution from all updrafts stronger than wmax
+          ! assuming constant f (close to fmax)
           wnuc=w+wdiab
 
           z1=(w-wbar)/(sigw*sq2)
           z2=(wmaxf-wbar)/(sigw*sq2)
           g=exp(-z1*z1)
           integ=sigw*0.5_r8*sq2*sqpi*(erf(z2)-erf(z1))
-          !            consider only upward flow into cloud base when estimating flux
+          ! consider only upward flow into cloud base when estimating flux
           wf1=max(w,zero)
           zf1=(wf1-wbar)/(sigw*sq2)
           gf1=exp(-zf1*zf1)
@@ -1865,15 +1811,15 @@ contains
              sumflxm(m)=sumflxm(m)+integf*fm(m)
              sumfm(m)=sumfm(m)+fm(m)*integ
           enddo
-          !           same form as sumflxm but replace the fm with 1.0
+          ! same form as sumflxm but replace the fm with 1.0
           sumflx_fullact = sumflx_fullact + integf
-          !            sumg=sumg+integ
+          ! sumg=sumg+integ
        endif
 
 
        do m=1,nmode
           fn(m)=sumfn(m)/(sq2*sqpi*sigw)
-          !            fn(m)=sumfn(m)/(sumg)
+          ! fn(m)=sumfn(m)/(sumg)
           if(fn(m).gt.1.01_r8)then
              write(iulog,*)'fn=',fn(m),' > 1 in activate'
              write(iulog,*)'w,m,na,amcube=',w,m,na(m),amcube(m)
@@ -1882,52 +1828,45 @@ contains
           endif
           fluxn(m)=sumflxn(m)/(sq2*sqpi*sigw)
           fm(m)=sumfm(m)/(sq2*sqpi*sigw)
-          !            fm(m)=sumfm(m)/(sumg)
+          ! fm(m)=sumfm(m)/(sumg)
           if(fm(m).gt.1.01_r8)then
              write(iulog,*)'fm=',fm(m),' > 1 in activate'
           endif
           fluxm(m)=sumflxm(m)/(sq2*sqpi*sigw)
        enddo
-       !        same form as fluxm
+       ! same form as fluxm
        flux_fullact = sumflx_fullact/(sq2*sqpi*sigw)
 
     else
 
-       !        single updraft
+       ! single updraft
        wnuc=wbar+wdiab
 
        if(wnuc.gt.0._r8)then
-
           w=wbar
           alw=alpha*wnuc
           sqrtalw=sqrt(alw)
           etafactor1=alw*sqrtalw
 
-          do m=1,nmode
-             eta(m)=etafactor1*etafactor2(m)
-             zeta(m)=twothird*sqrtalw*aten/sqrtg
-             if(present(lnsigman))then
-                f1_var(m) = 0.5_r8*exp(2.5_r8*lnsigman(m)*lnsigman(m))
-                f2_var(m) = 1._r8 + 0.25_r8*lnsigman(m)
-             else
-                call endrun("Problem with variable std. dev single updraft")
-             endif
+          do m = 1,nmode
+             eta(m) = etafactor1*etafactor2(m)
+             zeta(m) = twothird*sqrtalw*aten/sqrtg
+             f1_var(m) = 0.5_r8*exp(2.5_r8*lnsigman(m)*lnsigman(m))
+             f2_var(m) = 1._r8 + 0.25_r8*lnsigman(m)
           enddo
 
-          call maxsat(zeta, eta, nmode, smc, smax, f1_var, f2_var)
+          call maxsat_oslo(zeta,eta,nmode,smc,smax,f1_var, f2_var)
 
           lnsmax=log(smax)
           xmincoeff=alogaten-twothird*(lnsmax-alog2)-alog3
-
-
-          do m=1,nmode
-             x=twothird*(lnsm(m)-lnsmax)/(sq2*lnsigman(m))
-             fn(m)=0.5_r8*(1._r8-erf(x))
-             arg=x-1.5_r8*sq2*lnsigman(m)
-             fm(m)=0.5_r8*(1._r8-erf(arg))
-             if(wbar.gt.0._r8)then
-                fluxn(m)=fn(m)*w
-                fluxm(m)=fm(m)*w
+          do m = 1,nmode
+             x = twothird*(lnsm(m)-lnsmax)/(sq2*lnsigman(m))
+             fn(m) = 0.5_r8*(1._r8-erf(x))
+             arg = x-1.5_r8*sq2*lnsigman(m)
+             fm(m) = 0.5_r8*(1._r8-erf(arg))
+             if (wbar.gt.0._r8)then
+                fluxn(m) = fn(m)*w
+                fluxm(m) = fm(m)*w
              endif
           enddo
           flux_fullact = w
@@ -1935,26 +1874,25 @@ contains
 
     endif
 
-  end subroutine activate_modal
+  end subroutine activate_modal_oslo
 
   !===============================================================================
+  subroutine maxsat_oslo(zeta, eta, nmode, smc, smax, f1_in, f2_in)
 
-  subroutine maxsat(zeta,eta,nmode,smc,smax, f1_in, f2_in)
+    ! calculates maximum supersaturation for multiple competing aerosol modes.
+    ! Abdul-Razzak and Ghan, A parameterization of aerosol activation.
+    ! 2. Multiple aerosol types. J. Geophys. Res., 105, 6837-6844.
 
-    !      calculates maximum supersaturation for multiple
-    !      competing aerosol modes.
-
-    !      Abdul-Razzak and Ghan, A parameterization of aerosol activation.
-    !      2. Multiple aerosol types. J. Geophys. Res., 105, 6837-6844.
-
-    integer,  intent(in)  :: nmode ! number of modes
-    real(r8), intent(in)  :: smc(nmode) ! critical supersaturation for number mode radius
+    ! arguments
     real(r8), intent(in)  :: zeta(nmode)
     real(r8), intent(in)  :: eta(nmode)
-    real(r8), intent(in), optional, target :: f1_in(:)
-    real(r8), intent(in), optional, target :: f2_in(:)
-
+    integer,  intent(in)  :: nmode ! number of modes
+    real(r8), intent(in)  :: smc(nmode) ! critical supersaturation for number mode radius
+    real(r8), intent(in), target :: f1_in(:)
+    real(r8), intent(in), target :: f2_in(:)
     real(r8), intent(out) :: smax ! maximum supersaturation
+
+    ! local variables
     integer  :: m  ! mode index
     real(r8) :: sum, g1, g2, g1sqrt, g2sqrt
     real(r8), pointer :: f1_used(:), f2_used(:)
@@ -1964,52 +1902,42 @@ contains
 
     do m=1,nmode
        if(zeta(m).gt.1.e5_r8*eta(m).or.smc(m)*smc(m).gt.1.e5_r8*eta(m))then
-          !            weak forcing. essentially none activated
+          ! weak forcing. essentially none activated
           smax=1.e-20_r8
        else
-          !            significant activation of this mode. calc activation all modes.
+          ! significant activation of this mode. calc activation all modes.
           exit
        endif
        ! No significant activation in any mode.  Do nothing.
        if (m == nmode) return
-
     enddo
 
-    sum=0.0_r8
-    do m=1,nmode
+    sum = 0.0_r8
+    do m = 1,nmode
        if(eta(m).gt.1.e-20_r8)then
-          g1=zeta(m)/eta(m)
-          g1sqrt=sqrt(g1)
-          g1=g1sqrt*g1
-          g2=smc(m)/sqrt(eta(m)+3._r8*zeta(m))
-          g2sqrt=sqrt(g2)
-          g2=g2sqrt*g2
-          sum=sum+(f1_used(m)*g1+f2_used(m)*g2)/(smc(m)*smc(m))
+          g1 = zeta(m)/eta(m)
+          g1sqrt = sqrt(g1)
+          g1 = g1sqrt*g1
+          g2 = smc(m)/sqrt(eta(m)+3._r8*zeta(m))
+          g2sqrt = sqrt(g2)
+          g2 = g2sqrt*g2
+          sum = sum+(f1_used(m)*g1+f2_used(m)*g2)/(smc(m)*smc(m))
        else
-          sum=1.e20_r8
+          sum = 1.e20_r8
        endif
     enddo
+    smax = 1._r8/sqrt(sum)
 
-    smax=1._r8/sqrt(sum)
-
-  end subroutine maxsat
+  end subroutine maxsat_oslo
 
   !===============================================================================
 
-  subroutine ccncalc_oslo(state &
-       , pbuf   &
-       , cs     &
-       , hasAerosol &
-       , numberConcentration &
-       , volumeConcentration &
-       , hygroscopicity &
-       , lnSigma        &
-       , ccn           )
+  subroutine ccncalc_oslo(state, pbuf, cs, hasAerosol, numberConcentration, volumeConcentration, &
+       hygroscopicity, lnSigma, ccn)
 
     ! calculates number concentration of aerosols activated as CCN at
     ! supersaturation supersat.
-    ! assumes an internal mixture of a multiple externally-mixed aerosol modes
-    ! cgs units
+    ! assumes an internal mixture of a multiple externally-mixed aerosol modes cgs units
 
     ! This was used in the BACCHUS-project where it was agreed that
     ! CCN would not include cloud-borne aerosols. It is possible to
@@ -2017,101 +1945,81 @@ contains
     ! not needed when this code was made.
 
     ! arguments
-
     type(physics_state), target, intent(in)    :: state
     type(physics_buffer_desc),   pointer       :: pbuf(:)
-
-    real(r8), intent(in)  :: cs(pcols,pver)       ! air density (kg/m3)
-    real(r8), intent(out) :: ccn(pcols,pver,psat) ! number conc of aerosols activated at supersat (#/m3)
-    !+tht
-    logical, intent(in)  :: hasAerosol(pcols, pver, nmodes)
-    !-tht
-    !akc6   real(r8), intent(in) ::  numberConcentration(pcols,pver, nmodes) ! interstit+activated aerosol number conc (/m3)
-    real(r8), intent(in) ::  numberConcentration(pcols,pver,0:nmodes) !   interstit+activated aerosol number conc (/m3)
-    !akc6-
-    real(r8), intent(in) ::  volumeConcentration(pcols,pver,nmodes)  ! interstit+activated aerosol volume conc (m3/m3)
-    real(r8), intent(in) ::  hygroscopicity(pcols,pver,nmodes)
-    real(r8), intent(in) ::  lnSigma(pcols,pver,nmodes)
+    real(r8) , intent(in)  :: cs(pcols,pver)                           ! air density (kg/m3)
+    logical  , intent(in)  :: hasAerosol(pcols, pver, nmodes)
+    real(r8) , intent(in)  :: numberConcentration(pcols,pver,0:nmodes) ! interstit+activated aerosol number conc (/m3)
+    real(r8) , intent(in)  :: volumeConcentration(pcols,pver,nmodes)   ! interstit+activated aerosol volume conc (m3/m3)
+    real(r8) , intent(in)  :: hygroscopicity(pcols,pver,nmodes)
+    real(r8) , intent(in)  :: lnSigma(pcols,pver,nmodes)
+    real(r8) , intent(out) :: ccn(pcols,pver,psat)                     ! number conc of aerosols activated at supersat (#/m3)
 
     ! local
-    integer :: lchnk ! chunk index
-    integer :: ncol  ! number of columns
-    real(r8), pointer :: tair(:,:)     ! air temperature (K)
-
-
-    real(r8) super(psat) ! supersaturation
-    real(r8) surften_coef !Coefficient in ARGI / ARGII
-    real(r8) amcube       !number median radius qubed
-    real(r8) a    ! surface tension parameter
-    real(r8) sm   ! critical supersaturation at mode radius
-    real(r8) arg  ! factor in eqn 15 ARGII
-    real(r8) argfactor !Coefficient in ARGI/ARGII
-    !     mathematical constants
-    real(r8), parameter:: twothird=2.0_r8/3.0_r8
-    real(r8), parameter:: sq2=sqrt(2.0_r8)
+    integer  :: lchnk             ! chunk index
+    integer  :: ncol              ! number of columns
+    real(r8) :: super(psat)       ! supersaturation
+    real(r8) :: surften_coef      ! Coefficient in ARGI / ARGII
+    real(r8) :: amcube            ! number median radius qubed
+    real(r8) :: a                 ! surface tension parameter
+    real(r8) :: sm                ! critical supersaturation at mode radius
+    real(r8) :: arg               ! factor in eqn 15 ARGII
+    real(r8) :: argfactor         ! Coefficient in ARGI/ARGII
+    real(r8) :: exp45logsig_var   ! mathematical constants
+    integer  :: lsat,m,i,k        ! mathematical constants
+    real(r8) :: smcoefcoef,smcoef ! mathematical constants
+    real(r8), pointer   :: tair(:,:)        ! air temperature (K)
+    real(r8), parameter :: twothird=2.0_r8/3.0_r8
+    real(r8), parameter :: sq2=sqrt(2.0_r8)
     real(r8), parameter :: surften=0.076_r8 !surface tension of water (J/m2)
-    real(r8) exp45logsig_var
-    integer lsat,m,i,k
-    real(r8) smcoefcoef,smcoef
     !-------------------------------------------------------------------------------
 
     lchnk = state%lchnk
     ncol  = state%ncol
     tair  => state%t
 
-    super(:)=supersat(:)*0.01_r8
+    super(:) = supersat(:)*0.01_r8
 
-    !This is curvature effect (A) in ARGI
-    !eqn 5 in ARG1 (missing division by temperature, see below)
-    surften_coef=2._r8*mwh2o*surften/(r_universal*rhoh2o)
+    !This is curvature effect (A) in ARGI eqn 5 in ARG1 (missing division by temperature, see below)
+    surften_coef = 2._r8*mwh2o*surften/(r_universal*rhoh2o)
 
-    !This is part of eqn 9 in ARGII
-    !where A smcoefcoef is 2/3^(3/2)
-    smcoefcoef=2._r8/sqrt(27._r8)
+    !This is part of eqn 9 in ARGII where A smcoefcoef is 2/3^(3/2)
+    smcoefcoef = 2._r8/sqrt(27._r8)
 
     ccn(:,:,:) = 0._r8
 
     do m=1,nmodes
        do k=top_lev,pver
-
           do i=1,ncol
              if (hasAerosol(i,k,m)) then
+
                 !Curvature-parameter "A" in ARGI (eqn 5)
                 a = surften_coef/tair(i,k)
 
-                !standard factor for transforming size distr
-                !volume ==> number (google psd.pdf by zender)
-                exp45logsig_var = &
-                     exp(4.5_r8*lnsigma(i,k,m)*lnsigma(i,k,m))
+                !standard factor for transforming size distr, volume ==> number (google psd.pdf by zender)
+                exp45logsig_var = exp(4.5_r8*lnsigma(i,k,m)*lnsigma(i,k,m))
 
-                !Numbe rmedian radius (power of three)
-                !By definition of lognormal distribution
-                amcube =(3._r8*volumeConcentration(i,k,m) &
-                     /(4._r8*pi*exp45logsig_var*numberConcentration(i,k,m)))  ! only if variable size dist
+                ! Numbe rmedian radius (power of three)
+                ! By definition of lognormal distribution only if variable size dist
+                amcube =(3._r8*volumeConcentration(i,k,m) /(4._r8*pi*exp45logsig_var*numberConcentration(i,k,m)))
 
-
-                !This is part of eqn 9 in ARGII
-                !where A smcoefcoef is 2/3^(3/2)
+                !This is part of eqn 9 in ARGII where A smcoefcoef is 2/3^(3/2)
                 smcoef = smcoefcoef * a * sqrt(a)
 
-                !This is finally solving eqn 9
-                !(solve for critical supersat of mode)
-                sm=smcoef   &
-                     / sqrt(hygroscopicity(i,k,m)*amcube) ! critical supersaturation
+                !This is finally solving eqn 9 (solve for critical supersat of mode)
+                sm = smcoef / sqrt(hygroscopicity(i,k,m)*amcube) ! critical supersaturation
 
                 !Solve eqn 13 in ARGII
                 do lsat = 1,psat
 
                    !eqn 15 in ARGII
-                   argfactor=twothird/(sq2*lnSigma(i,k,m))
+                   argfactor = twothird/(sq2*lnSigma(i,k,m))
 
                    !eqn 15 in ARGII
-                   arg=argfactor*log(sm/super(lsat))
+                   arg = argfactor*log(sm/super(lsat))
 
                    !eqn 13 i ARGII
-                   ccn(i,k,lsat)=ccn(i,k,lsat) &
-                        +numberConcentration(i,k,m)&
-                        *0.5_r8*(1._r8-erf(arg))
+                   ccn(i,k,lsat) = ccn(i,k,lsat) + numberConcentration(i,k,m)*0.5_r8*(1._r8-erf(arg))
 
                 end do
              end if
@@ -2119,8 +2027,8 @@ contains
        end do
     end do
 
-    ccn(:ncol,:,:) = ccn(:ncol,:,:)*1.e-6_r8 ! convert from #/m3 to #/cm3
+    ccn(:ncol,:,:)=ccn(:ncol,:,:)*1.e-6_r8 ! convert from #/m3 to #/cm3
 
   end subroutine ccncalc_oslo
 
-end module ndrop
+end module oslo_aero_ndrop

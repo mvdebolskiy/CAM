@@ -32,7 +32,7 @@ module microp_aero
   use physics_buffer,    only: physics_buffer_desc, pbuf_get_index, pbuf_old_tim_idx, pbuf_get_field
   use phys_control,      only: phys_getopts, use_hetfrz_classnuc
   use rad_constituents,  only: rad_cnst_get_info, rad_cnst_get_aer_mmr, rad_cnst_get_aer_props, rad_cnst_get_mode_num
-  use ndrop,             only: ndrop_init, dropmixnuc
+  use oslo_aero_ndrop,   only: ndrop_init_oslo, dropmixnuc_oslo
   use ndrop_bam,         only: ndrop_bam_init, ndrop_bam_run, ndrop_bam_ccn
   use cam_history,       only: addfld, add_default, outfld
   use cam_logfile,       only: iulog
@@ -187,7 +187,7 @@ contains
     cldo_idx = pbuf_get_index('CLDO')
     clim_modal_aero = .true. !Needed to avoid ending up in BAM routines
 
-    call ndrop_init()
+    call ndrop_init_oslo()
 
     call addfld('LCLOUD', (/ 'lev' /), 'A', ' ',   'Liquid cloud fraction used in stratus activation')
     call addfld('WSUB',   (/ 'lev' /), 'A', 'm/s', 'Diagnostic sub-grid vertical velocity'                   )
@@ -485,7 +485,7 @@ contains
        ! If not using preexsiting ice, then only use cloudbourne aerosol for the
        ! liquid clouds. This is the same behavior as CAM5.
        if (use_preexisting_ice) then
-          call dropmixnuc(                                 &
+          call dropmixnuc_oslo(                            &
                state1, ptend_loc, deltatin, pbuf, wsub,    &  ! Input
                cldn, cldo, cldliqf,                        &
                hasAerosol,                                 &
@@ -500,7 +500,7 @@ contains
        else
           ! Note difference in arguments lcldn, lcldo
           cldliqf = 1._r8
-          call dropmixnuc(                                 &
+          call dropmixnuc_oslo(                            &
                state1, ptend_loc, deltatin, pbuf, wsub,    &  ! Input
                lcldn, lcldo, cldliqf,                      &
                hasAerosol,                                 &
