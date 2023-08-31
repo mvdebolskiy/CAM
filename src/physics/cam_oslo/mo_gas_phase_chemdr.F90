@@ -6,13 +6,18 @@ module mo_gas_phase_chemdr
   use cam_history,      only : fieldname_len
   use chem_mods,        only : phtcnt, rxntot, gas_pcnst
   use chem_mods,        only : rxt_tag_cnt, rxt_tag_lst, rxt_tag_map, extcnt, num_rnts
+#ifdef OSLO_AERO  
+  use oslo_aero_dust,   only : dust_names, ndust => dust_nbin
+#else
   use dust_model,       only : dust_names, ndust => dust_nbin
+#endif
   use ppgrid,           only : pcols, pver
   use phys_control,     only : phys_getopts
   use carma_flags_mod,  only : carma_hetchem_feedback
   use chem_prod_loss_diags, only: chem_prod_loss_diags_init, chem_prod_loss_diags_out
 
   implicit none
+  save
 
   private
   public :: gas_phase_chemdr, gas_phase_chemdr_inti 
@@ -25,8 +30,10 @@ module mo_gas_phase_chemdr
   integer :: het1_ndx
   integer :: ndx_cldfr, ndx_cmfdqr, ndx_nevapr, ndx_cldtop, ndx_prain
   integer :: ndx_h2so4
+#ifdef OSLO_AERO
   logical :: inv_o3, inv_oh, inv_no3, inv_ho2
   integer :: id_o3, id_oh, id_no3, id_ho2
+#endif
 !
 ! CCMI
 !
@@ -62,6 +69,8 @@ contains
     use rate_diags,        only : rate_diags_init
     use cam_abortutils,    only : endrun
 
+    implicit none
+
     character(len=3) :: string
     integer          :: n, m, err, ii
     logical :: history_cesm_forcing
@@ -73,6 +82,7 @@ contains
 
     call phys_getopts( convproc_do_aer_out = convproc_do_aer, history_cesm_forcing_out=history_cesm_forcing )
    
+#if defined(OSLO_AERO)
     inv_o3   = get_inv_ndx('O3') > 0
     inv_oh   = get_inv_ndx('OH') > 0
     inv_no3  = get_inv_ndx('NO3') > 0
@@ -89,6 +99,7 @@ contains
     if (inv_ho2) then
        id_ho2 = get_inv_ndx('HO2')
     endif
+#endif
 
     ndx_h2so4 = get_spc_ndx('H2SO4')
 !
@@ -216,7 +227,7 @@ contains
     call addfld( 'HCL_GAS',    (/ 'lev' /), 'I', 'mol/mol', 'gas-phase hcl' )
     call addfld( 'HCL_STS',    (/ 'lev' /), 'I', 'mol/mol', 'STS condensed HCL' )
 
-    ! Adding extra fields for oxi-output (before and after diurnal variations.)
+    !++IH: Adding extra fields for oxi-output (before and after diurnal variations.)
     call addfld ('OH_bef    ',  (/ 'lev' /), 'A','unit', 'OH invariants before adding diurnal variations'           )
     call addfld ('HO2_bef   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants before adding diurnal variations'          )
     call addfld ('NO3_bef   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants before adding diurnal variations'          )
@@ -327,19 +338,25 @@ contains
     use mo_chm_diags,      only : chm_diags, het_diags
     use perf_mod,          only : t_startf, t_stopf
     use gas_wetdep_opts,   only : gas_wetdep_method
+#if (defined OSLO_AERO)
     use oslo_aero_diurnal_var, only : set_diurnal_invariants
+#endif
     use physics_buffer,    only : physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
     use infnan,            only : nan, assignment(=)
     use rate_diags,        only : rate_diags_calc
     use mo_mass_xforms,    only : mmr2vmr, vmr2mmr, h2o_to_vmr, mmr2vmri
     use orbit,             only : zenith
-    !
-    ! LINOZ
+!
+! LINOZ
+!
     use lin_strat_chem,    only : do_lin_strat_chem, lin_strat_chem_solve
     use linoz_data,        only : has_linoz_data
-    !
-    ! for aqueous chemistry and aerosol growth
-    use aero_model,        only : aero_model_gasaerexch, aero_model_strat_surfarea
+!
+! for aqueous chemistry and aerosol growth
+!
+    use aero_model,        only : aero_model_gasaerexch
+
+    use aero_model,        only : aero_model_strat_surfarea
 
     implicit none
 
@@ -652,6 +669,7 @@ contains
     call setinv( invariants, tfld, h2ovmr, vmr, pmid, ncol, lchnk, pbuf )
 
     !-----------------------------------------------------------------------      
+#if defined (OSLO_AERO)
     !        ... Set the "day/night cycle for prescribed oxidants"
     !----------------------------------------------------------------------- 
 
@@ -670,6 +688,7 @@ contains
     call outfld('NO3_aft',   invariants(:,:,id_no3), ncol, lchnk)
     !--IH
 
+#endif
     !        ... stratosphere aerosol surface area
     !-----------------------------------------------------------------------  
     if (sad_pbf_ndx>0) then

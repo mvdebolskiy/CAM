@@ -6,7 +6,11 @@ module mo_gas_phase_chemdr
   use cam_history,      only : fieldname_len
   use chem_mods,        only : phtcnt, rxntot, gas_pcnst
   use chem_mods,        only : rxt_tag_cnt, rxt_tag_lst, rxt_tag_map, extcnt, num_rnts
+#ifdef OSLO_AERO
+  use oslo_aero_dust,   only : dust_names, ndust => dust_nbin
+#else
   use dust_model,       only : dust_names, ndust => dust_nbin
+#endif
   use ppgrid,           only : pcols, pver
   use phys_control,     only : phys_getopts
   use carma_flags_mod,  only : carma_hetchem_feedback

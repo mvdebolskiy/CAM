@@ -1,4 +1,4 @@
-module seasalt_model
+module oslo_aero_seasalt
 
   use shr_kind_mod, only: r8 => shr_kind_r8, cl => shr_kind_cl
   use ppgrid,       only: pcols, pver
@@ -15,14 +15,14 @@ module seasalt_model
   integer :: modeMap(numberOfSaltModes)    ! [idx] which modes are we modifying
   integer :: tracerMap(numberOfSaltModes)  ! [idx] which tracers are we modifying
 
-  public :: seasalt_init
-  public :: seasalt_emis
+  public :: oslo_aero_seasalt_init
+  public :: oslo_aero_seasalt_emis
 
 !===============================================================================
 contains
 !===============================================================================
 
-  subroutine seasalt_init()
+  subroutine oslo_aero_seasalt_init()
 
     use constituents, only: cnst_name
     use aerosoldef,   only: l_ss_a1, l_ss_a2, l_ss_a3
@@ -43,10 +43,10 @@ contains
        seasalt_names(i) = cnst_name(tracerMap(i))
     end do
 
-  end subroutine seasalt_init
+  end subroutine oslo_aero_seasalt_init
 
   !===============================================================================
-  subroutine seasalt_emis(state, cam_in)
+  subroutine oslo_aero_seasalt_emis(state, cam_in)
 
     !-----------------------------------------------------------------------
     ! Purpose: Interface to emission of sea salt
@@ -143,6 +143,6 @@ contains
     !Add OM ocean source to cam_in
     cam_in%cflx(:ncol,l_om_ni) = cam_in%cflx(:ncol,l_om_ni) + OMOceanSource(:ncol)
 
-  end subroutine seasalt_emis
+  end subroutine oslo_aero_seasalt_emis
 
-end module seasalt_model
+end module oslo_aero_seasalt

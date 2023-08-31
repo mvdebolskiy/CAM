@@ -1,59 +1,59 @@
-!===============================================================================
-! Modal Aerosol Model
-!===============================================================================
 module aero_model
 
-  use shr_kind_mod,         only: r8 => shr_kind_r8
-  use constituents,         only: pcnst, cnst_name, cnst_get_ind
-  use ppgrid,               only: pcols, pver, pverp
-  use phys_control,         only: phys_getopts, cam_physpkg_is
-  use cam_abortutils,       only: endrun
-  use cam_logfile,          only: iulog
-  use perf_mod,             only: t_startf, t_stopf
-  use camsrfexch,           only: cam_in_t, cam_out_t
-  use aerodep_flx,          only: aerodep_flx_prescribed
-  use physics_types,        only: physics_state, physics_ptend, physics_ptend_init
-  use physics_buffer,       only: physics_buffer_desc
-  use physics_buffer,       only: pbuf_get_field, pbuf_get_index, pbuf_set_field
-  use physconst,            only: gravit, rair, rhoh2o, pi
-  use spmd_utils,           only: masterproc
-  use time_manager,         only: get_nstep
-  use cam_history,          only: outfld, fieldname_len, addfld, add_default, horiz_only
-  use chem_mods,            only: gas_pcnst, adv_mass
-  use mo_tracname,          only: solsym
-  use mo_setsox,            only: setsox
-  use mo_mass_xforms,       only: vmr2mmr, mmr2vmr, mmr2vmri
-  use mo_chem_utls,         only: get_rxt_ndx, get_spc_ndx
-  use ref_pres,             only: top_lev => clim_modal_aero_top_lev
-  use drydep_mod,           only: inidrydep
-  use wetdep,               only: wetdep_init
+  !===============================================================================
+  ! Oslo Aerosol Model
+  ! Note: SPCAM not supported here
+  !===============================================================================
+
+  use shr_kind_mod,          only: r8 => shr_kind_r8
+  use constituents,          only: pcnst, cnst_name, cnst_get_ind
+  use ppgrid,                only: pcols, pver, pverp
+  use phys_control,          only: phys_getopts, cam_physpkg_is
+  use cam_abortutils,        only: endrun
+  use cam_logfile,           only: iulog
+  use perf_mod,              only: t_startf, t_stopf
+  use camsrfexch,            only: cam_in_t, cam_out_t
+  use aerodep_flx,           only: aerodep_flx_prescribed
+  use physics_types,         only: physics_state, physics_ptend, physics_ptend_init
+  use physics_buffer,        only: physics_buffer_desc, pbuf_get_field, pbuf_get_index, pbuf_set_field
+  use physconst,             only: gravit, rair, rhoh2o, pi
+  use spmd_utils,            only: masterproc
+  use time_manager,          only: get_nstep
+  use cam_history,           only: outfld, fieldname_len, addfld, add_default, horiz_only
+  use chem_mods,             only: gas_pcnst, adv_mass
+  use mo_tracname,           only: solsym
+  use mo_setsox,             only: setsox
+  use mo_mass_xforms,        only: vmr2mmr, mmr2vmr, mmr2vmri
+  use mo_chem_utls,          only: get_rxt_ndx, get_spc_ndx
+  use ref_pres,              only: top_lev => clim_modal_aero_top_lev
   !
-  use oslo_aero_depos,      only: oslo_aero_depos_init, oslo_aero_depos_dry, oslo_aero_depos_wet
-  use oslo_aero_coag,       only: coagtend, clcoag
-  use oslo_aero_coag,       only: initializeCoagulationReceivers
-  use oslo_aero_coag,       only: initializeCoagulationCoefficients
-  use oslo_aero_coag,       only: initializeCoagulationOutput
-  use oslo_aero_utils,      only: calculateNumberConcentration
-  use oslo_aero_condtend,   only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4
-  use oslo_aero_condtend,   only: registerCondensation, initializeCondensation, condtend
-  use aerosoldef,           only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
-  use aerosoldef,           only: qqcw_get_field, numberOfProcessModeTracers
-  use aerosoldef,           only: lifeCycleNumberMedianRadius
-  use aerosoldef,           only: getCloudTracerName
-  use aerosoldef,           only: aero_register
-  use sox_cldaero_mod,      only: sox_cldaero_init
-  use oslo_aero_interp_log, only: initlogn
-  use seasalt_model,        only: seasalt_init, seasalt_emis, seasalt_active
-  use dust_model,           only: dust_init, dust_emis, dust_active
-  use oslo_ocean_intr,      only: oslo_ocean_init, oslo_dms_emis_intr
-  use oslo_aero_sw_tables,  only: initopt, initopt_lw
-  use commondefinitions,    only: originalSigma, originalNumberMedianRadius
-  use commondefinitions,    only: nmodes_oslo=>nmodes, nbmodes
-  use const,                only: numberToSurface
+  use oslo_aero_depos,       only: oslo_aero_depos_init
+  use oslo_aero_depos,       only: oslo_aero_depos_dry, oslo_aero_depos_wet, oslo_aero_wetdep_init
+  use oslo_aero_coag,        only: coagtend, clcoag
+  use oslo_aero_coag,        only: initializeCoagulationReceivers
+  use oslo_aero_coag,        only: initializeCoagulationCoefficients
+  use oslo_aero_coag,        only: initializeCoagulationOutput
+  use oslo_aero_utils,       only: calculateNumberConcentration
+  use oslo_aero_condtend,    only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4
+  use oslo_aero_condtend,    only: registerCondensation, initializeCondensation, condtend
+  use oslo_aero_interp_log,  only: initlogn
+  use oslo_aero_seasalt,     only: oslo_aero_seasalt_init, oslo_aero_seasalt_emis, seasalt_active
+  use oslo_aero_dust,        only: oslo_aero_dust_init, oslo_aero_dust_emis, dust_active
+  use oslo_ocean_intr,       only: oslo_ocean_init, oslo_dms_emis_intr
+  use oslo_aero_sw_tables,   only: initopt, initopt_lw
+  use aerosoldef,            only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
+  use aerosoldef,            only: qqcw_get_field, numberOfProcessModeTracers
+  use aerosoldef,            only: lifeCycleNumberMedianRadius
+  use aerosoldef,            only: getCloudTracerName
+  use aerosoldef,            only: aero_register
+  use oslo_aero_sox_cldaero, only: sox_cldaero_init
+  use commondefinitions,     only: originalSigma, originalNumberMedianRadius
+  use commondefinitions,     only: nmodes_oslo=>nmodes, nbmodes
+  use const,                 only: numberToSurface
   use calcaersize
 #ifdef AEROCOM
-  use aerocom_opt_mod,      only: initaeropt
-  use aerocom_dry_mod,      only: initdryp
+  use aerocom_opt_mod,       only: initaeropt
+  use aerocom_dry_mod,       only: initdryp
 #endif
 
   implicit none
@@ -75,8 +75,6 @@ module aero_model
   integer :: nmodes ! number of modes
   integer :: pblh_idx= 0
   integer :: ndx_h2so4, ndx_soa_lv, ndx_soa_sv ! for surf_area_dens
-  integer :: ndrydep = 0
-  integer :: nwetdep = 0
   logical :: convproc_do_aer
 
   ! Namelist variables
@@ -87,12 +85,12 @@ module aero_model
   real(r8)          :: sol_factic_interstitial = 0.4_r8
   real(r8)          :: seasalt_emis_scale
 
+!=============================================================================
 contains
+!=============================================================================
 
-  !=============================================================================
-  ! reads aerosol namelist options
-  !=============================================================================
   subroutine aero_model_readnl(nlfile)
+    ! read aerosol namelist options
 
     use namelist_utils,  only: find_group_name
     use mpishorthand
@@ -121,7 +119,6 @@ contains
        end if
        close(unitn)
     end if
-
 #ifdef SPMD
     ! Broadcast namelist variables
     call mpibcast(aer_wetdep_list, len(aer_wetdep_list(1))*pcnst, mpichar, 0, mpicom)
@@ -164,21 +161,17 @@ contains
     call initopt
     call initlogn
     call initopt_lw
+    call initializeCondensation()
+    call oslo_ocean_init()
+    call oslo_aero_depos_init(pbuf2d)
+    call oslo_aero_dust_init()
+    call oslo_aero_seasalt_init() !seasalt_emis_scale)
+    call oslo_aero_wetdep_init()
 #ifdef AEROCOM
     call initaeropt()
     call initdryp()
 #endif
-    call initializeCondensation()
-    call oslo_ocean_init()
-    call oslo_aero_depos_init(pbuf2d)
-    call dust_init()
-    call seasalt_init() !seasalt_emis_scale)
-    call wetdep_init()
 
-    nwetdep = 0
-    ndrydep = 0
-
-    call inidrydep(rair, gravit)
     dummy = 'RAM1'
     call addfld (dummy,horiz_only, 'A','frac','RAM1')
     if ( history_aerosol ) then
@@ -452,15 +445,12 @@ contains
     real(r8) :: delt_inverse                 ! 1 / timestep
     real(r8), pointer :: pblh(:)
     character(len=32) :: name
-    logical :: is_spcam_m2005
 
     nstep = get_nstep()
 
-    is_spcam_m2005   = cam_physpkg_is('spcam_m2005')
-
     delt_inverse = 1.0_r8 / delt
 
-    !Get height of boundary layer (needed for boundary layer nucleation)
+    ! Get height of boundary layer (needed for boundary layer nucleation)
     call pbuf_get_field(pbuf, pblh_idx, pblh)
 
     ! calculate tendency due to gas phase chemistry and processes
@@ -474,14 +464,13 @@ contains
        call outfld( name, wrk(:ncol), ncol, lchnk )
     enddo
 
-    !  Get mass mixing ratios at start of time step
+    ! Get mass mixing ratios at start of time step
     call vmr2mmr( vmr0, mmr_tend_ncols, mbar, ncol )
     mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_H2SO4) = mmr_tend_ncols(1:ncol,:,ndx_h2so4)
     mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_LV) = mmr_tend_ncols(1:ncol,:,ndx_soa_lv)
     mmr_cond_vap_start_of_timestep(:ncol,:,COND_VAP_ORG_SV) = mmr_tend_ncols(1:ncol,:,ndx_soa_sv)
     !
     ! Aerosol processes ...
-    !
     call qqcw2vmr( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
 
     ! save h2so4 change by gas phase chem (for later new particle nucleation)
@@ -492,85 +481,54 @@ contains
     del_soa_lv_gasprod(1:ncol,:) = vmr(1:ncol,:,ndx_soa_lv) - vmr0(1:ncol,:,ndx_soa_lv)
     del_soa_sv_gasprod(1:ncol,:) = vmr(1:ncol,:,ndx_soa_sv) - vmr0(1:ncol,:,ndx_soa_sv)
 
-    if (.not. is_spcam_m2005) then  ! regular CAM
-       dvmrdt(:ncol,:,:) = vmr(:ncol,:,:)
-       dvmrcwdt(:ncol,:,:) = vmrcw(:ncol,:,:)
+    dvmrdt(:ncol,:,:) = vmr(:ncol,:,:)
+    dvmrcwdt(:ncol,:,:) = vmrcw(:ncol,:,:)
 
-       !Save intermediate concentrations
-       dvmrdt_sv1 = vmr
-       dvmrcwdt_sv1 = vmrcw
+    !Save intermediate concentrations
+    dvmrdt_sv1 = vmr
+    dvmrcwdt_sv1 = vmrcw
 
-       ! aqueous chemistry ...
-
-       call setsox(   &
-            ncol,     &
-            lchnk,    &
-            loffset,  &
-            delt,     &
-            pmid,     &
-            pdel,     &
-            tfld,     &
-            mbar,     &
-            cwat,     &
-            cldfr,    &
-            cldnum,   &
-            airdens,  &
-            invariants, &
-            vmrcw,    &
-            vmr,      &
-            xphlwc,   &
-            aqso4,    &
-            aqh2so4,  &
-            aqso4_h2o2, &
-            aqso4_o3  &
-            )
-
-       call outfld( 'AQSO4_H2O2', aqso4_h2o2(:ncol), ncol, lchnk)
-       call outfld( 'AQSO4_O3',   aqso4_o3(:ncol),   ncol, lchnk)
-       call outfld( 'XPH_LWC',    xphlwc(:ncol,:),   ncol, lchnk )
-
-
-       ! vmr tendency from aqchem and soa routines
-       dvmrdt_sv1 = (vmr - dvmrdt_sv1)/delt
-       dvmrcwdt_sv1 = (vmrcw - dvmrcwdt_sv1)/delt
-
-       if(ndx_h2so4 .gt. 0)then
-          del_h2so4_aqchem(:ncol,:) = dvmrdt_sv1(:ncol,:,ndx_h2so4)*delt !"production rate" of H2SO4
-       else
-          del_h2so4_aqchem(:ncol,:) = 0.0_r8
-       end if
-
-       do m = 1,gas_pcnst
-          wrk(:ncol) = 0._r8
-          do k = 1,pver
-             wrk(:ncol) = wrk(:ncol) + dvmrdt_sv1(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
-          end do
-          name = 'AQ_'//trim(solsym(m))
-          call outfld( name, wrk(:ncol), ncol, lchnk )
-
-          !In oslo aero also write out the tendencies for the
-          !cloud borne aerosols...
-          n = physicsIndex(m)
-          if (n.le.pcnst) then
-             if(getCloudTracerIndexDirect(n) .gt. 0)then
-                name = 'AQ_'//trim(getCloudTracerName(n))
-                wrk(:ncol)=0.0_r8
-                do k=1,pver
-                   wrk(:ncol) = wrk(:ncol) + dvmrcwdt_sv1(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
-                end do
-                call outfld( name, wrk(:ncol), ncol, lchnk )
-             end if
+    ! aqueous chemistry ...
+    call setsox( ncol, lchnk, loffset, delt, pmid, pdel, tfld, mbar, cwat, &
+         cldfr, cldnum, airdens, invariants, vmrcw, vmr, xphlwc, &
+         aqso4, aqh2so4, aqso4_h2o2, aqso4_o3)
+    
+    call outfld( 'AQSO4_H2O2', aqso4_h2o2(:ncol), ncol, lchnk)
+    call outfld( 'AQSO4_O3',   aqso4_o3(:ncol),   ncol, lchnk)
+    call outfld( 'XPH_LWC',    xphlwc(:ncol,:),   ncol, lchnk )
+    
+    ! vmr tendency from aqchem and soa routines
+    dvmrdt_sv1 = (vmr - dvmrdt_sv1)/delt
+    dvmrcwdt_sv1 = (vmrcw - dvmrcwdt_sv1)/delt
+    
+    if(ndx_h2so4 .gt. 0)then
+       del_h2so4_aqchem(:ncol,:) = dvmrdt_sv1(:ncol,:,ndx_h2so4)*delt !"production rate" of H2SO4
+    else
+       del_h2so4_aqchem(:ncol,:) = 0.0_r8
+    end if
+    
+    do m = 1,gas_pcnst
+       wrk(:ncol) = 0._r8
+       do k = 1,pver
+          wrk(:ncol) = wrk(:ncol) + dvmrdt_sv1(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
+       end do
+       name = 'AQ_'//trim(solsym(m))
+       call outfld( name, wrk(:ncol), ncol, lchnk )
+       
+       !In oslo aero also write out the tendencies for the
+       !cloud borne aerosols...
+       n = physicsIndex(m)
+       if (n.le.pcnst) then
+          if(getCloudTracerIndexDirect(n) .gt. 0)then
+             name = 'AQ_'//trim(getCloudTracerName(n))
+             wrk(:ncol)=0.0_r8
+             do k=1,pver
+                wrk(:ncol) = wrk(:ncol) + dvmrcwdt_sv1(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
+             end do
+             call outfld( name, wrk(:ncol), ncol, lchnk )
           end if
-       enddo
-
-    else if (is_spcam_m2005) then  ! SPCAM ECPP
-       ! when ECPP is used, aqueous chemistry is done in ECPP,
-       ! and not updated here.
-       ! Minghuai Wang, 2010-02 (Minghuai.Wang@pnl.gov)
-       !
-       dvmrdt = 0.0_r8
-       dvmrcwdt = 0.0_r8
-    endif
+       end if
+    enddo
 
     ! condensation
     call vmr2mmr( vmr, mmr_tend_ncols, mbar, ncol )
@@ -631,12 +589,12 @@ contains
     type(cam_in_t),      intent(inout) :: cam_in  ! import state
 
     if (dust_active) then
-       call dust_emis( state, cam_in)
+       call oslo_aero_dust_emis( state, cam_in)
        ! some dust emis diagnostics ...
     endif
 
     if (seasalt_active) then
-       call seasalt_emis(state, cam_in)
+       call oslo_aero_seasalt_emis(state, cam_in)
     endif
 
     !Pick up correct DMS emissions (replace values from file if requested)

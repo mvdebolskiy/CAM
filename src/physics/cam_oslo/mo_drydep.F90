@@ -4,6 +4,9 @@ module mo_drydep
   !       ... Dry deposition velocity input data and code for netcdf input
   !---------------------------------------------------------------------
 
+!LKE (10/11/2010): added HCN, CH3CN, HCOOH
+!LKE (7/30/2015): added new TS1 species (phenooh, iepox, noa, etc.)
+
   use shr_kind_mod,     only : r8 => shr_kind_r8, shr_kind_cl
   use chem_mods,        only : gas_pcnst
   use pmgrid,           only : plev, plevp
@@ -22,6 +25,8 @@ module mo_drydep
   use physconst,        only : karman
 
   implicit none
+
+  save
 
   interface drydep_inti
      module procedure dvel_inti_table
@@ -1611,7 +1616,9 @@ contains
 
     ! determine if modal aerosols are active so that fraction_landuse array is initialized for modal aerosal dry dep
     call phys_getopts(prog_modal_aero_out=prog_modal_aero)
+#ifdef OSLO_AERO
     prog_modal_aero = .TRUE.
+#endif
 
     call dvel_inti_fromlnd()
 
