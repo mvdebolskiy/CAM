@@ -39,7 +39,7 @@ module aero_model
   use oslo_aero_interp_log,  only: initlogn
   use oslo_aero_seasalt,     only: oslo_aero_seasalt_init, oslo_aero_seasalt_emis, seasalt_active
   use oslo_aero_dust,        only: oslo_aero_dust_init, oslo_aero_dust_emis, dust_active
-  use oslo_ocean_intr,       only: oslo_ocean_init, oslo_dms_emis_intr
+  use oslo_aero_ocean,       only: oslo_aero_ocean_init, oslo_aero_dms_emis
   use oslo_aero_sw_tables,   only: initopt, initopt_lw
   use aerosoldef,            only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
   use aerosoldef,            only: qqcw_get_field, numberOfProcessModeTracers
@@ -162,7 +162,7 @@ contains
     call initlogn
     call initopt_lw
     call initializeCondensation()
-    call oslo_ocean_init()
+    call oslo_aero_ocean_init()
     call oslo_aero_depos_init(pbuf2d)
     call oslo_aero_dust_init()
     call oslo_aero_seasalt_init() !seasalt_emis_scale)
@@ -598,7 +598,7 @@ contains
     endif
 
     !Pick up correct DMS emissions (replace values from file if requested)
-    call oslo_dms_emis_intr(state, cam_in)
+    call oslo_aero_dms_emis(state, cam_in)
 
   end subroutine aero_model_emissions
 

@@ -1,7 +1,19 @@
 module oslo_aero_seasalt
 
-  use shr_kind_mod, only: r8 => shr_kind_r8, cl => shr_kind_cl
-  use ppgrid,       only: pcols, pver
+  !-----------------------------------------------------------------------
+  ! compute emission of sea salt
+  !-----------------------------------------------------------------------
+
+  use shr_kind_mod,    only: r8 => shr_kind_r8, cl => shr_kind_cl
+  use ppgrid,          only: pcols, pver
+  use constituents,    only: cnst_name
+  use camsrfexch,      only: cam_in_t
+  use physics_types,   only: physics_state
+  !
+  use const,           only: volumeToNumber
+  use oslo_aero_ocean, only: oslo_aero_opom_inq, oslo_aero_opom_emis
+  use aerosoldef,      only: rhopart, l_om_ni, l_ss_a1, l_ss_a2, l_ss_a3
+  use aerosoldef,      only: MODE_IDX_SS_A1, MODE_IDX_SS_A2, MODE_IDX_SS_A3
 
   implicit none
   private
@@ -24,10 +36,6 @@ contains
 
   subroutine oslo_aero_seasalt_init()
 
-    use constituents, only: cnst_name
-    use aerosoldef,   only: l_ss_a1, l_ss_a2, l_ss_a3
-    use aerosoldef,   only: MODE_IDX_SS_A1, MODE_IDX_SS_A2, MODE_IDX_SS_A3, rhopart
-
     integer :: i
 
     modeMap(1) = MODE_IDX_SS_A1
@@ -47,16 +55,6 @@ contains
 
   !===============================================================================
   subroutine oslo_aero_seasalt_emis(state, cam_in)
-
-    !-----------------------------------------------------------------------
-    ! Purpose: Interface to emission of sea salt
-    !-----------------------------------------------------------------------
-
-    use camsrfexch,      only: cam_in_t
-    use physics_types,   only: physics_state
-    use const,           only: volumeToNumber
-    use aerosoldef,      only: rhopart, l_om_ni
-    use oslo_ocean_intr, only: oslo_opom_inq, oslo_opom_emis_intr
 
     ! Arguments:
     type(physics_state),    intent(in)    :: state   ! Physics state variables
@@ -113,9 +111,11 @@ contains
     ! (Note the uncertainty in the factor 2, written as 2 pluss/minus 1 in Eq. 6 -> possible tuning factor)
     whitecapAreaFraction(:ncol) = (2.0_r8*10.0_r8**(-8.0_r8))*(u10m(:ncol)**3.74_r8)
     whitecapAreaFraction(:ncol) = ocnfrc(:ncol) * (1._r8-icefrc(:ncol)) * whitecapAreaFraction(:ncol)
+
+    ! Determine open ocean fraction on gridcell
     open_ocean(:ncol) = ocnfrc(:ncol) * (1._r8-icefrc(:ncol))
 
-    !Eqn. 9 in Salter et al. (2015)
+    ! Eqn. 9 in Salter et al. (2015)
     do n=1,numberOfSaltModes
        numberFlux(:ncol,n) = whitecapAreaFraction(:ncol)*                                    &
             ( coeffA(n)*(sst(:ncol)-273.15_r8)*(sst(:ncol)-273.15_r8)*(sst(:ncol)-273.15_r8) &
@@ -131,10 +131,10 @@ contains
     end do
     spracklenOMOceanSource(:ncol) = cam_in%cflx(:ncol, tracerMap(1))*seasaltToSpracklenOM2
 
-    if (oslo_opom_inq())then
-       call oslo_opom_emis_intr(cam_in%cflx(:ncol, tracerMap(1)), &
+    if (oslo_aero_opom_inq())then
+       call oslo_aero_opom_emis(cam_in%cflx(:ncol, tracerMap(1)), &
             cam_in%cflx(:ncol,tracerMap(2)), cam_in%cflx(:ncol,tracerMap(3)), &
-            open_ocean, ncol,lchnk, onOMOceanSource )
+            open_ocean, ncol, lchnk, onOMOceanSource )
        OMOceanSource(:ncol) = onOMOceanSource(:ncol)
     else
        OMOceanSource(:ncol) = spracklenOMOceanSource(:ncol)

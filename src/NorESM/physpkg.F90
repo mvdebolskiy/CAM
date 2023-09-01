@@ -2486,7 +2486,7 @@ subroutine phys_timestep_init(phys_state, cam_in, cam_out, pbuf2d)
   use iop_forcing,         only: scam_use_iop_srf
   use nudging,             only: Nudge_Model, nudging_timestep_init
   ! OSLO_AERO beg
-  use oslo_ocean_intr,     only: oslo_ocean_time
+  use oslo_aero_ocean,     only: oslo_aero_ocean_time
   ! OSLO_AERO end
 
   implicit none
@@ -2523,7 +2523,7 @@ subroutine phys_timestep_init(phys_state, cam_in, cam_out, pbuf2d)
   call prescribed_volcaero_adv(phys_state, pbuf2d)
   call prescribed_strataero_adv(phys_state, pbuf2d)
   ! OSLO_AERO beg
-  call oslo_ocean_time(phys_state, pbuf2d)
+  call oslo_aero_ocean_time(phys_state, pbuf2d)
   ! OSLO_AERO end
 
   ! prescribed aerosol deposition fluxes
