@@ -26,6 +26,7 @@ module aero_model
   use mo_mass_xforms,        only: vmr2mmr, mmr2vmr, mmr2vmri
   use mo_chem_utls,          only: get_rxt_ndx, get_spc_ndx
   use ref_pres,              only: top_lev => clim_modal_aero_top_lev
+  use wv_saturation,         only: qsat_water
   !
   use oslo_aero_depos,       only: oslo_aero_depos_init
   use oslo_aero_depos,       only: oslo_aero_depos_dry, oslo_aero_depos_wet, oslo_aero_wetdep_init
@@ -792,13 +793,8 @@ contains
 
     ! Seland Calculates mean volume size and hygroscopic growth for use in  dry deposition
 
-    use shr_kind_mod,      only: r8 => shr_kind_r8
-    use constituents,      only : pcnst
-    use ppgrid
-    use wv_saturation,     only: qsat_water
     use commondefinitions, only: nmodes
     use aerosoldef
-    use physconst,         only: rhoh2o
 
     integer,  intent(in) :: ncol               ! number of columns
     real(r8), intent(in) :: t(pcols,pver)      ! layer temperatures (K)
@@ -814,7 +810,7 @@ contains
     !     local variables
     real(r8) :: relhum(pcols,pver) ! Relative humidity  
     integer  :: i,k,m,irelh,mm, tracerCounter
-    integer  ::l ! species index
+    integer  :: l ! species index
     real(r8) :: xrh(pcols,pver)
     real(r8) :: qs(pcols,pver)        ! saturation specific humidity
     real(r8) :: rmeanvol              ! Mean radius with respect to volume 
@@ -833,11 +829,6 @@ contains
        do i=1,ncol
           call qsat_water(t(i,k),pmid(i,k), tmp1, qs(i,k), tmp2)
           xrh(i,k) = h2ommr(i,k)/qs(i,k)
-          !cak
-          !          if(xrh(i,k).lt.0.0_r8.or.xrh(i,k).gt.1.0_r8) then
-          !             write(*,*) 'i,k,rh calcaer=',i,k,xrh(i,k)
-          !          endif
-          !cak
           xrh(i,k) = max(xrh(i,k),0.0_r8)
           xrh(i,k) = min(xrh(i,k),1.0_r8)
           relhum(i,k)=xrh(i,k)
