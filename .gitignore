@@ -4,6 +4,7 @@ chem_proc
 cime
 components
 manage_externals.log
+src/chemistry/oslo_aero
 src/physics/ali_arms/
 src/physics/camnor_phys
 src/physics/carma/base
