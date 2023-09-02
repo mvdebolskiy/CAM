@@ -505,7 +505,6 @@ contains
     real(r8) :: log10sig(pcols,pver)    ! [-] logarithm (base 10) of look up tables
     real(r8) :: f_ocm(pcols,pver,4)     ! [-] fraction of added mass which is either SOA condensate or OC coagulate
     real(r8) :: cxs(pcols,pver,nbmodes) ![ug/m3] NOTE NON-SI UNITS non-allocated mass
-    integer  :: ind(pcols)              ![idx] index in mapping (not really used)
     real(r8) :: radius_tmp(pcols,pver)  ![m] radius in look up tables
 
     ! Initialize logn tables for interpolation
@@ -539,15 +538,9 @@ contains
 
        if ( kcomp .ge. MODE_IDX_SO4SOA_AIT .and. kcomp .le. MODE_IDX_BC_AIT) then  ! kcomp=1,2
 
-          ! Remove this later?
-          do i=1,ncol
-             ind(i) = i
-          end do
-
           do k=1,pver
              call intlog1to3_sub(   &
                   ncol,             & !I number of points
-                  ind,              & !I [idx] mappoing of points to use
                   kcomp,            & !I [idx] mode index
                   camUg(:,k),       & !I [ug/m3] mass concentration
                   nConccm3(:,k),    & !I [#/cm3] number concentration
@@ -562,8 +555,7 @@ contains
 
           do k=1,pver
              call intlog4_sub(      &
-                  ncol,             & !I number of points
-                  ind,              & !I [idx] mappoing of points to use
+                  ncol,             & !I [nbr] number of points
                   kcomp,            & !I [idx] mode index
                   camUg(:,k),       & !I [ug/m3] mass concentration
                   nConccm3(:,k),    & !I [#/cm3] number concentration
@@ -580,7 +572,6 @@ contains
           do k=1,pver
              call intlog5to10_sub(  &
                   ncol,             & !I [nbr] number of points used
-                  ind,              & !I [mapping] (not used)
                   kcomp,            & !I [mode index]
                   camUg(:,k),       & !I [ug/m3] mass concentration
                   nConccm3(:,k),    & !I [#/cm3] number concentration
