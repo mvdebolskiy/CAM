@@ -37,7 +37,6 @@ module aero_model
   use oslo_aero_utils,       only: calculateNumberConcentration
   use oslo_aero_condtend,    only: N_COND_VAP, COND_VAP_ORG_SV, COND_VAP_ORG_LV, COND_VAP_H2SO4
   use oslo_aero_condtend,    only: registerCondensation, initializeCondensation, condtend
-  use oslo_aero_interp_log,  only: initlogn
   use oslo_aero_seasalt,     only: oslo_aero_seasalt_init, oslo_aero_seasalt_emis, seasalt_active
   use oslo_aero_dust,        only: oslo_aero_dust_init, oslo_aero_dust_emis, dust_active
   use oslo_aero_ocean,       only: oslo_aero_ocean_init, oslo_aero_dms_emis
@@ -159,7 +158,6 @@ contains
 
     call aero_model_constants
     call initopt
-    call initlogn
     call initopt_lw
     call initializeCondensation()
     call oslo_aero_ocean_init()

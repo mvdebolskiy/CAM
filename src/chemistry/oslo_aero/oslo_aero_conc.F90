@@ -1,15 +1,17 @@
 module oslo_aero_conc
 
-  use shr_kind_mod ,        only: r8 => shr_kind_r8
-  use ppgrid       ,        only: pcols, pver
-  use physconst    ,        only: density_water =>rhoh2o, molecularWeightWater=>mwh2o, pi
-  use constituents ,        only: pcnst, cnst_name
+  ! Calculate concentrations of aerosol modes based on lifecycle species
+
+  use shr_kind_mod ,         only: r8 => shr_kind_r8
+  use ppgrid       ,         only: pcols, pver
+  use physconst    ,         only: density_water =>rhoh2o, molecularWeightWater=>mwh2o, pi
+  use constituents ,         only: pcnst, cnst_name
   !
-  use oslo_aero_interp_log, only: intlog1to3_sub, intlog4_sub, intlog5to10_sub
-  use oslo_aero_utils,      only: calculateNumberConcentration
-  use oslo_aero_coag,       only: normalizedCoagulationSink
-  use oslo_aero_condtend,   only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
-  use const,                only: smallNumber, volumeToNumber,smallNumber
+  use oslo_aero_logn_tables, only: intlog1to3_sub, intlog4_sub, intlog5to10_sub, initlogn
+  use oslo_aero_utils,       only: calculateNumberConcentration
+  use oslo_aero_coag,        only: normalizedCoagulationSink
+  use oslo_aero_condtend,    only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
+  use const,                 only: smallNumber, volumeToNumber,smallNumber
   use commondefinitions
   use aerosoldef
 
@@ -33,6 +35,8 @@ module oslo_aero_conc
   real(r8), parameter :: solubleMassFractionCoatingLimit=0.50_r8
   real(r8), parameter :: aThird       = 1.0_r8/3.0_r8
   real(r8), parameter :: ln10         = log(10.0_r8)
+
+  logical :: init_logn_tables = .false.
 
 contains
 
@@ -221,36 +225,34 @@ contains
     ! http://onlinelibrary.wiley.com/doi/10.1029/1999JD901161/abstract
     ! Abdul-Razzak and S. Ghan:
 
-    !INPUT
-    integer, intent(in)     :: ncol
-    real(r8), intent(in)    :: mmr(pcols,pver,pcnst)                   !I [kg/kg] mass mixing ratios
-    real(r8), intent(in)    :: numberConcentration(pcols,pver,0:nmodes)!I [#/m3] number concentrations
-    real(r8), intent(in)    :: rho_air(pcols,pver)                     !I [kg/m3] air density
-    real(r8), intent(in)    :: Cam(pcols, pver, nbmodes)               !I [kg/m3] total added mass during microphysics
-    real(r8), intent(in)    :: f_acm(pcols,pver,nbmodes)               !I [-] fraction of added mass which is carbon
-    real(r8), intent(in)    :: f_aqm(pcols,pver,nbmodes)               !I [-] fraction of sulfate which is aq. phase
-    real(r8), intent(in)    :: f_bcm(pcols,pver,nbmodes)               !I [-] fraction of C which is bc
-    logical, intent(in)     :: hasAerosol(pcols,pver,nmodes)          !I [t/f] do we have aerosols
+    ! arguments
+    integer  , intent(in)  :: ncol
+    real(r8) , intent(in)  :: mmr(pcols,pver,pcnst)                    ! [kg/kg] mass mixing ratios
+    real(r8) , intent(in)  :: numberConcentration(pcols,pver,0:nmodes) ! [#/m3] number concentrations
+    real(r8) , intent(in)  :: rho_air(pcols,pver)                      ! [kg/m3] air density
+    real(r8) , intent(in)  :: Cam(pcols, pver, nbmodes)                ! [kg/m3] total added mass during microphysics
+    real(r8) , intent(in)  :: f_acm(pcols,pver,nbmodes)                ! [-] fraction of added mass which is carbon
+    real(r8) , intent(in)  :: f_aqm(pcols,pver,nbmodes)                ! [-] fraction of sulfate which is aq. phase
+    real(r8) , intent(in)  :: f_bcm(pcols,pver,nbmodes)                ! [-] fraction of C which is bc
+    logical  , intent(in)  :: hasAerosol(pcols,pver,nmodes)            ! [t/f] do we have aerosols
+    real(r8) , intent(out) :: hygroscopicity(pcols,pver,nmodes)
+    real(r8) , intent(out) :: volumeConcentration(pcols,pver,nmodes)
+    real(r8) , intent(out) :: volumeCore(pcols,pver,nmodes)            ![m3]
+    real(r8) , intent(out) :: volumeCoat(pcols,pver,nmodes)            ![m3]
 
-    !OUTPUT
-    real(r8), intent(out)   :: hygroscopicity(pcols,pver,nmodes)
-    real(r8), intent(out)   :: volumeConcentration(pcols,pver,nmodes)
+    ! local variables
+    integer  :: kcomp !counter for modes
+    integer  :: l     !counter for components
+    integer  :: k     !counter for levels
+    integer  :: tracerIndex
+    integer  :: i
+    real(r8) :: hygroscopicityAvg(pcols,pver)
+    real(r8) :: hygroscopicityCoat(pcols,pver)
+    real(r8) :: massConcentrationTracerInMode(pcols,pver)
+    real(r8) :: averageRadiusCore(pcols,pver)  ![m]
+    real(r8) :: averageRadiusTotal(pcols,pver) ![m]
 
-    !Local variables
-    real(r8)                :: hygroscopicityAvg(pcols,pver)
-    real(r8)                :: hygroscopicityCoat(pcols,pver)
-    real(r8)                :: massConcentrationTracerInMode(pcols,pver)
-    real(r8), intent(out)   :: volumeCore(pcols,pver,nmodes)      ![m3]
-    real(r8), intent(out)   :: volumeCoat(pcols,pver,nmodes)      ![m3]
-    real(r8)                :: averageRadiusCore(pcols,pver)      ![m]
-    real(r8)                :: averageRadiusTotal(pcols,pver)     ![m]
-    integer                 :: kcomp !counter for modes
-    integer                 :: l     !counter for components
-    integer                 :: tracerIndex
-    integer                 :: k !counter for levels
-    integer                 :: i
-
-    !initialize
+    ! initialize
     hygroscopicity(:,:,:) = 0.0_r8
     volumeConcentration(:,:,:)=0.0_r8
 
@@ -279,81 +281,60 @@ contains
              massConcentrationTracerInMode(:ncol,k) = mmr(:ncol,k,tracerIndex)*rho_air(:ncol,k)
           end do
 
-          call addModeHygroscopicity(   ncol                          &
-               , hasAerosol(:,:,kcomp)         &  !true if any concentration in this point
-               , massConcentrationTracerInMode &
-               , volumeCore(:,:,kcomp)         &
-               , volumeCoat(:,:,kcomp)         &
-               , hygroscopicityAvg             &
-               , hygroscopicityCoat            &
-               , tracerIndex                   &
-               )
+          ! hasAerosol is true if any concentration in this point
+          call addModeHygroscopicity(   ncol, hasAerosol(:,:,kcomp), &
+               massConcentrationTracerInMode, volumeCore(:,:,kcomp), volumeCoat(:,:,kcomp), &
+               hygroscopicityAvg, hygroscopicityCoat, tracerIndex)
+
        end do !background tracers in mode (l)
 
        !The background modes can have tracer mass added to them
-       if(kcomp .le. nbmodes)then
+       if (kcomp .le. nbmodes)then
 
-          !added aquous sulfate
+          ! added aquous sulfate
           if(isTracerInMode(kcomp,l_so4_a2))then
 
              do k=1,pver
                 massConcentrationTracerInMode(:ncol,k) = Cam(:ncol,k,kcomp)*(1.0_r8 - f_acm(:ncol,k,kcomp))*f_aqm(:ncol,k,kcomp)
              end do
 
-             call addModeHygroscopicity(   ncol                          &
-                  , hasAerosol(:,:,kcomp)         &  !true if any concentration in this point
-                  , massConcentrationTracerInMode &
-                  , volumeCore(:,:,kcomp)         &
-                  , volumeCoat(:,:,kcomp)         &
-                  , hygroscopicityAvg             &
-                  , hygroscopicityCoat            &
-                  , l_so4_a2                      &
-                  )
+             ! hasAerosol is true if any concentration in this point
+             call addModeHygroscopicity( ncol, hasAerosol(:,:,kcomp), &
+                  massConcentrationTracerInMode, volumeCore(:,:,kcomp), volumeCoat(:,:,kcomp), &
+                  hygroscopicityAvg, hygroscopicityCoat, l_so4_a2)
+
           endif
 
-          !added condensate/coagulate
-          !All modes which have coagulate have also condensate, so it is
-          !ok to check for condensate and add the combined mass..
-          if(isTracerInMode(kcomp,l_so4_a1))then
-
+          ! added condensate/coagulate
+          ! All modes which have coagulate have also condensate, so it is
+          ! ok to check for condensate and add the combined mass..
+          if (isTracerInMode(kcomp,l_so4_a1))then
              do k=1,pver
                 massConcentrationTracerInMode(:ncol,k) = Cam(:ncol,k,kcomp)*(1.0_r8 - f_acm(:ncol,k,kcomp))*(1.0_r8 - f_aqm(:ncol,k,kcomp))
              end do
 
-             call addModeHygroscopicity(   ncol                          &
-                  , hasAerosol(:,:,kcomp)         &  !true if any concentration in this point
-                  , massConcentrationTracerInMode &
-                  , volumeCore(:,:,kcomp)         &
-                  , volumeCoat(:,:,kcomp)         &
-                  , hygroscopicityAvg             &
-                  , hygroscopicityCoat            &
-                  , l_so4_a1                      &
-                  )
-          endif
-          !Added bc
-          if(isTracerInMode(kcomp,l_bc_ac))then
+             call addModeHygroscopicity(ncol, hasAerosol(:,:,kcomp),  &
+                  massConcentrationTracerInMode, volumeCore(:,:,kcomp), volumeCoat(:,:,kcomp), &
+                  hygroscopicityAvg, hygroscopicityCoat, l_so4_a1)
 
+          endif
+
+          ! Added bc
+          if (isTracerInMode(kcomp,l_bc_ac))then
              do k=1,pver
                 massConcentrationTracerInMode(:ncol,k) = Cam(:ncol,k,kcomp)*f_acm(:ncol,k,kcomp)*f_bcm(:ncol,k,kcomp)
              end do
 
-             call addModeHygroscopicity( ncol                            &
-                  , hasAerosol(:,:,kcomp)         &  !true if any concentration in this point
-                  , massConcentrationTracerInMode &
-                  , volumeCore(:,:,kcomp)         &
-                  , volumeCoat(:,:,kcomp)         &
-                  , hygroscopicityAvg             &
-                  , hygroscopicityCoat            &
-                  , l_bc_ac                       &
-                  )
+             call addModeHygroscopicity( ncol, hasAerosol(:,:,kcomp), &
+                  massConcentrationTracerInMode, volumeCore(:,:,kcomp), volumeCoat(:,:,kcomp), &
+                  hygroscopicityAvg, hygroscopicityCoat, l_bc_ac )
           endif
 
-          !Added oc (both POM and SOA), then both have the same
-          !properties, so add combined mass here.
-          !All modes which have condensate also has coagulate, so OK to check
-          !for condensate and distribute the sum..
-          if(isTracerInMode(kcomp,l_soa_a1))then
-
+          ! Added oc (both POM and SOA), then both have the same
+          ! properties, so add combined mass here.
+          ! All modes which have condensate also has coagulate, so OK to check
+          ! for condensate and distribute the sum..
+          if (isTracerInMode(kcomp,l_soa_a1))then
              do k=1,pver
                 massConcentrationTracerInMode(:ncol,k) = Cam(:ncol,k,kcomp)*f_acm(:ncol,k,kcomp)*(1.0_r8 -f_bcm(:ncol,k,kcomp))
              end do
@@ -383,7 +364,7 @@ contains
                 !If there is enough soluble material, a coating will be formed: In that case, the
                 !volume of the aerosol in question is only the volume of the coating!
                 hygroscopicityCoat(:ncol,k) = molecularWeightWater*hygroscopicityCoat(:ncol,k) &
-                     & /( density_water * volumeCoat(:ncol,k,kcomp)) !Note use of volume Coating here
+                     /( density_water * volumeCoat(:ncol,k,kcomp)) !Note use of volume Coating here
              elsewhere
                 hygroscopicityCoat(:ncol,k) = 1.e-30_r8
              endwhere
@@ -392,14 +373,16 @@ contains
 
              !hygroscopicity of mixture (Note use of total volume to get average hygroscopicity)
              hygroscopicityAvg(:ncol,k) = molecularWeightWater*hygroscopicityAvg(:ncol,k) &
-                  & /(density_water * volumeConcentration(:ncol,k,kcomp))
+                  /(density_water * volumeConcentration(:ncol,k,kcomp))
 
 
              !Average size of insoluble core (average radius)
-             averageRadiusCore(:ncol,k) = 0.5_r8*( (volumeCore(:ncol,k,kcomp)) / numberConcentration(:ncol,k,kcomp) * (6.0_r8/pi))**athird
+             averageRadiusCore(:ncol,k) = 0.5_r8*( (volumeCore(:ncol,k,kcomp)) &
+                  / numberConcentration(:ncol,k,kcomp) * (6.0_r8/pi))**athird
 
              !Average size of total aerosol (average radius)
-             averageRadiusTotal(:ncol,k) = 0.5_r8*((volumeConcentration(:ncol,k,kcomp)) / numberConcentration(:ncol,k,kcomp)*(6.0_r8/pi))**athird
+             averageRadiusTotal(:ncol,k) = 0.5_r8*((volumeConcentration(:ncol,k,kcomp)) &
+                  / numberConcentration(:ncol,k,kcomp)*(6.0_r8/pi))**athird
 
              !do i=1,ncol
              !   if(numberConcentration(i,k,kcomp) .gt. 1.e6 .and. kcomp.eq.6 )then
@@ -408,14 +391,17 @@ contains
              !   endif
              !end do
 
-             !use one or the other hygroscopicity based on coating
+             ! use one or the other hygroscopicity based on coating
              where ( averageRadiusTotal(:ncol,k) - averageRadiusCore(:ncol,k)  .gt. coatingLimit )
                 hygroscopicity(:ncol,k,kcomp) = hygroscopicityCoat(:ncol,k)
              elsewhere
                 hygroscopicity(:ncol,k,kcomp) = hygroscopicityAvg(:ncol,k)
              endwhere
+
           elsewhere ! No aerosol
+
              hygroscopicity(:ncol,k,kcomp) = 1.e-10_r8
+
           end where
 
        end do !levels
@@ -512,30 +498,28 @@ contains
     real(r8) , intent(out)   :: lnsigma(pcols,pver,nmodes)               ![-] log (base e) of std. dev
 
     ! local variables
+    integer  :: kcomp
+    integer  :: i,k
     real(r8) :: nconccm3(pcols,pver)
     real(r8) :: camUg(pcols,pver)
-    real(r8) :: log10sig(pcols,pver) ! [-] logarithm (base 10) of look up tables
-    real(r8) :: f_ocm(pcols,pver,4)  ! [-] fraction of added mass which is either SOA condensate or OC coagulate
-    integer  :: iloop
-    integer  :: kcomp
-    integer  :: i
-    integer  :: k
-    real(r8), dimension(pcols,pver,nbmodes)  :: cxs        ![ug/m3] NOTE NON-SI UNITS non-allocated mass
-    integer , dimension(pcols)               :: ind        ![idx] index in mapping (not really used)
-    real(r8), dimension(pcols,pver)          :: radius_tmp ![m] radius in look up tables
+    real(r8) :: log10sig(pcols,pver)    ! [-] logarithm (base 10) of look up tables
+    real(r8) :: f_ocm(pcols,pver,4)     ! [-] fraction of added mass which is either SOA condensate or OC coagulate
+    real(r8) :: cxs(pcols,pver,nbmodes) ![ug/m3] NOTE NON-SI UNITS non-allocated mass
+    integer  :: ind(pcols)              ![idx] index in mapping (not really used)
+    real(r8) :: radius_tmp(pcols,pver)  ![m] radius in look up tables
 
+    ! Initialize logn tables for interpolation
+    if (.not. init_logn_tables) then
+       call initlogn()
+       init_logn_tables = .true.
+    end if
 
-    !total mass not allocated to any mode
-    !this is non-zero if the look-up table can not cope with all the add-on mass
-    !cxstot(:,:) = 0.0_r8
+    ! total mass not allocated to any mode
+    ! this is non-zero if the look-up table can not cope with all the add-on mass
+    ! cxstot(:,:) = 0.0_r8
 
-    !Remove this later!
-    do i=1,ncol
-       ind(i)=i
-    end do
-
-    !    calculate fraction of added mass which is either SOA condensate or OC coagulate,
-    !    which in AeroTab are both treated as condensate for kcomp=1-4
+    ! calculate fraction of added mass which is either SOA condensate or OC coagulate,
+    ! which in AeroTab are both treated as condensate for kcomp=1-4
     do kcomp=1,4
        do k=1,pver
           do i=1,ncol
@@ -544,128 +528,127 @@ contains
        enddo
     enddo
 
-    do iloop=1,1   !  loop over i>1 for testing CPU use in intlog*
+    ! Go through all "background" size-modes (kcomp=1-10)
+    do kcomp=1,nbmodes
 
-       !Go through all "background" size-modes (kcomp=1-10)
-       do kcomp=1,nbmodes
+       camUg(:,:) = cam(:,:,kcomp)*1.e9_r8
+       nConccm3(:,:) = 1e-6_r8*numberConcentration(:,:,kcomp)
 
-          camUg(:,:) = cam(:,:,kcomp)*1.e9_r8
-          nConccm3(:,:) = 1e-6_r8*numberConcentration(:,:,kcomp)
+       ! Calculate growth from knowing added process specific internally mixed mass to each background mode
+       ! (level sent but not needed, and kcomp not needed for intlog4_sub)
 
-          !Calculate growth from knowing added process specific internally mixed mass to each background mode
-          !(level sent but not needed, and kcomp not needed for intlog4_sub)
+       if ( kcomp .ge. MODE_IDX_SO4SOA_AIT .and. kcomp .le. MODE_IDX_BC_AIT) then  ! kcomp=1,2
 
-          if( kcomp .ge. MODE_IDX_SO4SOA_AIT .and. kcomp .le. MODE_IDX_BC_AIT)then       ! kcomp=1,2
-
-             do k=1,pver
-                call intlog1to3_sub(                            &
-                     ncol                        &                 !I number of points
-                     , ind                         &                 !I [idx] mappoing of points to use
-                     , kcomp                       &                 !I [idx] mode index
-                     , camUg(:,k)                  &                 !I [ug/m3] mass concentration
-                     , nConccm3(:,k)               &     !I [#/cm3] number concentration
-                     , f_ocm(:,k,kcomp)            &                 !I [frc] mass fraction which is SOA cond. or OC coag.
-                     , cxs(:,k,kcomp)              &                 !O [ug/m3] mass which did not fit the table
-                     , log10sig(:,k)               &                 !O [-]sigma, is later thrown away begause of volume balance
-                     , radius_tmp(:,k)             &                 !O [m] Number median radius
-                     )
-
-             end do  !loop on levels
-
-          else if(kcomp .eq. MODE_IDX_OMBC_INTMIX_COAT_AIT)then                       ! kcomp=4
-
-             do k=1,pver
-                call intlog4_sub(                               &
-                     ncol                           &                 !I number of points
-                     , ind                            &                 !I [idx] mappoing of points to use
-                     , kcomp                          &                 !I [idx] mode index
-                     , camUg(:,k)                     &                 !I [ug/m3] mass concentration
-                     , nConccm3(:,k)                  &        !I [#/cm3] number concentration
-                     , f_ocm(:,k,kcomp)               &                 !I [frc] mass fraction which is SOA cond. or OC coag.
-                     , f_aqm(:,k,kcomp)               &                 !I [frc] fraction of sulfate which is aquous
-                     , cxs(:,k,kcomp)                 &                 !O [ug/m3] mass which did not fit the table
-                     , log10sig(:,k)                  &                 !O [-]sigma, is later thrown away begause of volume balance
-                     , radius_tmp(:,k)                &                 !O [m] Number median radius
-                     )
-             end do
-
-          else if (kcomp .ge. MODE_IDX_SO4_AC .and. kcomp .le. MODE_IDX_SS_A3)then    ! kcomp=5-10
-
-             do k=1,pver
-                call intlog5to10_sub(                           &
-                     ncol                       &                 !I [nbr] number of points used
-                     , ind                        &                 !I [mapping] (not used)
-                     , kcomp                      &                 !I [mode index]
-                     , camUg(:,k)                 &                 !I [ug/m3] mass concentration
-                     , nConccm3(:,k)              &    !I [#/cm3] number concentration
-                     , f_acm(:,k,kcomp)           &                 !I [frc] fraction of aerosol which is carbon
-                     , f_bcm(:,k,kcomp)           &                 !I [frc] fraction of carbon which is bc
-                     , f_aqm(:,k,kcomp)           &                 !I [frc] fraction of sulfate which is aquous
-                     , cxs(:,k,kcomp)             &                 !O [ug/m3] mass which did not fit the table (not given to any mode)
-                     , log10sig(:,k)              &                 !O logarithm (base 10) sigma, is later thrown away begause of volume balance
-                     , radius_tmp(:,k)            &                 !O [m] Number median radius
-                     )
-             end do ! k
-
-          endif
-
-          !initialize
-          lnsigma(:,:,kcomp) = log(2.0_r8)
-
-          !The whole point of the interpolation routines is to get the new sigma ==> so trust the sigma
-
-          !This means that in order to conserve the volume (which is known), we have to throw away
-          !the number concentration. Should create a diagnostic or a warning if number concenration is very different
-          !from the original number concentration since in principal, the number concentration is
-          !also conserved!
-          do k=1,pver
-             !Don't change number concentration unless "hasAerosol" is true
-             where(hasAerosol(:ncol,k,kcomp))
-
-                lnsigma(:ncol,k,kcomp) = ln10*log10sig(:ncol,k)
-
-                numberConcentration(:ncol,k,kcomp) = volumeConcentration(:ncol,k,kcomp)*6.0_r8/pi      &
-                     /(2.0_r8*radius_tmp(:ncol,k))**3  &
-                     *DEXP(-4.5_r8*lnsigma(:ncol,k,kcomp)*lnsigma(:ncol,k,kcomp))
-
-                !==> Now we have a set of n, vol, sigma which is consistent and gives back whatever the
-                !lookup tables told us! If the look up tables were conserving volume we didn't have to do
-                !the step just above!!
-
-                !Sum up all mass which was not added to any mode (mass exceeding the max limit in the look-up tables)
-                !cxstot(:ncol,k) = cxstot(:ncol,k) + cxs(:ncol,k,kcomp)*1.e-9_r8 ! ug/m3 ==> kg/m3
-
-             end where
+          ! Remove this later?
+          do i=1,ncol
+             ind(i) = i
           end do
 
-       end do !kcomp
-
-       !The modes which do not have any added aerosol:
-       do kcomp=nbmodes+1,nmodes
           do k=1,pver
-             lnsigma(:ncol,k,kcomp) = log(originalSigma(kcomp))
+             call intlog1to3_sub(   &
+                  ncol,             & !I number of points
+                  ind,              & !I [idx] mappoing of points to use
+                  kcomp,            & !I [idx] mode index
+                  camUg(:,k),       & !I [ug/m3] mass concentration
+                  nConccm3(:,k),    & !I [#/cm3] number concentration
+                  f_ocm(:,k,kcomp), & !I [frc] mass fraction which is SOA cond. or OC coag.
+                  cxs(:,k,kcomp),   & !O [ug/m3] mass which did not fit the table
+                  log10sig(:,k),    & !O [-]sigma, is later thrown away begause of volume balance
+                  radius_tmp(:,k)   & !O [m] Number median radius
+                  )
+          end do  !loop on levels
+
+       else if (kcomp .eq. MODE_IDX_OMBC_INTMIX_COAT_AIT) then ! kcomp=4
+
+          do k=1,pver
+             call intlog4_sub(      &
+                  ncol,             & !I number of points
+                  ind,              & !I [idx] mappoing of points to use
+                  kcomp,            & !I [idx] mode index
+                  camUg(:,k),       & !I [ug/m3] mass concentration
+                  nConccm3(:,k),    & !I [#/cm3] number concentration
+                  f_ocm(:,k,kcomp), & !I [frc] mass fraction which is SOA cond. or OC coag.
+                  f_aqm(:,k,kcomp), & !I [frc] fraction of sulfate which is aquous
+                  cxs(:,k,kcomp),   & !O [ug/m3] mass which did not fit the table
+                  log10sig(:,k),    & !O [-]sigma, is later thrown away begause of volume balance
+                  radius_tmp(:,k)   & !O [m] Number median radius
+                  )
           end do
+
+       else if (kcomp .ge. MODE_IDX_SO4_AC .and. kcomp .le. MODE_IDX_SS_A3)then    ! kcomp=5-10
+
+          do k=1,pver
+             call intlog5to10_sub(  &
+                  ncol,             & !I [nbr] number of points used
+                  ind,              & !I [mapping] (not used)
+                  kcomp,            & !I [mode index]
+                  camUg(:,k),       & !I [ug/m3] mass concentration
+                  nConccm3(:,k),    & !I [#/cm3] number concentration
+                  f_acm(:,k,kcomp), & !I [frc] fraction of aerosol which is carbon
+                  f_bcm(:,k,kcomp), & !I [frc] fraction of carbon which is bc
+                  f_aqm(:,k,kcomp), & !I [frc] fraction of sulfate which is aquous
+                  cxs(:,k,kcomp),   & !O [ug/m3] mass which did not fit the table (not given to any mode)
+                  log10sig(:,k),    & !O logarithm (base 10) sigma, is later thrown away begause of volume balance
+                  radius_tmp(:,k)   & !O [m] Number median radius
+                  )
+          end do ! k
+
+       endif
+
+       !initialize
+       lnsigma(:,:,kcomp) = log(2.0_r8)
+
+       !The whole point of the interpolation routines is to get the new sigma ==> so trust the sigma
+
+       !This means that in order to conserve the volume (which is known), we have to throw away
+       !the number concentration. Should create a diagnostic or a warning if number concenration is very different
+       !from the original number concentration since in principal, the number concentration is
+       !also conserved!
+       do k=1,pver
+          !Don't change number concentration unless "hasAerosol" is true
+          where(hasAerosol(:ncol,k,kcomp))
+
+             lnsigma(:ncol,k,kcomp) = ln10*log10sig(:ncol,k)
+
+             numberConcentration(:ncol,k,kcomp) = volumeConcentration(:ncol,k,kcomp)*6.0_r8/pi      &
+                  /(2.0_r8*radius_tmp(:ncol,k))**3  &
+                  *DEXP(-4.5_r8*lnsigma(:ncol,k,kcomp)*lnsigma(:ncol,k,kcomp))
+
+             !==> Now we have a set of n, vol, sigma which is consistent and gives back whatever the
+             !lookup tables told us! If the look up tables were conserving volume we didn't have to do
+             !the step just above!!
+
+             !Sum up all mass which was not added to any mode (mass exceeding the max limit in the look-up tables)
+             !cxstot(:ncol,k) = cxstot(:ncol,k) + cxs(:ncol,k,kcomp)*1.e-9_r8 ! ug/m3 ==> kg/m3
+
+          end where
        end do
 
-       !AK (fxm): "unactivated" code below...
-       !Excessive internally mixed process mass added to the background modes (exceeding the max limit in the look-up tables)
-       !is instead added to / lumped with the externally mixed non-background modes (kcomp=11,12,14)
-       !numberConcentration(:,:,MODE_IDX_SO4_NUC) = numberConcentration(:,:,MODE_IDX_SO4_NUC) &
-       !                                    + (volumeToNumber(MODE_IDX_SO4_NUC) &          !excess sulfate mass is moved to this mode
-       !                                     *RESHAPE(cxstot,(/pcols,pver/)) &
-       !                                     *(1.0_r8-f_c(:,:))/rhopart(l_so4_n))
+    end do !kcomp
 
-       !numberConcentration(:,:,MODE_IDX_BC_NUC) = numberConcentration(:,:,MODE_IDX_BC_NUC) &
-       !                                    + (volumeToNumber(MODE_IDX_BC_NUC)  &          !excess carbon mass is moved to this mode
-       !                                    * RESHAPE(cxstot,(/pcols,pver/)) &
-       !                                    * f_c(:,:)/rhopart(l_bc_n))
+    !The modes which do not have any added aerosol:
+    do kcomp=nbmodes+1,nmodes
+       do k=1,pver
+          lnsigma(:ncol,k,kcomp) = log(originalSigma(kcomp))
+       end do
+    end do
 
-       !SKIP LUMPING OF OC-MODE TO MODE MODE_IDX_LUMPED ORGANICS SINCE THIS WILL MESS UP THE HASAEROSOL-MASK!
-       !   modedefs(i)%Nnatk(MODE_IDX_LUMPED_ORGANICS) = efact_omn &   !excess OM mass is moved to this mode (originally kcomp=13)
-       !            * (modedefs(i)%Nnatk(MODE_IDX_LUMPED_ORGANICS) + cxstot(i)*modedefs(i)%f_c*(1.0_r8-modedefs(i)%f_bc))
+    !AK (fxm): "unactivated" code below...
+    !Excessive internally mixed process mass added to the background modes (exceeding the max limit in the look-up tables)
+    !is instead added to / lumped with the externally mixed non-background modes (kcomp=11,12,14)
+    !numberConcentration(:,:,MODE_IDX_SO4_NUC) = numberConcentration(:,:,MODE_IDX_SO4_NUC) &
+    !                                    + (volumeToNumber(MODE_IDX_SO4_NUC) &          !excess sulfate mass is moved to this mode
+    !                                     *RESHAPE(cxstot,(/pcols,pver/)) &
+    !                                     *(1.0_r8-f_c(:,:))/rhopart(l_so4_n))
 
+    !numberConcentration(:,:,MODE_IDX_BC_NUC) = numberConcentration(:,:,MODE_IDX_BC_NUC) &
+    !                                    + (volumeToNumber(MODE_IDX_BC_NUC)  &          !excess carbon mass is moved to this mode
+    !                                    * RESHAPE(cxstot,(/pcols,pver/)) &
+    !                                    * f_c(:,:)/rhopart(l_bc_n))
 
-    enddo ! iloop
+    !SKIP LUMPING OF OC-MODE TO MODE MODE_IDX_LUMPED ORGANICS SINCE THIS WILL MESS UP THE HASAEROSOL-MASK!
+    !   modedefs(i)%Nnatk(MODE_IDX_LUMPED_ORGANICS) = efact_omn &   !excess OM mass is moved to this mode (originally kcomp=13)
+    !            * (modedefs(i)%Nnatk(MODE_IDX_LUMPED_ORGANICS) + cxstot(i)*modedefs(i)%f_c*(1.0_r8-modedefs(i)%f_bc))
 
   end subroutine doLognormalInterpolation
 
@@ -676,13 +659,13 @@ contains
     !     mass between the various background mineral and sea-salt modes.
     !     Now also Aitken-modes are subject to condensation of H2SO4, and both n and
     !     Aitken modes may coagulate onto the mineral/sea-salt background aerosol.
-    !SOA
+    ! SOA
     !     May 2013: The SO4(Ait) mode now takes into account condensed SOA in addition
     !     to H2SO4, but as long as SOA is not allowed to condense on more than one
     !     mode, no changes are necessary here. NB: to allow SOA to condense also on
     !     the BC(Ait) and/or other modes, change this code accordingly! Without any
     !     changes, Cam(pcols,1) = condensed SO4 onto the SO4(ait) mode still.
-    !SOA
+    ! SOA
     !     Alf Grini, february 2014 : Added info about units,
     !     used values calculated at initialization.
     !     changed in-out variables to components of derived data types (modedefs)

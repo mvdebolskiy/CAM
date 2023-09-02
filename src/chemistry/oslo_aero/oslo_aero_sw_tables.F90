@@ -36,12 +36,13 @@ module oslo_aero_sw_tables
   ! faq  : mass fraction of sulfate which is produced in wet-phase, SO4aq/SO4.
   !        The remaining SO4 mass, SO4*(1-faq), is from condensation. 
 
-  use shr_kind_mod      , only: r8 => shr_kind_r8
-  use ppgrid            , only: pcols, pver
-  use cam_logfile       , only: iulog
-  use oslo_control      , only: oslo_getopts, dir_string_length
-  use commondefinitions , only: nmodes, nbmodes
-  use lininterpol_mod   , only: lininterpol3dim, lininterpol4dim, lininterpol5dim
+  use shr_kind_mod            , only: r8 => shr_kind_r8
+  use ppgrid                  , only: pcols, pver
+  use cam_logfile             , only: iulog
+  !
+  use commondefinitions       , only: nmodes, nbmodes
+  use oslo_control            , only: oslo_getopts, dir_string_length
+  use oslo_aero_linear_interp , only: lininterpol3dim, lininterpol4dim, lininterpol5dim
 
   implicit none
   private
