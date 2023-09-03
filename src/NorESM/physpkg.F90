@@ -120,7 +120,11 @@ contains
     use cloud_fraction,     only: cldfrc_register
     use rk_stratiform,      only: rk_stratiform_register
     use microp_driver,      only: microp_driver_register
+#ifdef OSLO_AERO
+    use oslo_aero_microp,   only: oslo_aero_microp_register
+#else
     use microp_aero,        only: microp_aero_register
+#endif
     use macrop_driver,      only: macrop_driver_register
     use clubb_intr,         only: clubb_register_cam
     use conv_water,         only: conv_water_register
@@ -221,13 +225,16 @@ contains
           call rk_stratiform_register()
        elseif( microp_scheme == 'MG' ) then
           if (.not. do_clubb_sgs) call macrop_driver_register()
+#ifdef OSLO_AERO
+          call oslo_aero_microp_register()
+#else
           call microp_aero_register()
+#endif
           call microp_driver_register()
        end if
 
        ! Register CLUBB_SGS here
        if (do_clubb_sgs) call clubb_register_cam()
-
 
        call pbuf_add_field('PREC_STR',  'physpkg',dtype_r8,(/pcols/),prec_str_idx)
        call pbuf_add_field('SNOW_STR',  'physpkg',dtype_r8,(/pcols/),snow_str_idx)
@@ -727,7 +734,11 @@ contains
     use rk_stratiform,      only: rk_stratiform_init
     use wv_saturation,      only: wv_sat_init
     use microp_driver,      only: microp_driver_init
+#ifdef OSLO_AERO
+    use oslo_aero_microp,   only: oslo_aero_microp_init
+#else
     use microp_aero,        only: microp_aero_init
+#endif
     use macrop_driver,      only: macrop_driver_init
     use conv_water,         only: conv_water_init
     use spcam_drivers,      only: spcam_init
@@ -885,7 +896,11 @@ contains
        call rk_stratiform_init()
     elseif( microp_scheme == 'MG' ) then
        if (.not. do_clubb_sgs) call macrop_driver_init(pbuf2d)
+#ifdef OSLO_AERO
+       call oslo_aero_microp_init()
+#else
        call microp_aero_init()
+#endif
        call microp_driver_init(pbuf2d)
        call conv_water_init
     elseif( microp_scheme == 'SPCAM_m2005') then
@@ -1702,7 +1717,11 @@ contains
     use dadadj_cam,      only: dadadj_tend
     use rk_stratiform,   only: rk_stratiform_tend
     use microp_driver,   only: microp_driver_tend
+#ifdef OSLO_AERO
+    use oslo_aero_microp,only: oslo_aero_microp_run
+#else
     use microp_aero,     only: microp_aero_run
+#endif
     use macrop_driver,   only: macrop_driver_tend
     use physics_types,   only: physics_state, physics_tend, physics_ptend, &
          physics_update, physics_ptend_init, physics_ptend_sum, &
@@ -2231,10 +2250,15 @@ contains
              call check_energy_timestep_init(state_sc, tend_sc, pbuf, col_type_subcol)
           end if
 
+#ifdef OSLO_AERO
+          call t_startf('oslo_aero_microp_run')
+          call oslo_aero_microp_run(state, ptend_aero, cld_macmic_ztodt, pbuf)
+          call t_stopf('oslo_aero_microp_run')
+#else
           call t_startf('microp_aero_run')
           call microp_aero_run(state, ptend_aero, cld_macmic_ztodt, pbuf)
           call t_stopf('microp_aero_run')
-
+#endif
           call t_startf('microp_tend')
 
           if (use_subcol_microp) then

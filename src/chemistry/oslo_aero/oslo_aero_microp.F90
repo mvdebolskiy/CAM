@@ -1,4 +1,4 @@
-module microp_aero
+module oslo_aero_microp
 
   !---------------------------------------------------------------------------------
   ! Oslo-aero driver layer for aerosol activation processes.
@@ -39,7 +39,7 @@ module microp_aero
   implicit none
   private
 
-  public :: microp_aero_init, microp_aero_run, microp_aero_readnl, microp_aero_register
+  public :: oslo_aero_microp_init, oslo_aero_microp_run, oslo_aero_microp_readnl, oslo_aero_microp_register
 
   ! Private module data
 
@@ -79,7 +79,7 @@ module microp_aero
 contains
 !=========================================================================================
 
-  subroutine microp_aero_readnl(nlfile)
+  subroutine oslo_aero_microp_readnl(nlfile)
 
     use namelist_utils, only: find_group_name
     use cam_abortutils, only: endrun
@@ -118,10 +118,10 @@ contains
     call nucleate_ice_oslo_readnl(nlfile)
     call hetfrz_classnuc_oslo_readnl(nlfile)
 
-  end subroutine microp_aero_readnl
+  end subroutine oslo_aero_microp_readnl
 
   !=========================================================================================
-  subroutine microp_aero_register
+  subroutine oslo_aero_microp_register
     !----------------------------------------------------------------------- 
     ! Register pbuf fields for aerosols needed by microphysics
     ! Author: Cheryl Craig October 2012
@@ -136,11 +136,11 @@ contains
     call nucleate_ice_oslo_register()
     call hetfrz_classnuc_oslo_register()
 
-  end subroutine microp_aero_register
+  end subroutine oslo_aero_microp_register
 
   !=========================================================================================
 
-  subroutine microp_aero_init
+  subroutine oslo_aero_microp_init
 
     !----------------------------------------------------------------------- 
     ! Initialize constants for aerosols needed by microphysics
@@ -152,7 +152,7 @@ contains
     integer  :: m, n, nmodes, nspec
 
     character(len=32) :: str32
-    character(len=*), parameter :: routine = 'microp_aero_init'
+    character(len=*), parameter :: routine = 'oslo_aero_microp_init'
     logical :: history_amwg
     !-----------------------------------------------------------------------
 
@@ -190,10 +190,10 @@ contains
     call nucleate_ice_oslo_init(mincld, bulk_scale)
     call hetfrz_classnuc_oslo_init(mincld)
 
-  end subroutine microp_aero_init
+  end subroutine oslo_aero_microp_init
 
   !=========================================================================================
-  subroutine microp_aero_run (state, ptend_all, deltatin, pbuf)
+  subroutine oslo_aero_microp_run (state, ptend_all, deltatin, pbuf)
 
     ! arguments
     type(physics_state),         intent(in)    :: state
@@ -457,6 +457,6 @@ contains
             hygroscopicity, lnsigma, cam, volumeCore, volumeCoat)
     end if
 
-  end subroutine microp_aero_run
+  end subroutine oslo_aero_microp_run
 
-end module microp_aero
+end module oslo_aero_microp
