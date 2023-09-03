@@ -1,24 +1,13 @@
 module microp_aero
 
   !---------------------------------------------------------------------------------
-  ! Purpose:
-  !   CAM driver layer for aerosol activation processes.
-  !
-  ! ***N.B.*** This module is currently hardcoded to recognize only the aerosols/modes that
-  !            affect the climate calculation.  This is implemented by using list
-  !            index 0 in all the calls to rad_constituent interfaces.
-  !
+  ! Oslo-aero driver layer for aerosol activation processes.
   ! Author: Andrew Gettelman
-  ! Based on code from: Hugh Morrison, Xiaohong Liu and Steve Ghan
-  ! May 2010
+  ! Based on code from: Hugh Morrison, Xiaohong Liu and Steve Ghan! May 2010
   ! Description in: Morrison and Gettelman, 2008. J. Climate (MG2008)
-  !                 Gettelman et al., 2010 J. Geophys. Res. - Atmospheres (G2010)         
-  ! for questions contact Andrew Gettelman  (andrew@ucar.edu)
+  !    Gettelman et al., 2010 J. Geophys. Res. - Atmospheres (G2010)         
   ! Modifications: A. Gettelman Nov 2010  - changed to support separation of 
-  !                  microphysics and macrophysics and concentrate aerosol information here
-  !                B. Eaton, Sep 2014 - Refactored to move CAM interface code into the CAM
-  !                  interface modules and preserve just the driver layer functionality here.
-  !
+  !    microphysics and macrophysics and concentrate aerosol information here
   !---------------------------------------------------------------------------------
 
   use shr_kind_mod,           only: r8=>shr_kind_r8
@@ -36,7 +25,6 @@ module microp_aero
   use cam_history,            only: addfld, add_default, outfld
   use cam_logfile,            only: iulog
   !
-  use oslo_aero_utils,        only: CalculateNumberConcentration
   use oslo_aero_ndrop,        only: ndrop_init_oslo, dropmixnuc_oslo
   use oslo_aero_conc,         only: oslo_aero_conc_calc
   use oslo_aero_hetfrz,       only: hetfrz_classnuc_oslo_register, hetfrz_classnuc_oslo_init, hetfrz_classnuc_oslo_readnl
@@ -57,14 +45,12 @@ module microp_aero
 
   character(len=16)   :: eddy_scheme
 
-  ! contact freezing due to dust
-  ! dust number mean radius (m), Zender et al JGR 2003 assuming number mode radius of 0.6 micron, sigma=2
+  ! contact freezing due to dust, dust number mean radius (m), 
+  ! Zender et al JGR 2003 assuming number mode radius of 0.6 micron, sigma=2
   real(r8), parameter :: rn_dst1 = 0.258e-6_r8
   real(r8), parameter :: rn_dst2 = 0.717e-6_r8
   real(r8), parameter :: rn_dst3 = 1.576e-6_r8
   real(r8), parameter :: rn_dst4 = 3.026e-6_r8
-
-  real(r8) :: bulk_scale    ! prescribed aerosol bulk sulfur scale factor
 
   ! smallest mixing ratio considered in microphysics
   real(r8), parameter :: qsmall = 1.e-18_r8
@@ -73,123 +59,25 @@ module microp_aero
   real(r8), parameter :: mincld = 0.0001_r8
 
   ! indices in state%q and pbuf structures
-  integer :: cldliq_idx = -1
-  integer :: cldice_idx = -1
-  integer :: numliq_idx = -1
-  integer :: numice_idx = -1
-  integer :: kvh_idx = -1
-  integer :: tke_idx = -1
-  integer :: wp2_idx = -1
-  integer :: ast_idx = -1
-  integer :: cldo_idx = -1
+  integer :: cldliq_idx   = -1
+  integer :: cldice_idx   = -1
+  integer :: numliq_idx   = -1
+  integer :: numice_idx   = -1
+  integer :: kvh_idx      = -1
+  integer :: tke_idx      = -1
+  integer :: wp2_idx      = -1
+  integer :: ast_idx      = -1
+  integer :: cldo_idx     = -1
   integer :: dgnumwet_idx = -1
 
-  integer :: naer_all      ! number of aerosols affecting climate
-  integer :: idxsul   = -1 ! index in aerosol list for sulfate
-  integer :: idxdst2  = -1 ! index in aerosol list for dust2
-  integer :: idxdst3  = -1 ! index in aerosol list for dust3
-  integer :: idxdst4  = -1 ! index in aerosol list for dust4
-
-  integer :: mode_accum_idx  = -1  ! index of accumulation mode
-  integer :: mode_aitken_idx = -1  ! index of aitken mode
-  integer :: mode_coarse_idx = -1  ! index of coarse mode
-  integer :: mode_coarse_dst_idx = -1  ! index of coarse dust mode
-  integer :: mode_coarse_slt_idx = -1  ! index of coarse sea salt mode
-  integer :: coarse_dust_idx = -1  ! index of dust in coarse mode
-  integer :: coarse_nacl_idx = -1  ! index of nacl in coarse mode
-  integer :: coarse_so4_idx = -1  ! index of sulfate in coarse mode
+  ! prescribed aerosol bulk sulfur scale factor
+  real(r8) :: bulk_scale    
 
   integer :: npccn_idx, rndst_idx, nacon_idx
 
-  logical :: separate_dust = .false.
-
-  !=========================================================================================
+!=========================================================================================
 contains
-  !=========================================================================================
-
-  subroutine microp_aero_register
-    !----------------------------------------------------------------------- 
-    ! 
-    ! Purpose: 
-    ! Register pbuf fields for aerosols needed by microphysics
-    ! 
-    ! Author: Cheryl Craig October 2012
-    ! 
-    !-----------------------------------------------------------------------
-    use ppgrid,         only: pcols
-    use physics_buffer, only: pbuf_add_field, dtype_r8
-
-    call pbuf_add_field('NPCCN',      'physpkg',dtype_r8,(/pcols,pver/), npccn_idx)
-
-    call pbuf_add_field('RNDST',      'physpkg',dtype_r8,(/pcols,pver,4/), rndst_idx)
-    call pbuf_add_field('NACON',      'physpkg',dtype_r8,(/pcols,pver,4/), nacon_idx)
-
-    call nucleate_ice_oslo_register()
-    call hetfrz_classnuc_oslo_register()
-
-  end subroutine microp_aero_register
-
-  !=========================================================================================
-
-  subroutine microp_aero_init
-
-    !----------------------------------------------------------------------- 
-    ! 
-    ! Purpose: 
-    ! Initialize constants for aerosols needed by microphysics
-    ! 
-    ! Author: Andrew Gettelman May 2010
-    ! 
-    !-----------------------------------------------------------------------
-
-    ! local variables
-    integer  :: iaer, ierr
-    integer  :: m, n, nmodes, nspec
-
-    character(len=32) :: str32
-    character(len=*), parameter :: routine = 'microp_aero_init'
-    logical :: history_amwg
-    !-----------------------------------------------------------------------
-
-    ! Query the PBL eddy scheme
-    call phys_getopts(eddy_scheme_out=eddy_scheme, history_amwg_out=history_amwg )
-
-    ! Access the physical properties of the aerosols that are affecting the climate
-    ! by using routines from the rad_constituents module.
-
-    ! get indices into state and pbuf structures
-    call cnst_get_ind('CLDLIQ', cldliq_idx)
-    call cnst_get_ind('CLDICE', cldice_idx)
-    call cnst_get_ind('NUMLIQ', numliq_idx)
-    call cnst_get_ind('NUMICE', numice_idx)
-
-    select case(trim(eddy_scheme))
-    case ('diag_TKE')
-       tke_idx = pbuf_get_index('tke')   
-    case ('CLUBB_SGS')
-       wp2_idx = pbuf_get_index('WP2_nadv')
-    case default
-       kvh_idx = pbuf_get_index('kvh')
-    end select
-
-    ast_idx = pbuf_get_index('AST')
-    cldo_idx = pbuf_get_index('CLDO')
-
-    call ndrop_init_oslo()
-
-    call addfld('LCLOUD', (/ 'lev' /), 'A', ' ',   'Liquid cloud fraction used in stratus activation')
-    call addfld('WSUB',   (/ 'lev' /), 'A', 'm/s', 'Diagnostic sub-grid vertical velocity'                   )
-    call addfld('WSUBI',  (/ 'lev' /), 'A', 'm/s', 'Diagnostic sub-grid vertical velocity for ice'           )
-    if (history_amwg) then
-       call add_default ('WSUB     ', 1, ' ')
-    end if
-
-    call nucleate_ice_oslo_init(mincld, bulk_scale)
-    call hetfrz_classnuc_oslo_init(mincld)
-
-  end subroutine microp_aero_init
-
-  !=========================================================================================
+!=========================================================================================
 
   subroutine microp_aero_readnl(nlfile)
 
@@ -221,7 +109,6 @@ contains
        close(unitn)
     end if
 #ifdef SPMD
-    ! Broadcast namelist variable
     call mpibcast(microp_aero_bulk_scale, 1, mpir8, 0, mpicom)
 #endif
 
@@ -234,6 +121,78 @@ contains
   end subroutine microp_aero_readnl
 
   !=========================================================================================
+  subroutine microp_aero_register
+    !----------------------------------------------------------------------- 
+    ! Register pbuf fields for aerosols needed by microphysics
+    ! Author: Cheryl Craig October 2012
+    !-----------------------------------------------------------------------
+
+    use physics_buffer, only: pbuf_add_field, dtype_r8
+
+    call pbuf_add_field('NPCCN', 'physpkg',dtype_r8,(/pcols,pver/)  , npccn_idx)
+    call pbuf_add_field('RNDST', 'physpkg',dtype_r8,(/pcols,pver,4/), rndst_idx)
+    call pbuf_add_field('NACON', 'physpkg',dtype_r8,(/pcols,pver,4/), nacon_idx)
+
+    call nucleate_ice_oslo_register()
+    call hetfrz_classnuc_oslo_register()
+
+  end subroutine microp_aero_register
+
+  !=========================================================================================
+
+  subroutine microp_aero_init
+
+    !----------------------------------------------------------------------- 
+    ! Initialize constants for aerosols needed by microphysics
+    ! Author: Andrew Gettelman May 2010
+    !-----------------------------------------------------------------------
+
+    ! local variables
+    integer  :: iaer, ierr
+    integer  :: m, n, nmodes, nspec
+
+    character(len=32) :: str32
+    character(len=*), parameter :: routine = 'microp_aero_init'
+    logical :: history_amwg
+    !-----------------------------------------------------------------------
+
+    ! Query the PBL eddy scheme
+    call phys_getopts(eddy_scheme_out=eddy_scheme, history_amwg_out=history_amwg )
+
+    ! Access the physical properties of the aerosols that are affecting the climate
+    ! by using routines from the rad_constituents module.
+
+    ! get indices into state and pbuf structures
+    call cnst_get_ind('CLDLIQ', cldliq_idx)
+    call cnst_get_ind('CLDICE', cldice_idx)
+    call cnst_get_ind('NUMLIQ', numliq_idx)
+    call cnst_get_ind('NUMICE', numice_idx)
+
+    select case(trim(eddy_scheme))
+    case ('diag_TKE')
+       tke_idx = pbuf_get_index('tke')   
+    case ('CLUBB_SGS')
+       wp2_idx = pbuf_get_index('WP2_nadv')
+    case default
+       kvh_idx = pbuf_get_index('kvh')
+    end select
+    ast_idx = pbuf_get_index('AST')
+    cldo_idx = pbuf_get_index('CLDO')
+
+    call addfld('LCLOUD', (/ 'lev' /), 'A', ' ',   'Liquid cloud fraction used in stratus activation')
+    call addfld('WSUB',   (/ 'lev' /), 'A', 'm/s', 'Diagnostic sub-grid vertical velocity'                   )
+    call addfld('WSUBI',  (/ 'lev' /), 'A', 'm/s', 'Diagnostic sub-grid vertical velocity for ice'           )
+    if (history_amwg) then
+       call add_default ('WSUB     ', 1, ' ')
+    end if
+
+    call ndrop_init_oslo()
+    call nucleate_ice_oslo_init(mincld, bulk_scale)
+    call hetfrz_classnuc_oslo_init(mincld)
+
+  end subroutine microp_aero_init
+
+  !=========================================================================================
   subroutine microp_aero_run (state, ptend_all, deltatin, pbuf)
 
     ! arguments
@@ -244,62 +203,43 @@ contains
 
     ! local workspace
     ! all units mks unless otherwise stated
-
     integer :: i, k, m
     integer :: itim_old
     integer :: nmodes
-
-    type(physics_state) :: state1                ! Local copy of state variable
+    type(physics_state) :: state1                             ! Local copy of state variable
     type(physics_ptend) :: ptend_loc
-
     real(r8), pointer :: ast(:,:)        
-
-    real(r8), pointer :: npccn(:,:)      ! number of CCN (liquid activated)
-
-    real(r8), pointer :: rndst(:,:,:)    ! radius of 4 dust bins for contact freezing
-    real(r8), pointer :: nacon(:,:,:)    ! number in 4 dust bins for contact freezing
-
-    real(r8), pointer :: num_coarse(:,:) ! number m.r. of coarse mode
-    real(r8), pointer :: coarse_dust(:,:) ! mass m.r. of coarse dust
-    real(r8), pointer :: coarse_nacl(:,:) ! mass m.r. of coarse nacl
-    real(r8), pointer :: coarse_so4(:,:)  ! mass m.r. of coarse sulfate
-
-    real(r8), pointer :: kvh(:,:)        ! vertical eddy diff coef (m2 s-1)
-    real(r8), pointer :: tke(:,:)        ! TKE from the UW PBL scheme (m2 s-2)
-    real(r8), pointer :: wp2(:,:)        ! CLUBB vertical velocity variance
-
-    real(r8), pointer :: cldn(:,:)       ! cloud fraction
-    real(r8), pointer :: cldo(:,:)       ! old cloud fraction
-
-    real(r8), pointer :: dgnumwet(:,:,:) ! aerosol mode diameter
-
-    real(r8), pointer :: aer_mmr(:,:)    ! aerosol mass mixing ratio
-
-    real(r8) :: rho(pcols,pver)     ! air density (kg m-3)
-
-    real(r8) :: lcldm(pcols,pver)   ! liq cloud fraction
-
-    real(r8) :: lcldn(pcols,pver)   ! fractional coverage of new liquid cloud
-    real(r8) :: lcldo(pcols,pver)   ! fractional coverage of old liquid cloud
-    real(r8) :: cldliqf(pcols,pver) ! fractional of total cloud that is liquid
-    real(r8) :: qcld                ! total cloud water
+    real(r8), pointer :: npccn(:,:)                           ! number of CCN (liquid activated)
+    real(r8), pointer :: rndst(:,:,:)                         ! radius of 4 dust bins for contact freezing
+    real(r8), pointer :: nacon(:,:,:)                         ! number in 4 dust bins for contact freezing
+    real(r8), pointer :: num_coarse(:,:)                      ! number m.r. of coarse mode
+    real(r8), pointer :: coarse_dust(:,:)                     ! mass m.r. of coarse dust
+    real(r8), pointer :: coarse_nacl(:,:)                     ! mass m.r. of coarse nacl
+    real(r8), pointer :: coarse_so4(:,:)                      ! mass m.r. of coarse sulfate
+    real(r8), pointer :: kvh(:,:)                             ! vertical eddy diff coef (m2 s-1)
+    real(r8), pointer :: tke(:,:)                             ! TKE from the UW PBL scheme (m2 s-2)
+    real(r8), pointer :: wp2(:,:)                             ! CLUBB vertical velocity variance
+    real(r8), pointer :: cldn(:,:)                            ! cloud fraction
+    real(r8), pointer :: cldo(:,:)                            ! old cloud fraction
+    real(r8), pointer :: dgnumwet(:,:,:)                      ! aerosol mode diameter
+    real(r8), pointer :: aer_mmr(:,:)                         ! aerosol mass mixing ratio
+    real(r8) :: rho(pcols,pver)                               ! air density (kg m-3)
+    real(r8) :: lcldm(pcols,pver)                             ! liq cloud fraction
+    real(r8) :: lcldn(pcols,pver)                             ! fractional coverage of new liquid cloud
+    real(r8) :: lcldo(pcols,pver)                             ! fractional coverage of old liquid cloud
+    real(r8) :: cldliqf(pcols,pver)                           ! fractional of total cloud that is liquid
+    real(r8) :: qcld                                          ! total cloud water
     real(r8) :: nctend_mixnuc(pcols,pver)
-    real(r8) :: dum, dum2           ! temporary dummy variable
-    real(r8) :: dmc, ssmc, so4mc    ! variables for modal scheme.
+    real(r8) :: dum, dum2                                     ! temporary dummy variable
+    real(r8) :: dmc, ssmc, so4mc                              ! variables for modal scheme.
     integer  :: dst_idx, num_idx
-
-    real(r8) :: wsub(pcols,pver)    ! diagnosed sub-grid vertical velocity st. dev. (m/s)
-    real(r8) :: wsubi(pcols,pver)   ! diagnosed sub-grid vertical velocity ice (m/s)
+    real(r8) :: wsub(pcols,pver)                              ! diagnosed sub-grid vertical velocity st. dev. (m/s)
+    real(r8) :: wsubi(pcols,pver)                             ! diagnosed sub-grid vertical velocity ice (m/s)
     real(r8) :: nucboas
     real(r8) :: wght
     integer  :: lchnk, ncol
-    real(r8) :: factnum(pcols,pver,0:nmodes_oslo) ! activation fraction for aerosol number
-    type qqcw_type
-       real(r8), pointer :: fldcw(:,:) 
-    end type qqcw_type
-    type(qqcw_type) :: qqcw(pcnst)
+    real(r8) :: factnum(pcols,pver,0:nmodes_oslo)             ! activation fraction for aerosol number
     real(r8) :: qaercwpt(pcols,pver,pcnst)
-    integer  :: kk
     logical  :: hasAerosol(pcols, pver, nmodes_oslo)
     real(r8) :: f_acm(pcols,pver, nmodes_oslo)
     real(r8) :: f_bcm(pcols,pver, nmodes_oslo)
@@ -309,7 +249,7 @@ contains
     real(r8) :: numberConcentration(pcols,pver,0:nmodes_oslo) ![#/m3] number concentraiton
     real(r8) :: volumeConcentration(pcols,pver,nmodes_oslo)   ![m3/m3] volume concentration
     real(r8) :: hygroscopicity(pcols,pver,nmodes_oslo)        ![mol_{aer}/mol_{water}] hygroscopicity
-    real(r8) :: lnsigma(pcols,pver,nmodes_oslo)              ![-] log(base e) sigma
+    real(r8) :: lnsigma(pcols,pver,nmodes_oslo)               ![-] log(base e) sigma
     real(r8) :: CProcessModes(pcols,pver)
     real(r8) :: cam(pcols,pver,nmodes_oslo)
     real(r8) :: f_c(pcols, pver)
@@ -319,11 +259,6 @@ contains
     real(r8) :: f_soa(pcols,pver)
     real(r8) :: volumeCore(pcols,pver,nmodes_oslo)
     real(r8) :: volumeCoat(pcols,pver,nmodes_oslo)
-    real(r8) :: sigmag_amode(3)
-    real(r8) :: CloudnumberConcentration(pcols,pver,0:nmodes_oslo)
-    real(r8) :: fn_bc(pcols,pver), fn_dst1(pcols,pver), fn_dst3(pcols,pver)
-    real(r8) :: hetraer_bc(pcols,pver), hetraer_dst1(pcols,pver), hetraer_dst3(pcols,pver)
-    real(r8) :: dstcoat_bc(pcols,pver), dstcoat_dst1(pcols,pver), dstcoat_dst3(pcols,pver)
     !-------------------------------------------------------------------------------
 
     call physics_state_copy(state,state1)
@@ -366,7 +301,6 @@ contains
     end do
 
     factnum(1:ncol,1:pver,0:nmodes_oslo) = 0._r8
-
     cam(:,:,:) = 0._r8
 
     ! More refined computation of sub-grid vertical velocity 
@@ -411,7 +345,6 @@ contains
           if (.not. use_preexisting_ice) then
              wsubi(i,k) = min(wsubi(i,k), 0.2_r8)
           endif
-
           wsub(i,k)  = max(0.20_r8, wsub(i,k))
 
        end do
@@ -427,7 +360,9 @@ contains
          f_c, f_bc, f_aq, f_so4_cond, f_soa, cam, f_acm, f_bcm, f_aqm, f_so4_condm, f_soam, &
          numberConcentration, volumeConcentration, hygroscopicity, lnsigma, hasAerosol, volumeCore, volumeCoat)
 
-    !ICE Nucleation
+    ! -----------------
+    ! ICE Nucleation
+    ! -----------------
     call nucleate_ice_oslo_calc(state1, wsubi, pbuf, deltatin, ptend_loc, numberConcentration)
 
     call physics_ptend_sum(ptend_loc, ptend_all, ncol)
@@ -440,7 +375,9 @@ contains
        end do
     end do
 
+    ! -----------------
     ! Droplet Activation
+    ! -----------------
 
     ! partition cloud fraction into liquid water part
     lcldn = 0._r8
