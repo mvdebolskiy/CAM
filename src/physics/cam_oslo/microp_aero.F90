@@ -84,18 +84,11 @@ module microp_aero
   integer :: cldo_idx = -1
   integer :: dgnumwet_idx = -1
 
-  ! Bulk aerosols
-  character(len=20), allocatable :: aername(:)
-  real(r8), allocatable :: num_to_mass_aer(:)
-
   integer :: naer_all      ! number of aerosols affecting climate
   integer :: idxsul   = -1 ! index in aerosol list for sulfate
   integer :: idxdst2  = -1 ! index in aerosol list for dust2
   integer :: idxdst3  = -1 ! index in aerosol list for dust3
   integer :: idxdst4  = -1 ! index in aerosol list for dust4
-
-  ! modal aerosols
-  logical :: clim_modal_aero
 
   integer :: mode_accum_idx  = -1  ! index of accumulation mode
   integer :: mode_aitken_idx = -1  ! index of aitken mode
@@ -172,22 +165,15 @@ contains
 
     select case(trim(eddy_scheme))
     case ('diag_TKE')
-       tke_idx      = pbuf_get_index('tke')   
+       tke_idx = pbuf_get_index('tke')   
     case ('CLUBB_SGS')
        wp2_idx = pbuf_get_index('WP2_nadv')
     case default
-       kvh_idx      = pbuf_get_index('kvh')
+       kvh_idx = pbuf_get_index('kvh')
     end select
 
-    ! clim_modal_aero determines whether modal aerosols are used in the climate calculation.
-    ! The modal aerosols can be either prognostic or prescribed.
-    call rad_cnst_get_info(0, nmodes=nmodes)
-    clim_modal_aero = (nmodes > 0)
-
     ast_idx = pbuf_get_index('AST')
-
     cldo_idx = pbuf_get_index('CLDO')
-    clim_modal_aero = .true. !Needed to avoid ending up in BAM routines
 
     call ndrop_init_oslo()
 
@@ -302,10 +288,6 @@ contains
     real(r8) :: dmc, ssmc, so4mc    ! variables for modal scheme.
     integer  :: dst_idx, num_idx
 
-    ! bulk aerosol variables
-    real(r8), allocatable :: naer2(:,:,:)    ! bulk aerosol number concentration (1/m3)
-    real(r8), allocatable :: maerosol(:,:,:) ! bulk aerosol mass conc (kg/m3)
-
     real(r8) :: wsub(pcols,pver)    ! diagnosed sub-grid vertical velocity st. dev. (m/s)
     real(r8) :: wsubi(pcols,pver)   ! diagnosed sub-grid vertical velocity ice (m/s)
     real(r8) :: nucboas
@@ -357,15 +339,12 @@ contains
 
     call physics_ptend_init(ptend_all, state%psetcols, 'microp_aero')
 
-    if (clim_modal_aero) then
-       itim_old = pbuf_old_tim_idx()
-       call pbuf_get_field(pbuf, ast_idx,  cldn, start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
-       call pbuf_get_field(pbuf, cldo_idx, cldo, start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
-    end if
+    itim_old = pbuf_old_tim_idx()
+    call pbuf_get_field(pbuf, ast_idx,  cldn, start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
+    call pbuf_get_field(pbuf, cldo_idx, cldo, start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
 
     ! initialize output
     npccn(1:ncol,1:pver)    = 0._r8  
-
     nacon(1:ncol,1:pver,:)  = 0._r8
 
     ! set default or fixed dust bins for contact freezing
@@ -463,83 +442,55 @@ contains
 
     ! Droplet Activation
 
-    if (clim_modal_aero) then
-
-       ! for modal aerosol
-
-       ! partition cloud fraction into liquid water part
-       lcldn = 0._r8
-       lcldo = 0._r8
-       cldliqf = 0._r8
-       do k = top_lev, pver
-          do i = 1, ncol
-             qcld = state1%q(i,k,cldliq_idx) + state1%q(i,k,cldice_idx)
-             if (qcld > qsmall) then
-                lcldn(i,k)   = cldn(i,k)*state1%q(i,k,cldliq_idx)/qcld
-                lcldo(i,k)   = cldo(i,k)*state1%q(i,k,cldliq_idx)/qcld
-                cldliqf(i,k) = state1%q(i,k,cldliq_idx)/qcld
-             end if
-          end do
+    ! partition cloud fraction into liquid water part
+    lcldn = 0._r8
+    lcldo = 0._r8
+    cldliqf = 0._r8
+    do k = top_lev, pver
+       do i = 1, ncol
+          qcld = state1%q(i,k,cldliq_idx) + state1%q(i,k,cldice_idx)
+          if (qcld > qsmall) then
+             lcldn(i,k)   = cldn(i,k)*state1%q(i,k,cldliq_idx)/qcld
+             lcldo(i,k)   = cldo(i,k)*state1%q(i,k,cldliq_idx)/qcld
+             cldliqf(i,k) = state1%q(i,k,cldliq_idx)/qcld
+          end if
        end do
+    end do
 
-       call outfld('LCLOUD', lcldn, pcols, lchnk)
+    call outfld('LCLOUD', lcldn, pcols, lchnk)
 
-       ! If not using preexsiting ice, then only use cloudbourne aerosol for the
-       ! liquid clouds. This is the same behavior as CAM5.
-       if (use_preexisting_ice) then
-          call dropmixnuc_oslo(                            &
-               state1, ptend_loc, deltatin, pbuf, wsub,    &  ! Input
-               cldn, cldo, cldliqf,                        &
-               hasAerosol,                                 &
-               CProcessModes, f_c, f_bc, f_aq, f_so4_cond, &
-               f_soa,                                      &
-               cam, f_acm, f_bcm, f_aqm, f_so4_condm,      &
-               f_soam,                                     &
-               numberConcentration, volumeConcentration,   &
-               hygroscopicity, lnsigma,                    &
-               nctend_mixnuc,                              &  ! Output
-               factnum )
-       else
-          ! Note difference in arguments lcldn, lcldo
-          cldliqf = 1._r8
-          call dropmixnuc_oslo(                            &
-               state1, ptend_loc, deltatin, pbuf, wsub,    &  ! Input
-               lcldn, lcldo, cldliqf,                      &
-               hasAerosol,                                 &
-               CProcessModes, f_c, f_bc, f_aq, f_so4_cond, &
-               f_soa,                                      &
-               cam, f_acm, f_bcm, f_aqm, f_so4_condm,      &
-               f_soam,                                     &
-               numberConcentration, volumeConcentration,   &
-               hygroscopicity, lnsigma,                    &
-               nctend_mixnuc,                              &  ! Output
-               factnum )
-       end if
-       npccn(:ncol,:) = nctend_mixnuc(:ncol,:)
-
+    ! If not using preexsiting ice, then only use cloudbourne aerosol for the
+    ! liquid clouds. This is the same behavior as CAM5.
+    if (use_preexisting_ice) then
+       call dropmixnuc_oslo(                            &
+            state1, ptend_loc, deltatin, pbuf, wsub,    &  ! Input
+            cldn, cldo, cldliqf,                        &
+            hasAerosol,                                 &
+            CProcessModes, f_c, f_bc, f_aq, f_so4_cond, &
+            f_soa,                                      &
+            cam, f_acm, f_bcm, f_aqm, f_so4_condm,      &
+            f_soam,                                     &
+            numberConcentration, volumeConcentration,   &
+            hygroscopicity, lnsigma,                    &
+            nctend_mixnuc,                              &  ! Output
+            factnum )
     else
-
-       ! for bulk aerosol
-
-       ! no tendencies returned from ndrop_bam_run, so just init ptend here
-       call physics_ptend_init(ptend_loc, state1%psetcols, 'none')
-
-       do k = top_lev, pver
-          do i = 1, ncol
-             if (state1%q(i,k,cldliq_idx) >= qsmall) then
-                ! get droplet activation rate
-                call ndrop_bam_run( &
-                     wsub(i,k), state1%t(i,k), rho(i,k), naer2(i,k,:), naer_all, &
-                     naer_all, maerosol(i,k,:), dum2)
-                dum = dum2
-             else
-                dum = 0._r8
-             end if
-             npccn(i,k) = (dum*lcldm(i,k) - state1%q(i,k,numliq_idx))/deltatin
-          end do
-       end do
-
+       ! Note difference in arguments lcldn, lcldo
+       cldliqf = 1._r8
+       call dropmixnuc_oslo(                            &
+            state1, ptend_loc, deltatin, pbuf, wsub,    &  ! Input
+            lcldn, lcldo, cldliqf,                      &
+            hasAerosol,                                 &
+            CProcessModes, f_c, f_bc, f_aq, f_so4_cond, &
+            f_soa,                                      &
+            cam, f_acm, f_bcm, f_aqm, f_so4_condm,      &
+            f_soam,                                     &
+            numberConcentration, volumeConcentration,   &
+            hygroscopicity, lnsigma,                    &
+            nctend_mixnuc,                              &  ! Output
+            factnum )
     end if
+    npccn(:ncol,:) = nctend_mixnuc(:ncol,:)
 
     call physics_ptend_sum(ptend_loc, ptend_all, ncol)
     call physics_update(state1, ptend_loc, deltatin)
@@ -548,52 +499,25 @@ contains
     ! estimate rndst and nanco for 4 dust bins here to pass to MG microphysics
     do k = top_lev, pver
        do i = 1, ncol
-
           if (state1%t(i,k) < 269.15_r8) then
-
-             if (clim_modal_aero) then
-                !fxm: I think model uses bins, not modes.. But to get it 
-                !approximately correct, use mode radius in first version
-                nacon(i,k,2) = numberConcentration(i,k,MODE_IDX_DST_A2)
-                nacon(i,k,3) = numberConcentration(i,k,MODE_IDX_DST_A3) 
-                rndst(i,k,2) = lifeCycleNumberMedianRadius(MODE_IDX_DST_A2)
-                rndst(i,k,3) = lifeCycleNumberMedianRadius(MODE_IDX_DST_A3)
-                nacon(i,k,1) = 0.0_r8 !Set to zero to make sure
-                nacon(i,k,4) = 0.0_r8 !Set to zero to make sure
-             else
-
-                !For Bulk Aerosols: set equal to aerosol number for dust for bins 2-4 (bin 1=0)
-
-                if (idxdst2 > 0) then 
-                   nacon(i,k,2) = naer2(i,k,idxdst2)
-                end if
-                if (idxdst3 > 0) then 
-                   nacon(i,k,3) = naer2(i,k,idxdst3)
-                end if
-                if (idxdst4 > 0) then 
-                   nacon(i,k,4) = naer2(i,k,idxdst4)
-                end if
-             end if
-
+             !fxm: I think model uses bins, not modes.. But to get it 
+             !approximately correct, use mode radius in first version
+             nacon(i,k,2) = numberConcentration(i,k,MODE_IDX_DST_A2)
+             nacon(i,k,3) = numberConcentration(i,k,MODE_IDX_DST_A3) 
+             rndst(i,k,2) = lifeCycleNumberMedianRadius(MODE_IDX_DST_A2)
+             rndst(i,k,3) = lifeCycleNumberMedianRadius(MODE_IDX_DST_A3)
+             nacon(i,k,1) = 0.0_r8 !Set to zero to make sure
+             nacon(i,k,4) = 0.0_r8 !Set to zero to make sure
           end if
        end do
     end do
 
-    !bulk aerosol ccn concentration (modal does it in ndrop, from dropmixnuc)
-    if (.not. clim_modal_aero) then
-       ! ccn concentration as diagnostic
-       call ndrop_bam_ccn(lchnk, ncol, maerosol, naer2)
-
-       deallocate(naer2)
-       deallocate(maerosol)
-    end if
-
     ! heterogeneous freezing
     if (use_hetfrz_classnuc) then
-       call hetfrz_classnuc_oslo_calc(state1, deltatin, factnum, pbuf &
-            ,numberConcentration, volumeConcentration &
-            ,f_acm, f_bcm, f_aqm, f_so4_condm, f_soam &
-            ,hygroscopicity, lnsigma, cam, volumeCore, volumeCoat)
+       call hetfrz_classnuc_oslo_calc(state1, deltatin, factnum, pbuf, &
+            numberConcentration, volumeConcentration, &
+            f_acm, f_bcm, f_aqm, f_so4_condm, f_soam, &
+            hygroscopicity, lnsigma, cam, volumeCore, volumeCoat)
     end if
 
   end subroutine microp_aero_run
