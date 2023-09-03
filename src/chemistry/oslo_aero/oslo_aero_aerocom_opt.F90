@@ -1,4 +1,4 @@
-module aerocom_opt_mod
+module oslo_aero_aerocom_opt
 
 #ifdef AEROCOM
 
@@ -1293,4 +1293,4 @@ contains
 
 #endif
 
-end module aerocom_opt_mod
+end module oslo_aero_aerocom_opt

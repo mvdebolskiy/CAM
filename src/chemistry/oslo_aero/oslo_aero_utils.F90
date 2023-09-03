@@ -6,7 +6,7 @@ module oslo_aero_utils
   use constituents,      only: pcnst
   !
   use aerosoldef,        only: getDryDensity, getNumberOfBackgroundTracersInMode, getTracerIndex
-  use const,             only: volumeToNumber, rbinMidPoint, rbinEdge, nBinsTab, nmodes
+  use oslo_aero_const,   only: volumeToNumber, rbinMidPoint, rbinEdge, nBinsTab, nmodes
   use commondefinitions, only: originalNumberMedianRadius
 
   implicit none

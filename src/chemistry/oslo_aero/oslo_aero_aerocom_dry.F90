@@ -1,4 +1,4 @@
-module aerocom_dry_mod
+module oslo_aero_aerocom_dry
 
 #ifdef AEROCOM
 
@@ -1135,4 +1135,4 @@ contains
 
 #endif
 
-end module aerocom_dry_mod
+end module oslo_aero_aerocom_dry

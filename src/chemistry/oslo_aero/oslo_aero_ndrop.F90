@@ -26,7 +26,7 @@ module oslo_aero_ndrop
   use aerosoldef,        only: getCloudTracerName, getCloudTracerIndex, getConstituentFraction
   use aerosoldef,        only: fillAerosolTracerList, fillInverseAerosolTracerList 
   use commondefinitions, only: nmodes, nbmodes
-  use const,             only: smallNumber
+  use oslo_aero_const,   only: smallNumber
 
   implicit none
   private

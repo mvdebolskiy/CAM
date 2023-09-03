@@ -32,7 +32,7 @@ module physpkg
   use cam_logfile,     only: iulog
   use camsrfexch,      only: cam_export
 #ifdef AEROCOM
-  use aerocom_intfrh_mod, only: intfrh  
+  use oslo_aero_aerocom, only: intfrh  
 #endif
 
   use modal_aero_calcsize,    only: modal_aero_calcsize_init, modal_aero_calcsize_diag, modal_aero_calcsize_reg

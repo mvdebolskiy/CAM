@@ -11,7 +11,7 @@ module oslo_aero_coag
   use physconst,    only: rair, gravit
   use cam_logfile,  only: iulog
   use aerosoldef
-  use const
+  use oslo_aero_const
 
   implicit none
   private 
@@ -158,7 +158,7 @@ contains
   subroutine initializeCoagulationCoefficients(rhob,rk)
 
     use mo_constants,  only:  pi
-    use const, only: normnk
+    use oslo_aero_const, only: normnk
 
     real(r8), intent(in) :: rk(0:nmodes)   ![unit] radius of background (receiver) mode
     real(r8), intent(in) :: rhob(0:nmodes) !density of background mode
@@ -380,7 +380,7 @@ contains
     use ppgrid,           only : pcols, pver
     use cam_history,  only: outfld
     use aerosoldef
-    use const
+    use oslo_aero_const
     use physics_buffer, only : physics_buffer_desc
 
     !  input arguments
@@ -560,29 +560,26 @@ contains
     ! cloud droplets. Only particles smaller that dry radius of 
     ! 40 nm is assumed to have an efficient coagulation with other particles.
 
-    use shr_kind_mod, only: r8 => shr_kind_r8
-    use ppgrid,           only : pcols, pver
-    use cam_history,  only: outfld
+    use shr_kind_mod,   only: r8 => shr_kind_r8
+    use ppgrid,         only: pcols, pver
+    use physics_buffer, only: physics_buffer_desc
+    use cam_history,    only: outfld
+    !
     use aerosoldef
-    use const
-    use physics_buffer, only : physics_buffer_desc
+    use oslo_aero_const
 
     !  input arguments
-    integer, intent(in)     :: ncol                        ! number of horizontal grid cells (columns)
-    real(r8), intent(inout) :: q(pcols,pver,gas_pcnst)     ! TMR [kg/kg]  including moisture
-    real(r8), intent(in) :: pmid(pcols,pver)               ! [Pa] midpoint pressure
-    real(r8), intent(in) :: pdel(pcols,pver)
-    real(r8), intent(in) :: temperature(pcols,pver)        ! [K] temperature
-
-    real(r8), dimension(ncol,pver),intent(in)     :: cldnum ! Droplet concentration #/kg  
-    real(r8), dimension(ncol,pver),intent(in)     :: cldfrc ! Cloud volume fraction
-
-    real(r8), intent(in) :: delt_inverse                   ! [1/s] inverse time step
-    integer, intent(in)  :: lchnk                          ! [] chnk id needed for output
-    integer,   intent(in)    :: im
-
+    integer  , intent(in)    :: ncol                    ! number of horizontal grid cells (columns)
+    real(r8) , intent(inout) :: q(pcols,pver,gas_pcnst) ! TMR [kg/kg]  including moisture
+    real(r8) , intent(in)    :: pmid(pcols,pver)        ! [Pa] midpoint pressure
+    real(r8) , intent(in)    :: pdel(pcols,pver)
+    real(r8) , intent(in)    :: temperature(pcols,pver) ! [K] temperature
+    real(r8) , intent(in)    :: cldnum(ncol,pver)       ! Droplet concentration #/kg  
+    real(r8) , intent(in)    :: cldfrc(ncol,pver)       ! Cloud volume fraction
+    real(r8) , intent(in)    :: delt_inverse            ! [1/s] inverse time step
+    integer  , intent(in)    :: lchnk                   ! [] chnk id needed for output
+    integer  , intent(in)    :: im
     type(physics_buffer_desc), pointer :: pbuf(:)
-
 
     ! local
     integer           :: k                               ! level counter

@@ -49,10 +49,10 @@ module aero_model
   use oslo_aero_sox_cldaero, only: sox_cldaero_init
   use commondefinitions,     only: originalSigma, originalNumberMedianRadius
   use commondefinitions,     only: nmodes_oslo=>nmodes, nbmodes
-  use const,                 only: numberToSurface
+  use oslo_aero_const,                 only: numberToSurface
 #ifdef AEROCOM
-  use aerocom_opt_mod,       only: initaeropt
-  use aerocom_dry_mod,       only: initdryp
+  use oslo_aero_aerocom_opt, only: initaeropt
+  use oslo_aero_aerocom_dry, only: initdryp
 #endif
 
   implicit none
@@ -679,9 +679,9 @@ contains
     ! Updated by Alf Kirkev May 2013
     ! Updated by Alf Grini February 2014
 
-    use const
-    use aerosoldef
+    use oslo_aero_const
     use oslo_aero_utils
+    use aerosoldef
 
     ! local variables
     integer  :: kcomp,i
