@@ -9,7 +9,7 @@ module aerocom_dry_mod
   use commondefinitions       , only: nmodes, nbmodes
   use oslo_aero_sw_tables     , only: cate, cat, fac, faq, fbc, fombg, fbcbg, nbmp1
   use oslo_aero_linear_interp , only: lininterpol3dim, lininterpol4dim, lininterpol5dim  
-  use oslo_control            , only: oslo_getopts, dir_string_length
+  use oslo_aero_control       , only: oslo_aero_getopts, dir_string_length
 
   implicit none
   private
@@ -113,7 +113,7 @@ contains
     real(r8) :: eps7 = 1.e-7_r8
     character(len=dir_string_length) :: aerotab_table_dir
 
-    call oslo_getopts(aerotab_table_dir_out = aerotab_table_dir)
+    call oslo_aero_getopts(aerotab_table_dir_out = aerotab_table_dir)
 
     open(20,file=trim(aerotab_table_dir)//'/aerodryk0.out'  ,form='formatted',status='old')
     open(21,file=trim(aerotab_table_dir)//'/aerodryk1.out'  ,form='formatted',status='old')

@@ -40,9 +40,9 @@ module oslo_aero_sw_tables
   use ppgrid                  , only: pcols, pver
   use cam_logfile             , only: iulog
   !
-  use commondefinitions       , only: nmodes, nbmodes
-  use oslo_control            , only: oslo_getopts, dir_string_length
+  use oslo_aero_control       , only: oslo_aero_getopts, dir_string_length
   use oslo_aero_linear_interp , only: lininterpol3dim, lininterpol4dim, lininterpol5dim
+  use commondefinitions       , only: nmodes, nbmodes
 
   implicit none
   private
@@ -118,8 +118,6 @@ contains
     ! 2006. Modified for new wavelength bands and look-up tables
     ! by Alf Kirkevaag in December 2013, and for SOA in August 2015.
     !---------------------------------------------------------------
-
-    use oslo_control, only : oslo_getopts, dir_string_length
 
     ! Local variables
     integer  :: kcomp, iwl, irelh, ictot, ifac, ifbc, ifaq, i, irf
@@ -197,7 +195,7 @@ contains
        end do
     end do
 
-    call oslo_getopts(aerotab_table_dir_out= aerotab_table_dir)
+    call oslo_aero_getopts(aerotab_table_dir_out= aerotab_table_dir)
 
     ! Opening the 'kcomp'-files:
 
@@ -562,7 +560,7 @@ contains
     real(r8) :: eps7 = 1.e-7_r8
     character(len=dir_string_length) :: aerotab_table_dir
 
-    call oslo_getopts(aerotab_table_dir_out = aerotab_table_dir)
+    call oslo_aero_getopts(aerotab_table_dir_out = aerotab_table_dir)
 
     open(40,file=trim(aerotab_table_dir)//'/lwkcomp1.out'  ,form="formatted",status="old")
     open(41,file=trim(aerotab_table_dir)//'/lwkcomp2.out'  ,form="formatted",status="old")

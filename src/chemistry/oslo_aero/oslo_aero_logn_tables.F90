@@ -5,10 +5,10 @@ module oslo_aero_logn_tables
   use cam_logfile,             only: iulog
   use spmd_utils,              only: masterproc
   !
-  use oslo_control,            only: oslo_getopts,dir_string_length
-  use commondefinitions,       only: nmodes, nbmodes
+  use oslo_aero_control,       only: oslo_aero_getopts,dir_string_length
   use oslo_aero_sw_tables,     only: cate, fac, faq, fbc, cat
   use oslo_aero_linear_interp, only: lininterpol3dim, lininterpol4dim
+  use commondefinitions,       only: nmodes, nbmodes
   use aerosoldef
 
   implicit none
@@ -60,7 +60,7 @@ contains
     character(len=dir_string_length) :: aerotab_table_dir
 
     ! Where are the tables stored??
-    call oslo_getopts(aerotab_table_dir_out=aerotab_table_dir)
+    call oslo_aero_getopts(aerotab_table_dir_out=aerotab_table_dir)
 
     open(20,file=trim(aerotab_table_dir)//'/logntilp1.out' ,form='formatted',status='old')  ! SO4&SOA(n/Ait)
     open(21,file=trim(aerotab_table_dir)//'/logntilp2.out' ,form='formatted',status='old')  ! BC(n/Ait)

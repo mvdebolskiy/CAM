@@ -25,7 +25,7 @@ module oslo_aero_ocean
   use physics_buffer, only : physics_buffer_desc
   use tracer_data,    only : trfld, trfile, trcdata_init, advance_trcdata
   !
-  use oslo_control,   only: oslo_getopts
+  use oslo_aero_control, only: oslo_aero_getopts
 
   implicit none
   private
@@ -100,7 +100,7 @@ contains
     in_opom_data_source = opom_source
 
     ! Read namelist.
-    call oslo_getopts(dms_source_out = in_dms_data_source,  &
+    call oslo_aero_getopts(dms_source_out = in_dms_data_source,  &
          dms_source_type_out = in_dms_data_type,    &
          dms_cycle_year_out  = in_dms_cycle_yr,     &
          opom_source_out     = in_opom_data_source, &
