@@ -1,4 +1,4 @@
-module const
+module oslo_aero_const
 
   !-----------------------------------------------------------------------------
   ! Module containing oslo_aero constants
@@ -25,7 +25,7 @@ module const
   real(r8) :: volumeToNumber(0:nmodes)                    !m3 ==> #
   real(r8) :: numberToSurface(0:nmodes)                   !# ==> m2
 
-end module const
+end module oslo_aero_const
 
 
 

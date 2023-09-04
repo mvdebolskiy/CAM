@@ -15,7 +15,7 @@ module oslo_aero_optical_params
   use oslo_aero_conc,  only: calculateBulkProperties, partitionMass
   use oslo_aero_sw_tables
   use commondefinitions
-  use const
+  use oslo_aero_const
   use aerosoldef
 
   implicit none

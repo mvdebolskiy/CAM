@@ -1,4 +1,4 @@
-module aerocom_mod
+module oslo_aero_aerocom
 
 #ifdef AEROCOM
   
@@ -7,12 +7,12 @@ module aerocom_mod
   use cam_history,     only: outfld
   use physics_types,   only: physics_state
   !
-  use aerocom_opt_mod, only: extinction_coeffs, extinction_coeffsn
-  use aerocom_dry_mod, only: aerodry_prop
+  use oslo_aero_aerocom_opt, only: extinction_coeffs, extinction_coeffsn
+  use oslo_aero_aerocom_dry, only: aerodry_prop
+  use oslo_aero_sw_tables
   use aerosoldef
   use commondefinitions
-  use oslo_aero_sw_tables
-  use const
+  use oslo_aero_const
 
   public :: aerocom
   public :: opticsAtConstRh
@@ -1902,4 +1902,4 @@ contains
 
 #endif
 
-end module aerocom_mod
+end module oslo_aero_aerocom
