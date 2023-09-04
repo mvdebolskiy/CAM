@@ -5,7 +5,7 @@ module oslo_aero_utils
   use physconst,         only: pi
   use constituents,      only: pcnst
   !
-  use aerosoldef,        only: getDryDensity, getNumberOfBackgroundTracersInMode, getTracerIndex
+  use oslo_aero_share,   only: getDryDensity, getNumberOfBackgroundTracersInMode, getTracerIndex
   use oslo_aero_const,   only: volumeToNumber, rbinMidPoint, rbinEdge, nBinsTab, nmodes
   use oslo_aero_params,  only: originalNumberMedianRadius
 

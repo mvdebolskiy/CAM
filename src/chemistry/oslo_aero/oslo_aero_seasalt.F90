@@ -12,8 +12,8 @@ module oslo_aero_seasalt
   !
   use oslo_aero_const, only: volumeToNumber
   use oslo_aero_ocean, only: oslo_aero_opom_inq, oslo_aero_opom_emis
-  use aerosoldef,      only: rhopart, l_om_ni, l_ss_a1, l_ss_a2, l_ss_a3
-  use aerosoldef,      only: MODE_IDX_SS_A1, MODE_IDX_SS_A2, MODE_IDX_SS_A3
+  use oslo_aero_share, only: rhopart, l_om_ni, l_ss_a1, l_ss_a2, l_ss_a3
+  use oslo_aero_share, only: MODE_IDX_SS_A1, MODE_IDX_SS_A2, MODE_IDX_SS_A3
 
   implicit none
   private

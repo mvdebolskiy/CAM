@@ -9,7 +9,7 @@ module oslo_aero_logn_tables
   use oslo_aero_sw_tables,     only: cate, fac, faq, fbc, cat
   use oslo_aero_linear_interp, only: lininterpol3dim, lininterpol4dim
   use oslo_aero_params,        only: nmodes, nbmodes
-  use aerosoldef
+  use oslo_aero_share
 
   implicit none
   private
@@ -21,33 +21,33 @@ module oslo_aero_logn_tables
 
   real(r8) :: rrr1to3 (3,16,6)         ! Modal radius array, mode 1 - 3
   real(r8) :: sss1to3 (3,16,6)         ! Standard deviation array, Mode 1 -3
-  real(r8) :: rrr4 (16,6,6)            ! Modal radius array, mode 4	 	
-  real(r8) :: sss4 (16,6,6)            ! Modal radius array, mode 4	 
+  real(r8) :: rrr4 (16,6,6)            ! Modal radius array, mode 4
+  real(r8) :: sss4 (16,6,6)            ! Modal radius array, mode 4
   real(r8) :: rrr (5:10,6,6,6,6)       ! Modal radius array, mode 5 - 10
   real(r8) :: sss (5:10,6,6,6,6)       ! Standard deviation array, mode 5 - 10
 
   real(r8) :: calog1to3(3,96)          ! Array for reading catot from file
   real(r8) :: rk1to3 (3,96)            ! Array for reading modal radius from file
   real(r8) :: stdv1to3 (3,96)          ! Array for reading std. dev. from file
-  real(r8) :: fraclog1to3 (3,96)       ! Same as frac4, but for initlogn.F90 
+  real(r8) :: fraclog1to3 (3,96)       ! Same as frac4, but for initlogn.F90
 
   real(r8) :: calog4(576)              ! Same as catot4, but for initlogn.F90
-  real(r8) :: fraclog4(576)            ! Same as frac4, but for initlogn.F90 
+  real(r8) :: fraclog4(576)            ! Same as frac4, but for initlogn.F90
   real(r8) :: fraqlog4(576)            ! Same as fraq4, but for initlogn.F90
   real(r8) :: rk4 (576)                ! Array for reading modal radius from file
   real(r8) :: stdv4 (576)              ! Array for reading std. dev. from file
 
   real(r8) :: calog (5:10,1296)        ! Same as catot, but for initlogn.F90
-  real(r8) :: fraclog5to10 (5:10,1296) ! Same as frac5to10, but for initlogn.F90 
-  real(r8) :: fabclog5to10 (5:10,1296) ! Same as fabc5to10, but for initlogn.F90 
-  real(r8) :: fraqlog5to10 (5:10,1296) ! Same as fraq5to10, but for initlogn.F90 
+  real(r8) :: fraclog5to10 (5:10,1296) ! Same as frac5to10, but for initlogn.F90
+  real(r8) :: fabclog5to10 (5:10,1296) ! Same as fabc5to10, but for initlogn.F90
+  real(r8) :: fraqlog5to10 (5:10,1296) ! Same as fraq5to10, but for initlogn.F90
   real(r8) :: rk5to10 (5:10,1296)      ! Array for reading modal radius from file
   real(r8) :: stdv5to10 (5:10,1296)    ! Array for reading std. dev. from file
 
 !=======================================================
 contains
 !=======================================================
-  
+
   subroutine initlogn()
 
     ! Reads the tabulated parameters for "best lognormal fits" of the
@@ -73,7 +73,7 @@ contains
     open(28,file=trim(aerotab_table_dir)//'/logntilp9.out' ,form='formatted',status='old')  ! SEASACC
     open(29,file=trim(aerotab_table_dir)//'/logntilp10.out',form='formatted',status='old')  ! SEASCOA
     if (masterproc) then
-       write(iulog,*)'nlog open ok' 
+       write(iulog,*)'nlog open ok'
     end if
 
     ! Skipping the header-text in all input files (Later: use it to check AeroTab - CAM5-Oslo consistency!)
@@ -85,14 +85,14 @@ contains
     ! Mode  1      (SO4&SOA + condesate from H2SO4 and SOA)
     ! Modes 2 to 3 (BC/OC + condesate from H2SO4 and SOA)
     !
-    ! These two are treated the same way since there is no dependence on 
-    ! fombg (SOA fraction in the background) for mode 1. 
+    ! These two are treated the same way since there is no dependence on
+    ! fombg (SOA fraction in the background) for mode 1.
     ! ************************************************************************
 
     do ifil = 1,2
-       do lin = 1,96   ! 16*6 entries   
+       do lin = 1,96   ! 16*6 entries
           read(19+ifil,993) kcomp, calog1to3(ifil,lin), fraclog1to3 (ifil, lin), &
-               rk1to3(ifil,lin), stdv1to3(ifil,lin) 
+               rk1to3(ifil,lin), stdv1to3(ifil,lin)
 
           do ic=1,16
              if(abs((calog1to3(ifil,lin)-cate(kcomp,ic))/cate(kcomp,ic))<eps2) then
@@ -137,7 +137,7 @@ contains
        enddo
     enddo
     if (masterproc) then
-       write(iulog,*)'nlog mode 1-3 ok' 
+       write(iulog,*)'nlog mode 1-3 ok'
     end if
 
     ! ************************************************************************
@@ -145,7 +145,7 @@ contains
     ! ************************************************************************
 
     ifil = 4
-    do lin = 1,576   ! 16 entries   
+    do lin = 1,576   ! 16 entries
        read(19+ifil,994) kcomp, calog4(lin) &
             ,fraclog4(lin), fraqlog4(lin), rk4(lin), stdv4(lin)
 
@@ -189,7 +189,7 @@ contains
        enddo
     enddo
     if (masterproc) then
-       write(iulog,*)'nlog mode 4 ok' 
+       write(iulog,*)'nlog mode 4 ok'
     end if
 
     ! ************************************************************************
@@ -255,7 +255,7 @@ contains
        enddo
     enddo
 
-    write(iulog,*)'nlog mode 5-10 ok' 
+    write(iulog,*)'nlog mode 5-10 ok'
 
     do ifil=20,29
        close (ifil)
@@ -270,19 +270,19 @@ contains
   !=======================================================
   subroutine intlog1to3_sub (ncol, kcomp, xctin, Nnat, xfacin, cxs, xstdv, xrk)
 
-    ! Created by Trude Storelvmo, fall 2007. This subroutine gives as output   
-    ! the "new" modal radius and standard deviation for a given aerosol mode, kcomp 
+    ! Created by Trude Storelvmo, fall 2007. This subroutine gives as output
+    ! the "new" modal radius and standard deviation for a given aerosol mode, kcomp
     ! 1-3. These parameters are calculated for a best lognormal fit approximation of
     ! the aerosol size distribution. This because the aerosol activation routine
-    ! (developed by Abdul-Razzak & Ghan, 2000) requiers the size distribution to be 
+    ! (developed by Abdul-Razzak & Ghan, 2000) requiers the size distribution to be
     ! described by lognormal modes.
-    ! Changed by Alf Kirkevåg to take into account condensation of SOA, September 2015, 
+    ! Changed by Alf Kirkevåg to take into account condensation of SOA, September 2015,
 
     integer  , intent(in)  :: ncol
     integer  , intent(in)  :: kcomp
     real(r8) , intent(in)  :: Nnat(pcols)   ! Modal number concentration
-    real(r8) , intent(in)  :: xctin(pcols)  ! total internally mixed conc. (ug/m3)	
-    real(r8) , intent(in)  :: xfacin(pcols) ! SOA/(SOA+H2SO4) for condensated mass 
+    real(r8) , intent(in)  :: xctin(pcols)  ! total internally mixed conc. (ug/m3)
+    real(r8) , intent(in)  :: xfacin(pcols) ! SOA/(SOA+H2SO4) for condensated mass
     real(r8) , intent(out) :: xstdv(pcols)  ! log10 of standard deviation for lognormal fit
     real(r8) , intent(out) :: xrk(pcols)    ! Modal radius for lognormal fit
     real(r8) , intent(out) :: cxs(pcols)    ! excess (modal) internally mixed conc.
@@ -290,7 +290,7 @@ contains
     ! local variables
     real(r8) :: camdiff
     real(r8) :: xct(pcols)
-    real(r8) :: xfac(ncol) 
+    real(r8) :: xfac(ncol)
     integer  :: lon, long
     integer  :: i, ictot, ict1, ict2
     real(r8) :: r1, r2, s1, s2
@@ -343,7 +343,7 @@ contains
        t_xct  = xct(lon)
        t_xfac = xfac(lon)
 
-       ! partial lengths along each dimension (1-2) for interpolation 
+       ! partial lengths along each dimension (1-2) for interpolation
 
        d2mx(1) = (t_cat2-t_xct)
        dxm1(1) = (t_xct-t_cat1)
@@ -382,20 +382,20 @@ contains
   !=======================================================
   subroutine intlog4_sub (ncol, kcomp, xctin, Nnat, xfacin, xfaqin, cxs, xstdv, xrk)
 
-    ! Created by Trude Storelvmo, fall 2007. This subroutine gives as output   
+    ! Created by Trude Storelvmo, fall 2007. This subroutine gives as output
     ! the "new" modal radius and standard deviation for aerosol mode kcomp=4.
     ! These parameters are calculated for a best lognormal fit approximation of
     ! the aerosol size distribution. This because the aerosol activation routine
-    ! (developed by Abdul-Razzak & Ghan, 2000) requires the size distribution 
+    ! (developed by Abdul-Razzak & Ghan, 2000) requires the size distribution
     ! to be described by lognormal modes.
-    ! Changed by Alf Kirkevåg to take into account condensation of SOA, September 
-    ! 2015, and also rewritten to a more generalized for for interpolations using 
+    ! Changed by Alf Kirkevåg to take into account condensation of SOA, September
+    ! 2015, and also rewritten to a more generalized for for interpolations using
     ! common subroutines interpol*dim.
 
     integer  , intent(in)  :: ncol
     integer  , intent(in)  :: kcomp
     real(r8) , intent(in)  :: Nnat(pcols)   ! Modal number concentration
-    real(r8) , intent(in)  :: xctin(pcols)  ! total internally mixed conc. (ug/m3)	
+    real(r8) , intent(in)  :: xctin(pcols)  ! total internally mixed conc. (ug/m3)
     real(r8) , intent(in)  :: xfacin(pcols) ! SOA/(SOA+H2SO4) for condensated mass
     real(r8) , intent(in)  :: xfaqin(pcols) ! = Cso4a2/(Cso4a1+Cso4a2)
     real(r8) , intent(out) :: xstdv(pcols)  ! log10 of standard deviation for lognormal fit
@@ -404,14 +404,14 @@ contains
 
     ! local variables
     real(r8) :: camdiff
-    real(r8) :: xct(pcols) 
-    real(r8) :: xfac(pcols) 
+    real(r8) :: xct(pcols)
+    real(r8) :: xfac(pcols)
     real(r8) :: xfaq(pcols)
     integer  :: lon, long
     integer  :: i, ictot, ifac, ifaq
     integer  :: ict1, ict2, ifac1, ifac2, ifaq1, ifaq2
     real(r8) :: t_fac1, t_fac2, t_xfac, t_xct, t_cat1, t_cat2
-    real(r8) :: t_faq1, t_faq2, t_xfaq 
+    real(r8) :: t_faq1, t_faq2, t_xfaq
     real(r8) :: r1, r2, s1, s2, tmp, e
     real(r8) :: d2mx(3), dxm1(3), invd(3)
     real(r8) :: sizepar3d(2,2,2)
@@ -472,7 +472,7 @@ contains
        t_xfac = xfac(lon)
        t_xfaq = xfaq(lon)
 
-       ! partial lengths along each dimension (1-4) for interpolation 
+       ! partial lengths along each dimension (1-4) for interpolation
        d2mx(1) = (t_cat2-t_xct)
        dxm1(1) = (t_xct-t_cat1)
        invd(1) = 1.0_r8/(t_cat2-t_cat1)
@@ -484,7 +484,7 @@ contains
        invd(3) = 1.0_r8/(t_faq2-t_faq1)
 
        ! Table points as basis for multidimentional linear interpolation,
-       ! modal median radius:  
+       ! modal median radius:
 
        sizepar3d(1,1,1)=rrr4(ict1,ifac1,ifaq1)
        sizepar3d(1,1,2)=rrr4(ict1,ifac1,ifaq2)
@@ -503,7 +503,7 @@ contains
 
 
        ! Table points as basis for multidimentional linear interpolation,
-       ! modal standard deviation:  
+       ! modal standard deviation:
        sizepar3d(1,1,1)=sss4(ict1,ifac1,ifaq1)
        sizepar3d(1,1,2)=sss4(ict1,ifac1,ifaq2)
        sizepar3d(1,2,1)=sss4(ict1,ifac2,ifaq1)
@@ -527,14 +527,14 @@ contains
   subroutine intlog5to10_sub (ncol, kcomp, xctin, Nnat, &
        xfacin, xfbcin, xfaqin, cxs, xstdv, xrk)
 
-    !This subroutine gives as output the "new" modal radius and standard deviation 
-    !for a given aerosol mode, kcomp 1-5. These parameters are calculated for a 
-    !best lognormal fit approximation of the aerosol size distribution. 
+    !This subroutine gives as output the "new" modal radius and standard deviation
+    !for a given aerosol mode, kcomp 1-5. These parameters are calculated for a
+    !best lognormal fit approximation of the aerosol size distribution.
 
     integer  , intent(in)  :: ncol
     integer  , intent(in)  :: kcomp
     real(r8) , intent(in)  :: Nnat(pcols)   ! Modal number concentration
-    real(r8) , intent(in)  :: xctin(pcols)  ! total internally mixed conc. (ug/m3)	
+    real(r8) , intent(in)  :: xctin(pcols)  ! total internally mixed conc. (ug/m3)
     real(r8) , intent(in)  :: xfacin(pcols) ! = (Cbc+Coc)/(Cbc+Coc+Cso4)
     real(r8) , intent(in)  :: xfbcin(pcols) ! = Cbc/(Cbc+Coc)
     real(r8) , intent(in)  :: xfaqin(pcols) ! = Cso4a2/(Cso4a1+Cso4a2)
@@ -544,13 +544,13 @@ contains
 
     ! local variables
     real(r8) :: xctsave, camdiff
-    real(r8) :: xct(pcols), xfac(pcols),  xfbc(pcols), xfaq(pcols)  
+    real(r8) :: xct(pcols), xfac(pcols),  xfbc(pcols), xfaq(pcols)
     integer  :: lon, long
     integer  :: i, ictot, ifac, ifbc, ifaq
     integer  :: ict1, ict2, ifac1, ifac2
     integer  :: ifbc1, ifbc2, ifaq1, ifaq2
     real(r8) :: t_fac1, t_fac2, t_xfac, t_xct, t_cat1, t_cat2
-    real(r8) :: t_faq1, t_faq2, t_xfaq, t_fbc1, t_fbc2, t_xfbc 
+    real(r8) :: t_faq1, t_faq2, t_xfaq, t_fbc1, t_fbc2, t_xfbc
     real(r8) :: r1, r2, s1, s2, tmp, e
     real(r8) :: d2mx(4), dxm1(4), invd(4)
     real(r8) :: sizepar4d(2,2,2,2)
@@ -624,7 +624,7 @@ contains
        t_xfbc = xfbc(lon)
        t_xfaq = xfaq(lon)
 
-       ! partial lengths along each dimension (1-4) for interpolation 
+       ! partial lengths along each dimension (1-4) for interpolation
        d2mx(1) = (t_cat2-t_xct)
        dxm1(1) = (t_xct-t_cat1)
        invd(1) = 1.0_r8/(t_cat2-t_cat1)
@@ -639,7 +639,7 @@ contains
        invd(4) = 1.0_r8/(t_faq2-t_faq1)
 
        ! Table points as basis for multidimentional linear interpolation,
-       ! modal median radius:  
+       ! modal median radius:
 
        sizepar4d(1,1,1,1) = rrr(kcomp,ict1,ifac1,ifbc1,ifaq1)
        sizepar4d(1,1,1,2) = rrr(kcomp,ict1,ifac1,ifbc1,ifaq2)
@@ -665,7 +665,7 @@ contains
        xrk(lon)=(d2mx(1)*r1+dxm1(1)*r2)*invd(1)*1.e-6_r8  ! look-up table radii in um
 
        ! Table points as basis for multidimentional linear interpolation,
-       ! modal standard deviation:  
+       ! modal standard deviation:
 
        sizepar4d(1,1,1,1)=sss(kcomp,ict1,ifac1,ifbc1,ifaq1)
        sizepar4d(1,1,1,2)=sss(kcomp,ict1,ifac1,ifbc1,ifaq2)
@@ -714,4 +714,3 @@ contains
   end subroutine checkTableHeader
 
 end module oslo_aero_logn_tables
-

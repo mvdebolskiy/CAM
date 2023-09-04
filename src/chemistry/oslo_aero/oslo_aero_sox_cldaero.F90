@@ -9,7 +9,7 @@ module oslo_aero_sox_cldaero
   use physconst,       only: gravit
   use chem_mods,       only: gas_pcnst
   !
-  use aerosoldef,      only: l_so4_a2, chemistryIndex
+  use oslo_aero_share, only: l_so4_a2, chemistryIndex
 
   implicit none
   private

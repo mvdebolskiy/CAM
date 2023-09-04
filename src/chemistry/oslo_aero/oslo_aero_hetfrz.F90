@@ -32,11 +32,11 @@ module oslo_aero_hetfrz
   !
   use oslo_aero_utils,   only: CalculateNumberConcentration, calculateNumberMedianRadius
   use oslo_aero_params,  only: nmodes_oslo => nmodes
-  use aerosoldef,        only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_OMBC_INTMIX_COAT_AIT
-  use aerosoldef,        only: getNumberOfTracersInMode, getTracerIndex
-  use aerosoldef,        only: qqcw_get_field
-  use aerosoldef,        only: l_dst_a2, l_dst_a3, l_bc_ai, l_bc_ac
-  use aerosoldef,        only: lifeCycleNumberMedianRadius, lifeCycleSigma
+  use oslo_aero_share,   only: MODE_IDX_DST_A2, MODE_IDX_DST_A3, MODE_IDX_OMBC_INTMIX_COAT_AIT
+  use oslo_aero_share,   only: getNumberOfTracersInMode, getTracerIndex
+  use oslo_aero_share,   only: qqcw_get_field
+  use oslo_aero_share,   only: l_dst_a2, l_dst_a3, l_bc_ai, l_bc_ac
+  use oslo_aero_share,   only: lifeCycleNumberMedianRadius, lifeCycleSigma
 
   implicit none
   private

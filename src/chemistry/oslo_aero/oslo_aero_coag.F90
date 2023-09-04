@@ -10,7 +10,7 @@ module oslo_aero_coag
   use mo_tracname,  only: solsym
   use physconst,    only: rair, gravit
   use cam_logfile,  only: iulog
-  use aerosoldef
+  use oslo_aero_share
   use oslo_aero_const
 
   implicit none
@@ -379,7 +379,7 @@ contains
     use shr_kind_mod, only: r8 => shr_kind_r8
     use ppgrid,           only : pcols, pver
     use cam_history,  only: outfld
-    use aerosoldef
+    use oslo_aero_share
     use oslo_aero_const
     use physics_buffer, only : physics_buffer_desc
 
@@ -565,7 +565,7 @@ contains
     use physics_buffer, only: physics_buffer_desc
     use cam_history,    only: outfld
     !
-    use aerosoldef
+    use oslo_aero_share
     use oslo_aero_const
 
     !  input arguments

@@ -41,11 +41,11 @@ module aero_model
   use oslo_aero_dust,        only: oslo_aero_dust_init, oslo_aero_dust_emis, dust_active
   use oslo_aero_ocean,       only: oslo_aero_ocean_init, oslo_aero_dms_emis
   use oslo_aero_sw_tables,   only: initopt, initopt_lw
-  use aerosoldef,            only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
-  use aerosoldef,            only: qqcw_get_field, numberOfProcessModeTracers
-  use aerosoldef,            only: lifeCycleNumberMedianRadius
-  use aerosoldef,            only: getCloudTracerName
-  use aerosoldef,            only: aero_register
+  use oslo_aero_share,            only: chemistryIndex, physicsIndex, getCloudTracerIndexDirect, getCloudTracerName
+  use oslo_aero_share,            only: qqcw_get_field, numberOfProcessModeTracers
+  use oslo_aero_share,            only: lifeCycleNumberMedianRadius
+  use oslo_aero_share,            only: getCloudTracerName
+  use oslo_aero_share,            only: aero_register
   use oslo_aero_sox_cldaero, only: sox_cldaero_init
   use oslo_aero_params,     only: originalSigma, originalNumberMedianRadius
   use oslo_aero_params,     only: nmodes_oslo=>nmodes, nbmodes
@@ -681,7 +681,7 @@ contains
 
     use oslo_aero_const
     use oslo_aero_utils
-    use aerosoldef
+    use oslo_aero_share
 
     ! local variables
     integer  :: kcomp,i
@@ -792,7 +792,7 @@ contains
     ! Seland Calculates mean volume size and hygroscopic growth for use in  dry deposition
 
     use oslo_aero_params, only: nmodes
-    use aerosoldef
+    use oslo_aero_share
 
     integer,  intent(in) :: ncol               ! number of columns
     real(r8), intent(in) :: t(pcols,pver)      ! layer temperatures (K)

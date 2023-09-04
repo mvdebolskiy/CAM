@@ -4,7 +4,7 @@ module oslo_aero_optical_params
   ! from the tables kcomp1.out-kcomp14.out.
 
   use shr_kind_mod,    only: r8 => shr_kind_r8
-  use ppgrid,          only: pcols, pver, pverp 
+  use ppgrid,          only: pcols, pver, pverp
   use constituents,    only: pcnst
   use cam_history,     only: outfld
   use physconst,       only: rair,pi
@@ -16,7 +16,7 @@ module oslo_aero_optical_params
   use oslo_aero_sw_tables
   use oslo_aero_params
   use oslo_aero_const
-  use aerosoldef
+  use oslo_aero_share
 
   implicit none
   private

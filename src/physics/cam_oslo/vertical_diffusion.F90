@@ -72,7 +72,9 @@ module vertical_diffusion
   use ref_pres,         only : do_molec_diff, nbot_molec
   use phys_control,     only : phys_getopts
   use time_manager,     only : is_first_step
-  use aerosoldef, only: getNumberOfAerosolTracers, fillAerosolTracerList
+#ifdef OSLO_AERO
+  use oslo_aero_share, only: getNumberOfAerosolTracers, fillAerosolTracerList
+#endif
 
   implicit none
   private

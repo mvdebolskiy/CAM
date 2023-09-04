@@ -1755,7 +1755,7 @@ contains
 
 #ifdef OSLO_AERO
     use oslo_aero_params
-    use aerosoldef !, only: nmodes
+    use oslo_aero_share
 #endif
     implicit none
 

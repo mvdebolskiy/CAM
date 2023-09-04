@@ -10,7 +10,7 @@ module oslo_aero_aerocom
   use oslo_aero_aerocom_opt, only: extinction_coeffs, extinction_coeffsn
   use oslo_aero_aerocom_dry, only: aerodry_prop
   use oslo_aero_sw_tables
-  use aerosoldef
+  use oslo_aero_share
   use oslo_aero_params
   use oslo_aero_const
 

@@ -69,8 +69,8 @@ contains
     use mo_drydep,    only : has_drydep
     use species_sums_diags, only : species_sums_init
 #ifdef OSLO_AERO
+    use oslo_aero_share, only: getCloudTracerIndexDirect, getCloudTracerName, isAerosol 
     use oslo_aero_params
-    use aerosoldef, only: getCloudTracerIndexDirect, getCloudTracerName, isAerosol 
 #endif
 
     integer :: j, k, m, n
@@ -567,9 +567,10 @@ contains
 #ifdef OSLO_AERO
     use constituents,   only : cnst_get_ind
     use phys_grid,      only : pcols
-    use aerosoldef,     only : getCloudTracerIndexDirect, getCloudTracerName, aerosolType, isAerosol
     use physics_buffer, only : pbuf_get_field, pbuf_get_index
     use physics_buffer, only : physics_buffer_desc
+    !
+    use oslo_aero_share,only : getCloudTracerIndexDirect, getCloudTracerName, aerosolType, isAerosol
     use oslo_aero_params
 #endif
 !

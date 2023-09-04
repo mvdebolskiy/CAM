@@ -732,7 +732,7 @@ contains
     use physics_buffer,    only: pbuf_get_index
     use oslo_aero_control, only: oslo_aero_getopts
     use oslo_aero_params
-    use aerosoldef
+    use oslo_aero_share
 #endif
 
 #ifdef OSLO_AERO

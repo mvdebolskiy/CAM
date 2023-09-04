@@ -13,7 +13,7 @@ module oslo_aero_conc
   use oslo_aero_condtend,    only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
   use oslo_aero_const,       only: smallNumber, volumeToNumber,smallNumber
   use oslo_aero_params
-  use aerosoldef
+  use oslo_aero_share
 
   implicit none
   private

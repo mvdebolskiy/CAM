@@ -19,7 +19,7 @@ module oslo_aero_dust
   use ioFileMod,        only: getfil
   use pio,              only: file_desc_t,pio_inq_dimid,pio_inq_dimlen,pio_get_var,pio_inq_varid, PIO_NOWRITE
   !
-  use aerosoldef,       only: l_dst_a2, l_dst_a3
+  use oslo_aero_share,  only: l_dst_a2, l_dst_a3
 
   implicit none
   private
@@ -34,7 +34,7 @@ module oslo_aero_dust
 
   character(len=6), public :: dust_names(10)
 
-  integer , parameter :: numberOfDustModes = 2  !define in aerosoldef?
+  integer , parameter :: numberOfDustModes = 2  !define in oslo_aero_share?
   real(r8), parameter :: emis_fraction_in_mode(numberOfDustModes) = (/0.13_r8, 0.87_r8 /)
   integer             :: tracerMap(numberOfDustModes) = (/-99, -99/) !index of dust tracers in the modes
 
