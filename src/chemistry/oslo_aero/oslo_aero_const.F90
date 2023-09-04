@@ -5,7 +5,7 @@ module oslo_aero_const
   !-----------------------------------------------------------------------------
 
   use shr_kind_mod,      only: r8 => shr_kind_r8
-  use commondefinitions, only: nmodes
+  use oslo_aero_params,  only: nmodes
   use physconst,         only: pi
  !
   implicit none

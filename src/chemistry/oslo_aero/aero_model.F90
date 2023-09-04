@@ -47,8 +47,8 @@ module aero_model
   use aerosoldef,            only: getCloudTracerName
   use aerosoldef,            only: aero_register
   use oslo_aero_sox_cldaero, only: sox_cldaero_init
-  use commondefinitions,     only: originalSigma, originalNumberMedianRadius
-  use commondefinitions,     only: nmodes_oslo=>nmodes, nbmodes
+  use oslo_aero_params,     only: originalSigma, originalNumberMedianRadius
+  use oslo_aero_params,     only: nmodes_oslo=>nmodes, nbmodes
   use oslo_aero_const,                 only: numberToSurface
 #ifdef AEROCOM
   use oslo_aero_aerocom_opt, only: initaeropt
@@ -791,7 +791,7 @@ contains
 
     ! Seland Calculates mean volume size and hygroscopic growth for use in  dry deposition
 
-    use commondefinitions, only: nmodes
+    use oslo_aero_params, only: nmodes
     use aerosoldef
 
     integer,  intent(in) :: ncol               ! number of columns

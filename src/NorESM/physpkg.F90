@@ -15,9 +15,9 @@ module physpkg
   use spmd_utils,       only: masterproc
   use physconst,        only: latvap, latice, rh2o
   use physics_types,    only: physics_state, physics_tend, physics_state_set_grid, &
-       physics_ptend, physics_tend_init, physics_update,    &
-       physics_type_alloc, physics_ptend_dealloc,&
-       physics_state_alloc, physics_state_dealloc, physics_tend_alloc, physics_tend_dealloc
+                              physics_ptend, physics_tend_init, physics_update,    &
+                              physics_type_alloc, physics_ptend_dealloc,&
+                              physics_state_alloc, physics_state_dealloc, physics_tend_alloc, physics_tend_dealloc
   use phys_grid,        only: get_ncols_p
   use phys_gmean,       only: gmean_mass
   use ppgrid,           only: begchunk, endchunk, pcols, pver, pverp, psubcols
@@ -1753,11 +1753,10 @@ contains
     use subcol_utils,    only: subcol_ptend_copy, is_subcol_on
     use qneg_module,     only: qneg3
 
-    ! OSLO_AERO beg
-    use commondefinitions
+#ifdef OSLO_AERO
+    use oslo_aero_params
     use aerosoldef !, only: nmodes
-    ! OSLO_AERO end
-
+#endif
     implicit none
 
     real(r8), intent(in) :: ztodt                          ! 2 delta t (model time increment)

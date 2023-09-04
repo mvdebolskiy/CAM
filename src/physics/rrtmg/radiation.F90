@@ -45,7 +45,7 @@ module radiation
 #ifdef OSLO_AERO
   use prescribed_volcaero,      only: has_prescribed_volcaero, has_prescribed_volcaero_cmip6, solar_bands, terrestrial_bands
   use oslo_aero_optical_params, only: oslo_aero_optical_params_calc
-  use commondefinitions,        only: nmodes, nbmodes
+  use oslo_aero_params,         only: nmodes, nbmodes
 #endif
 
   implicit none
@@ -729,9 +729,9 @@ contains
 
     use constituents,     only: pcnst
 #ifdef OSLO_AERO
-    use physics_buffer,   only: pbuf_get_index
+    use physics_buffer,    only: pbuf_get_index
     use oslo_aero_control, only: oslo_aero_getopts
-    use commondefinitions
+    use oslo_aero_params
     use aerosoldef
 #endif
 

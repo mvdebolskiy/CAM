@@ -12,7 +12,7 @@ module oslo_aero_conc
   use oslo_aero_coag,        only: normalizedCoagulationSink
   use oslo_aero_condtend,    only: normalizedCondensationSink, COND_VAP_H2SO4, COND_VAP_ORG_SV
   use oslo_aero_const,       only: smallNumber, volumeToNumber,smallNumber
-  use commondefinitions
+  use oslo_aero_params
   use aerosoldef
 
   implicit none

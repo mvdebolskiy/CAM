@@ -180,9 +180,9 @@ contains
     use constituent_burden, only: constituent_burden_init
     use physics_buffer,     only: pbuf_set_field
     use tidal_diag,         only: tidal_diag_init
-!+
-    use commondefinitions,  only: nbmodes 
-!-
+#ifdef OSLO_AERO
+    use oslo_aero_params,  only: nbmodes 
+#endif
 
     type(physics_buffer_desc), pointer, intent(in) :: pbuf2d(:,:)
 

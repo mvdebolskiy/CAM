@@ -69,7 +69,7 @@ contains
     use mo_drydep,    only : has_drydep
     use species_sums_diags, only : species_sums_init
 #ifdef OSLO_AERO
-    use commondefinitions
+    use oslo_aero_params
     use aerosoldef, only: getCloudTracerIndexDirect, getCloudTracerName, isAerosol 
 #endif
 
@@ -570,7 +570,7 @@ contains
     use aerosoldef,     only : getCloudTracerIndexDirect, getCloudTracerName, aerosolType, isAerosol
     use physics_buffer, only : pbuf_get_field, pbuf_get_index
     use physics_buffer, only : physics_buffer_desc
-    use commondefinitions
+    use oslo_aero_params
 #endif
 !
 ! CCMI

@@ -11,7 +11,7 @@ module oslo_aero_aerocom
   use oslo_aero_aerocom_dry, only: aerodry_prop
   use oslo_aero_sw_tables
   use aerosoldef
-  use commondefinitions
+  use oslo_aero_params
   use oslo_aero_const
 
   public :: aerocom

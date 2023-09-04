@@ -42,7 +42,7 @@ module oslo_aero_sw_tables
   !
   use oslo_aero_control       , only: oslo_aero_getopts, dir_string_length
   use oslo_aero_linear_interp , only: lininterpol3dim, lininterpol4dim, lininterpol5dim
-  use commondefinitions       , only: nmodes, nbmodes
+  use oslo_aero_params        , only: nmodes, nbmodes
 
   implicit none
   private

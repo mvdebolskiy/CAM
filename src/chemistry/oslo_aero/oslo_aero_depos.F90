@@ -24,8 +24,8 @@ module oslo_aero_depos
   use ref_pres,                only: top_lev => clim_modal_aero_top_lev
   !
   use oslo_aero_dust_sediment, only: oslo_aero_dust_sediment_tend, oslo_aero_dust_sediment_vel
+  use oslo_aero_params
   use aerosoldef
-  use commondefinitions
   ! use aerosoldef,            only: l_bc_n,l_bc_ax,l_bc_ni,l_bc_a,l_bc_ai,l_bc_ac
   ! use aerosoldef,            only: l_om_ni,l_om_ai,l_om_ac,l_dst_a2,l_dst_a3
 

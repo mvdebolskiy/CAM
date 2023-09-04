@@ -7,7 +7,7 @@ module oslo_aero_utils
   !
   use aerosoldef,        only: getDryDensity, getNumberOfBackgroundTracersInMode, getTracerIndex
   use oslo_aero_const,   only: volumeToNumber, rbinMidPoint, rbinEdge, nBinsTab, nmodes
-  use commondefinitions, only: originalNumberMedianRadius
+  use oslo_aero_params,  only: originalNumberMedianRadius
 
   implicit none
   private

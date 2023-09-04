@@ -8,7 +8,7 @@ module oslo_aero_logn_tables
   use oslo_aero_control,       only: oslo_aero_getopts,dir_string_length
   use oslo_aero_sw_tables,     only: cate, fac, faq, fbc, cat
   use oslo_aero_linear_interp, only: lininterpol3dim, lininterpol4dim
-  use commondefinitions,       only: nmodes, nbmodes
+  use oslo_aero_params,        only: nmodes, nbmodes
   use aerosoldef
 
   implicit none
