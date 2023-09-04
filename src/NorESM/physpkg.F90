@@ -1807,8 +1807,9 @@ contains
     integer :: macmic_it                       ! iteration variables
     real(r8) :: cld_macmic_ztodt               ! modified timestep
 
+#ifdef OSLO_AERO
     integer kcomp                              ! mode number (1-14) oslo_aero
-
+#endif
     ! physics buffer fields to compute tendencies for stratiform package
     integer itim_old, ifld
     real(r8), pointer, dimension(:,:) :: cld        ! cloud fraction
@@ -1869,7 +1870,7 @@ contains
 
     logical   :: lq(pcnst)
 
-    ! OSLO_AERO beg
+#ifdef AEROCOM
     real(r8) :: logsig3d(pcols,pver,nmodes) ! Log (log10) of standard deviation for lognormal modes, method 2.
     real(r8) :: rnew3d(pcols,pver,nmodes)   ! New modal radius from look-up tables, method 2.
     real(r8) :: logsig1(pcols,pver) ! Log (log10) of standard deviation for lognormal mode 1, method 2.
@@ -1914,7 +1915,7 @@ contains
     real(r8) :: v3oc(pcols,pver,nmodes)   ! Modal mass fraction of OC (POM)
     real(r8) :: v3ss(pcols,pver,nmodes)   ! Modal mass fraction of sea-salt
     real(r8) :: frh(pcols,pver,nmodes)    ! Modal humidity growth factor 
-    ! OSLO_AERO_END
+#endif
     !-----------------------------------------------------------------------
 
     call t_startf('bc_init')
@@ -2510,9 +2511,9 @@ subroutine phys_timestep_init(phys_state, cam_in, cam_out, pbuf2d)
   use epp_ionization,      only: epp_ionization_active
   use iop_forcing,         only: scam_use_iop_srf
   use nudging,             only: Nudge_Model, nudging_timestep_init
-  ! OSLO_AERO beg
+#ifdef OSLO_AERO
   use oslo_aero_ocean,     only: oslo_aero_ocean_time
-  ! OSLO_AERO end
+#endif
 
   implicit none
 
@@ -2547,9 +2548,9 @@ subroutine phys_timestep_init(phys_state, cam_in, cam_out, pbuf2d)
   call aircraft_emit_adv(phys_state, pbuf2d)
   call prescribed_volcaero_adv(phys_state, pbuf2d)
   call prescribed_strataero_adv(phys_state, pbuf2d)
-  ! OSLO_AERO beg
+#ifdef OSLO_AERO
   call oslo_aero_ocean_time(phys_state, pbuf2d)
-  ! OSLO_AERO end
+#endif
 
   ! prescribed aerosol deposition fluxes
   call aerodep_flx_adv(phys_state, pbuf2d, cam_out)

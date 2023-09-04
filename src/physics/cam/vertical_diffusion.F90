@@ -328,15 +328,16 @@ subroutine vertical_diffusion_init(pbuf2d)
   allocate(pmam_cnst_idx(pmam_ncnst))
   call fillAerosolTracerList(pmam_cnst_idx)
 #else
-   !NOTE THAT THIS BREAKS THE CONCEPT OF KEEPEING MAM-AEROSOLS OUT OF
-   !DIFFUSION, BUT IF YOU ARE USING MAM, YOU SHOULD NOT BEE HERE ANYWAY!!
+  if (prog_modal_aero) then
+     ! NOTE THAT THIS BREAKS THE CONCEPT OF KEEPEING MAM-AEROSOLS OUT OF
+     ! DIFFUSION, BUT IF YOU ARE USING MAM, YOU SHOULD NOT BEE HERE ANYWAY!!
+
      ! First need total number of mam constituents
      call rad_cnst_get_info(0, nmodes=nmodes)
      do m = 1, nmodes
         call rad_cnst_get_info(0, m, nspec=nspec)
         pmam_ncnst = pmam_ncnst + 1 + nspec
      end do
-
      allocate(pmam_cnst_idx(pmam_ncnst))
 
      ! Get the constituent indicies

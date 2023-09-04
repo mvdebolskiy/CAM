@@ -86,7 +86,7 @@ contains
 
     call phys_getopts( convproc_do_aer_out = convproc_do_aer, history_cesm_forcing_out=history_cesm_forcing )
    
-#if defined(OSLO_AERO)
+#ifdef OSLO_AERO
     inv_o3   = get_inv_ndx('O3') > 0
     inv_oh   = get_inv_ndx('OH') > 0
     inv_no3  = get_inv_ndx('NO3') > 0
@@ -343,7 +343,7 @@ contains
     use mo_chm_diags,      only : chm_diags, het_diags
     use perf_mod,          only : t_startf, t_stopf
     use gas_wetdep_opts,   only : gas_wetdep_method
-#if (defined OSLO_AERO)
+#ifdef OSLO_AERO
     use oslo_aero_diurnal_var, only : set_diurnal_invariants
 #endif
     use physics_buffer,    only : physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
@@ -676,7 +676,7 @@ contains
     !-----------------------------------------------------------------------  
     call setinv( invariants, tfld, h2ovmr, vmr, pmid, ncol, lchnk, pbuf )
 
-#if defined (OSLO_AERO)
+#ifdef OSLO_AERO
     !-----------------------------------------------------------------------      
     !        ... Set the "day/night cycle for prescribed oxidants"
     !----------------------------------------------------------------------- 

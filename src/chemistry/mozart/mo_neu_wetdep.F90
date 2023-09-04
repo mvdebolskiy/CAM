@@ -285,8 +285,6 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
   real(r8) :: wrk_wd(pcols)
   logical history_aerosol
 #endif
-
-call phys_getopts( history_aerosol_out = history_aerosol)
 !
 ! from cam/src/physics/cam/stratiform.F90
 !
@@ -481,22 +479,23 @@ call phys_getopts( history_aerosol_out = history_aerosol)
     if ( debug) print *,'mo_neu ',mapping_to_mmr(m),(wk_out(1:ncol))
     wd_tend_int(1:ncol,mapping_to_mmr(m)) = wk_out(1:ncol)
 !
-  end do
+   end do
 
 !This is output normally in mo_chm_diags, but
 !if neu wetdep, we have to output it here!
 #ifdef OSLO_AERO
-    if(history_aerosol)then
-       do m=1,gas_wetdep_cnt
-          wrk_wd(:ncol) = 0.0_r8
-          do k=1,pver
-             !Note sign: tendency is negative, so this becomes a positive flux!
-             wrk_wd(:ncol) = wrk_wd(:ncol)  &
-               - wd_tend(1:ncol,k,mapping_to_mmr(m))*pdel(:ncol,k)*rgrav !kg/m2/sec
-          end do
-          call outfld('WD_A_'//trim(gas_wetdep_list(m)),wrk_wd(:ncol),ncol,lchnk)
-       end do
-    end if
+   call phys_getopts( history_aerosol_out = history_aerosol)
+   if(history_aerosol)then
+      do m=1,gas_wetdep_cnt
+         wrk_wd(:ncol) = 0.0_r8
+         do k=1,pver
+            !Note sign: tendency is negative, so this becomes a positive flux!
+            wrk_wd(:ncol) = wrk_wd(:ncol)  &
+                 - wd_tend(1:ncol,k,mapping_to_mmr(m))*pdel(:ncol,k)*rgrav !kg/m2/sec
+         end do
+         call outfld('WD_A_'//trim(gas_wetdep_list(m)),wrk_wd(:ncol),ncol,lchnk)
+      end do
+   end if
 #endif
 !
   if ( do_diag ) then

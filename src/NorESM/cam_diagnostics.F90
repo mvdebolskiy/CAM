@@ -474,7 +474,7 @@ contains
       call addfld ('BATOTVIS',(/'lev'/),'A','1/km','Aerosol 3d absorption at 0.442-0.625') ! CAM4-Oslo: 0.35-0.64um
       call addfld ('BATSW13 ',(/'lev'/),'A','1/km','Aerosol 3d SW absorption at 3.077-3.846um')
       call addfld ('BATLW01 ',(/'lev'/),'A','1/km','Aerosol 3d LW absorption depth at 3.077-3.846um')
-!+
+#ifdef OSLO_AERO
       do i=1,nbmodes
          modeString="  "
          write(modeString,"(I2)"),i
@@ -489,7 +489,7 @@ contains
          varName = "Cxsrel"//trim(modeString)
          if(i.ne.3) call addfld(varName, horiz_only, 'A', 'unitless', 'relative exessive added mass column for mode'//modeString)
       enddo  
-
+#endif
    end if
  
     if (history_amwg) then
@@ -781,6 +781,7 @@ contains
       call add_default ('BATOTVIS', 1, ' ')
       call add_default ('BATSW13 ', 1, ' ')
       call add_default ('BATLW01 ', 1, ' ')
+#ifdef OSLO_AERO
       do i=1,nbmodes
          modeString="  "
          write(modeString,"(I2)"),i
@@ -795,8 +796,7 @@ contains
          varName = "Cxsrel"//trim(modeString)
          if(i.ne.3) call add_default(varName, 1, ' ')
       enddo  
-!--
-!-
+#endif
    end if
 
   end subroutine diag_init_dry

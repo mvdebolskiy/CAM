@@ -191,7 +191,7 @@ subroutine read_namelist(nlfilename, single_column, scmlat, scmlon)
 #if ( defined OFFLINE_DYN )
    call metdata_readnl(nlfilename)
 #endif
-#if (defined OSLO_AERO)
+#ifdef OSLO_AERO
    call oslo_aero_ctl_readnl(nlfilename)
 #endif
    call offline_driver_readnl(nlfilename)
