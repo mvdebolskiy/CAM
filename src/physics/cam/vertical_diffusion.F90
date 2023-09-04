@@ -72,6 +72,9 @@ use cam_logfile,      only : iulog
 use ref_pres,         only : do_molec_diff, nbot_molec
 use phys_control,     only : phys_getopts
 use time_manager,     only : is_first_step
+#ifdef OSLO_AERO
+  use oslo_aero_share, only: getNumberOfAerosolTracers, fillAerosolTracerList
+#endif
 
 implicit none
 private
@@ -318,15 +321,15 @@ subroutine vertical_diffusion_init(pbuf2d)
 
   ! prog_modal_aero determines whether prognostic modal aerosols are present in the run.
   call phys_getopts(prog_modal_aero_out=prog_modal_aero)
-  if (prog_modal_aero) then
 
-     ! Get the constituent indices of the number and mass mixing ratios of the modal
-     ! aerosols.
-     !
-     ! N.B. - This implementation assumes that the prognostic modal aerosols are
-     !        impacting the climate calculation (i.e., can get info from list 0).
-     !
-
+#ifdef OSLO_AERO
+  prog_modal_aero = .TRUE.
+  pmam_ncnst = getNumberOfAerosolTracers()
+  allocate(pmam_cnst_idx(pmam_ncnst))
+  call fillAerosolTracerList(pmam_cnst_idx)
+#else
+   !NOTE THAT THIS BREAKS THE CONCEPT OF KEEPEING MAM-AEROSOLS OUT OF
+   !DIFFUSION, BUT IF YOU ARE USING MAM, YOU SHOULD NOT BEE HERE ANYWAY!!
      ! First need total number of mam constituents
      call rad_cnst_get_info(0, nmodes=nmodes)
      do m = 1, nmodes
@@ -348,6 +351,7 @@ subroutine vertical_diffusion_init(pbuf2d)
         end do
      end do
   end if
+#endif
 
   ! Initialize upper boundary condition module
 
@@ -574,6 +578,10 @@ subroutine vertical_diffusion_init(pbuf2d)
   if( history_budget ) then
      call add_default( vdiffnam(ixcldliq), history_budget_histfile_num, ' ' )
      call add_default( vdiffnam(ixcldice), history_budget_histfile_num, ' ' )
+#ifdef OSLO_AERO
+     call add_default( vdiffnam(ixnumliq), history_budget_histfile_num, ' ' )
+     call add_default( vdiffnam(ixnumice), history_budget_histfile_num, ' ' )
+#endif
      if( history_budget_histfile_num > 1 ) then
         call add_default(  vdiffnam(1), history_budget_histfile_num, ' ' )
         call add_default( 'DTV'       , history_budget_histfile_num, ' ' )
@@ -1170,11 +1178,14 @@ subroutine vertical_diffusion_tend( &
      ! Modal aerosol species not diffused, so just add the explicit surface fluxes to the
      ! lowest layer
 
+     ! NOTE: Oslo aero adds emissions together with dry deposition
+#ifndef OSLO_AERO
      tmp1(:ncol) = ztodt * gravit * state%rpdel(:ncol,pver)
      do m = 1, pmam_ncnst
         l = pmam_cnst_idx(m)
         q_tmp(:ncol,pver,l) = q_tmp(:ncol,pver,l) + tmp1(:ncol) * cam_in%cflx(:ncol,l)
      enddo
+#endif
   end if
 
   ! -------------------------------------------------------- !

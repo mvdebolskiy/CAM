@@ -2753,11 +2753,11 @@ sub write_filepath
         print $fh "$CASEROOT/SourceMods/src.cam\n";
     }
 
-   #NorESM-specific: 
-   #Any files in "NorESM"-folder go before the original CAM-files
-   #These files MUST give back standard CAM5.3 if a standard CAM5.3 compset is chosen
-   #Un-commenting this line will give back standard CAM 5.3 (unmodified).
-   #This is used for testing.
+   # NorESM-specific: 
+   # Any files in "NorESM"-folder go before the original CAM-files
+   # These files MUST give back standard CAM5.3 if a standard CAM5.3 compset is chosen
+   # Un-commenting this line will give back standard CAM 5.3 (unmodified).
+   # This is used for testing.
    #++djlo (should be switched off when pure NCAR version is desired)
    print $fh "$camsrcdir/cam/src/NorESM\n";
    print $fh "$camsrcdir/cam/src/NorESM/$dyn\n";
@@ -2789,7 +2789,6 @@ sub write_filepath
     }
     if ($chem =~/_oslo/) {
          print $fh "$camsrcdir/cam/src/chemistry/oslo_aero\n";
-         print $fh "$camsrcdir/cam/src/physics/cam_oslo\n";
     }
     else{
 	 if ($chem =~ /_mam/) {
