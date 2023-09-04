@@ -1270,7 +1270,6 @@ contains
     use waccmx_phys_intr,   only: waccmx_phys_ion_elec_temp_tend ! WACCM-X
     use aoa_tracers,        only: aoa_tracers_timestep_tend
     use physconst,          only: rhoh2o, latvap,latice
-    use aero_model,         only: aero_model_drydep
     use carma_intr,         only: carma_emission_tend, carma_timestep_tend
     use carma_flags_mod,    only: carma_do_aerosol, carma_do_emission
     use check_energy,       only: check_energy_chng, calc_te_and_aam_budgets
@@ -1291,6 +1290,11 @@ contains
     use qneg_module,        only: qneg4
     use co2_cycle,          only: co2_cycle_set_ptend
     use nudging,            only: Nudge_Model,Nudge_ON,nudging_timestep_tend
+#ifdef OSLO_AERO
+    use oslo_aero_model,    only: aero_model_drydep
+#else
+    use aero_model,    only: aero_model_drydep
+#endif
 
     !
     ! Arguments
@@ -1717,11 +1721,6 @@ contains
     use dadadj_cam,      only: dadadj_tend
     use rk_stratiform,   only: rk_stratiform_tend
     use microp_driver,   only: microp_driver_tend
-#ifdef OSLO_AERO
-    use oslo_aero_microp,only: oslo_aero_microp_run
-#else
-    use microp_aero,     only: microp_aero_run
-#endif
     use macrop_driver,   only: macrop_driver_tend
     use physics_types,   only: physics_state, physics_tend, physics_ptend, &
          physics_update, physics_ptend_init, physics_ptend_sum, &
@@ -1737,7 +1736,6 @@ contains
     use check_energy,    only: check_tracers_data, check_tracers_init, check_tracers_chng
     use check_energy,    only: calc_te_and_aam_budgets
     use dycore,          only: dycore_is
-    use aero_model,      only: aero_model_wetdep
     use carma_intr,      only: carma_wetdep_tend, carma_timestep_tend
     use carma_flags_mod, only: carma_do_detrain, carma_do_cldice, carma_do_cldliq,  carma_do_wetdep
     use radiation,       only: radiation_tend
@@ -1752,10 +1750,14 @@ contains
     use subcol,          only: subcol_gen, subcol_ptend_avg
     use subcol_utils,    only: subcol_ptend_copy, is_subcol_on
     use qneg_module,     only: qneg3
-
 #ifdef OSLO_AERO
+    use oslo_aero_model, only: aero_model_wetdep
+    use oslo_aero_microp,only: oslo_aero_microp_run
     use oslo_aero_params
     use oslo_aero_share
+#else
+    use microp_aero,     only: microp_aero_run
+    use aero_model,      only: aero_model_wetdep
 #endif
     implicit none
 

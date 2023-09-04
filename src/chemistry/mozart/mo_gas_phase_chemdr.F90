@@ -359,10 +359,13 @@ contains
 !
 ! for aqueous chemistry and aerosol growth
 !
+#ifdef OSLO_AERO
+    use oslo_aero_model,   only : aero_model_gasaerexch
+    use oslo_aero_model,   only : aero_model_strat_surfarea
+#else
     use aero_model,        only : aero_model_gasaerexch
-
     use aero_model,        only : aero_model_strat_surfarea
-
+#endif
     implicit none
 
     !-----------------------------------------------------------------------
