@@ -2137,7 +2137,9 @@ sub write_filepath
         print $fh "$chem_src_dir\n";
     }
     if ($chem =~/_oslo/) {
-        print $fh "$camsrcdir/cam/src/chemistry/oslo_aero\n";
+        print $fh "$camsrcdir/cam/src/chemistry/oslo_aero/object\n";
+        print $fh "$camsrcdir/cam/src/chemistry/oslo_aero/src\n";
+        print $fh "$camsrcdir/cam/src/chemistry/oslo_aero/cam_intr\n";
     } elsif ($chem =~ /_mam/) {
         print $fh "$camsrcdir/src/chemistry/modal_aero\n";
     } else {
