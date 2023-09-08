@@ -39,7 +39,9 @@ module mo_srf_emissions
   type(emission), allocatable :: emissions(:)
   integer                     :: n_emis_files
   integer :: c10h16_ndx, isop_ndx
+#ifdef OSLO_AERO
   integer :: dms_ndx
+#endif
 
 contains
 
