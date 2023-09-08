@@ -163,7 +163,11 @@ end function chem_is
     use cfc11star,           only : register_cfc11star
     use mo_photo,            only : photo_register
     use mo_aurora,           only : aurora_register
+#ifdef OSLO_AERO
+    use oslo_aero_model,     only : aero_model_register
+#else
     use aero_model,          only : aero_model_register
+#endif
     use physics_buffer,      only : pbuf_add_field, dtype_r8
     use upper_bc,            only : ubc_fixed_conc
 
@@ -333,8 +337,13 @@ end function chem_is
 
     use tracer_cnst,      only: tracer_cnst_defaultopts, tracer_cnst_setopts
     use tracer_srcs,      only: tracer_srcs_defaultopts, tracer_srcs_setopts
+#ifdef OSLO_AERO
+    use oslo_aero_model,  only: aero_model_readnl
+    use oslo_aero_dust,   only: oslo_aero_dust_readnl
+#else
     use aero_model,       only: aero_model_readnl
     use dust_model,       only: dust_readnl
+#endif
     use gas_wetdep_opts,  only: gas_wetdep_readnl
     use mo_drydep,        only: drydep_srf_file
     use mo_sulf,          only: sulf_readnl
@@ -541,7 +550,11 @@ end function chem_is
         tracer_srcs_fixed_tod_in = tracer_srcs_fixed_tod )
 
    call aero_model_readnl(nlfile)
-   call dust_readnl(nlfile)
+#ifdef OSLO_AERO
+   call oslo_aero_dust_readnl(nlfile)     
+#else
+   call dust_readnl(nlfile)     
+#endif
 !
    call gas_wetdep_readnl(nlfile)
    call gcr_ionization_readnl(nlfile)
@@ -636,7 +649,11 @@ end function chem_is_active
     use infnan,              only : nan, assignment(=)
     use mo_chem_utls,        only : get_spc_ndx
     use cam_abortutils,      only : endrun
+#ifdef OSLO_AERO
+    use oslo_aero_model,     only : aero_model_init
+#else
     use aero_model,          only : aero_model_init
+#endif
     use mo_setsox,           only : sox_inti
     use constituents,        only : sflxnam
     use fire_emissions,      only : fire_emissions_init
@@ -828,8 +845,13 @@ end function chem_is_active
   contains
 
     pure logical function aero_has_emis(spcname)
-      use seasalt_model, only: seasalt_names
+#ifdef OSLO_AERO
+      use oslo_aero_seasalt, only: seasalt_names
+      use oslo_aero_dust,    only: dust_names
+#else
+      use seasalt_model, only : seasalt_names
       use dust_model, only: dust_names
+#endif
 
       character(len=*),intent(in) :: spcname
 
@@ -843,7 +865,11 @@ end function chem_is_active
 !================================================================================
   subroutine chem_emissions( state, cam_in, pbuf )
     use physics_buffer,   only: physics_buffer_desc
+#ifdef OSLO_AERO
+    use oslo_aero_model,  only: aero_model_emissions
+#else
     use aero_model,       only: aero_model_emissions
+#endif
     use camsrfexch,       only: cam_in_t
     use constituents,     only: sflxnam
     use cam_history,      only: outfld
@@ -924,8 +950,12 @@ end function chem_is_active
     ! fire surface emissions if not elevated forcing
     call fire_emissions_srf( lchnk, ncol, cam_in%fireflx, cam_in%cflx )
 
-    ! air-sea exchange of trace gases
+#ifndef OSLO_AERO
+    ! TODO oslo_aero: should this be added to OSLO_AERO - there was
+    ! not a pre-existing ocean salinity file capability air-sea
+    ! exchange of trace gases
     call ocean_emis_getflux(lchnk, ncol, state, cam_in%u10, cam_in%sst, cam_in%ocnfrac, cam_in%icefrac, cam_in%cflx)
+#endif
 
   end subroutine chem_emissions
 

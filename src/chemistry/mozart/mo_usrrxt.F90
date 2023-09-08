@@ -3,6 +3,9 @@ module mo_usrrxt
   use shr_kind_mod,     only : r8 => shr_kind_r8
   use cam_logfile,      only : iulog
   use ppgrid,           only : pver, pcols
+#ifdef OSLO_AERO 
+  use oslo_aero_params, only: nmodes_oslo=> nmodes
+#endif
 
   implicit none
 
@@ -606,7 +609,11 @@ contains
     use mo_setinv,     only : inv_o2_ndx=>o2_ndx, inv_h2o_ndx=>h2o_ndx
     use physics_buffer,only : physics_buffer_desc
     use carma_flags_mod, only : carma_hetchem_feedback
+#ifdef OSLO_AERO
+    use oslo_aero_model, only : aero_model_surfarea
+#else
     use aero_model,      only : aero_model_surfarea
+#endif
     use rad_constituents,only : rad_cnst_get_info
 
     implicit none
@@ -770,8 +777,11 @@ contains
 
     ! get info about the modal aerosols
     ! get ntot_amode
+#ifdef OSLO_AERO
+    ntot_amode = nmodes_oslo
+#else
     call rad_cnst_get_info(0, nmodes=ntot_amode)
-
+#endif
     if (ntot_amode>0) then
        allocate(sfc_array(pcols,pver,ntot_amode), dm_array(pcols,pver,ntot_amode) )
     else

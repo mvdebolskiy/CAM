@@ -11,6 +11,13 @@ module mo_chm_diags
   use mo_jeuv,      only : neuv
   use gas_wetdep_opts,only : gas_wetdep_method
   use mo_drydep,    only : has_drydep
+#ifdef OSLO_AERO
+  use phys_grid,       only : pcols
+  use physics_buffer,  only : pbuf_get_field, pbuf_get_index, physics_buffer_desc
+  use constituents,    only : cnst_get_ind
+  use oslo_aero_share, only : getCloudTracerIndexDirect, getCloudTracerName, aerosolType, isAerosol
+  use oslo_aero_params
+#endif
 
   implicit none
   private
@@ -51,7 +58,7 @@ module mo_chm_diags
   character(len=fieldname_len) :: depflx_name(gas_pcnst)
   character(len=fieldname_len) :: wetdep_name(gas_pcnst)
   character(len=fieldname_len) :: wtrate_name(gas_pcnst)
-
+  character(len=fieldname_len) :: wetdep_name_area(gas_pcnst) ! OSLO_AERO
   real(r8), parameter :: N_molwgt = 14.00674_r8
   real(r8), parameter :: S_molwgt = 32.066_r8
 
@@ -104,7 +111,8 @@ contains
     logical :: history_chemspecies_srf ! output the chemistry constituents species in the surface layer
     logical :: history_dust
     integer :: bulkaero_species(20)
-
+    integer :: cloudTracerIndex          ! OSLO_AERO
+    character(len=20) :: cloudTracerName ! OSLO_AERO
     !-----------------------------------------------------------------------
 
     call phys_getopts( history_aerosol_out = history_aerosol, &
@@ -423,12 +431,40 @@ contains
           call addfld( wtrate_name(m), (/ 'lev' /), 'A',   '/s', spc_name//' wet deposition rate' )
        endif
 
+#ifdef OSLO_AERO
+       wetdep_name_area(m)='WD_A_'//trim(spc_name)
+       call addfld( wetdep_name_area(m), horiz_only, 'A', 'kg/m2/s ', spc_name//' wet deposition' )
+
+       !Needed for budget term of gases! Aerosols have their own budget terms
+       if(n.gt.0) then
+          if(.NOT. isAerosol(n))then
+             if(history_chemistry)then
+                call add_default( wetdep_name_area(m), 1, ' ')
+             end if
+          endif
+       end if
+#endif          
+
        if (spc_name(1:3) == 'num') then
           unit_basename = ' 1'
        else
           unit_basename = 'kg'
        endif
 
+#ifdef OSLO_AERO
+       if (n.gt.0) then
+          if ( any( aer_species == m ) .or. isAerosol(n) ) then
+             call addfld( spc_name,   (/ 'lev' /), 'A', unit_basename//'/kg ', trim(attr)//' concentration')
+             call addfld( trim(spc_name)//'_SRF', horiz_only, 'A', unit_basename//'/kg', trim(attr)//" in bottom layer")
+          else
+             call addfld( spc_name, (/ 'lev' /), 'A', 'mol/mol', trim(attr)//' concentration')
+             call addfld( trim(spc_name)//'_SRF', horiz_only, 'A', 'mol/mol', trim(attr)//" in bottom layer")
+          endif
+       else
+          call addfld( spc_name, (/ 'lev' /), 'A', 'mol/mol', trim(attr)//' concentration')
+          call addfld( trim(spc_name)//'_SRF', horiz_only, 'A', 'mol/mol', trim(attr)//" in bottom layer")
+       endif
+#else
        if ( any( aer_species == m ) ) then
           call addfld( spc_name,   (/ 'lev' /), 'A', unit_basename//'/kg ', trim(attr)//' concentration')
           call addfld( trim(spc_name)//'_SRF', horiz_only, 'A', unit_basename//'/kg', trim(attr)//" in bottom layer")
@@ -436,7 +472,7 @@ contains
           call addfld( spc_name, (/ 'lev' /), 'A', 'mol/mol', trim(attr)//' concentration')
           call addfld( trim(spc_name)//'_SRF', horiz_only, 'A', 'mol/mol', trim(attr)//" in bottom layer")
        endif
-
+#endif
        if ((m /= id_cly) .and. (m /= id_bry)) then
           if (history_aerosol.or.history_chemistry) then
              call add_default( spc_name, 1, ' ' )
@@ -477,13 +513,63 @@ contains
           if (m==id_cfc12 ) call add_default( spc_name, 1, ' ')
        endif
 
+#ifdef OSLO_AERO
+       call add_default( spc_name, 1, ' ' )
+
+       ! output 3d-field of aersol tracer in cloud water
+       if (n > 0) then
+          cloudTracerIndex = getCloudTracerIndexDirect(n)
+          if(cloudTracerIndex > 0)then
+             cloudTracerName(1:len(CloudTracerName))=" "
+             cloudTracerName = getCloudTracerName(n)
+             call addfld( trim(cloudTracerName), (/'lev'/), 'A','kg/kg', &
+                  trim(cloudTracerName)//' in cloud water')
+             call add_default( trim(cloudTracerName), 1, ' ' )
+
+             !Add column burden of cloud tracers
+             call addfld('cb_'//trim(cloudTracerName),horiz_only, 'A', 'kg/m2', &
+                  'cb_'//trim(cloudTracerName)//' column in cloud water')
+             call add_default('cb_'//trim(cloudTracerName),1,' ')
+          endif
+          !..and column burden in clean air
+          call addfld('cb_'//trim(spc_name),horiz_only, 'A', 'kg/m2', &
+               'cb_'//trim(spc_name)//' in column')
+          call add_default('cb_'//trim(spc_name),1,' ' )
+
+          if (history_aerosol) then
+             if (cloudTracerIndex > 0) then
+                !Output budget-terms for cloud borne aerosols
+                call add_default (trim(cloudTracerName)//'GVF'   , 1, ' ')
+                call add_default (trim(cloudTracerName)//'SFWET' , 1, ' ')
+                call add_default (trim(cloudTracerName)//'TBF'   , 1, ' ')
+                call add_default (trim(cloudTracerName)//'DDF'   , 1, ' ')
+                call add_default (trim(cloudTracerName)//'SFSBS' , 1, ' ')
+                call add_default (trim(cloudTracerName)//'SFSIC' , 1, ' ')
+                call add_default (trim(cloudTracerName)//'SFSBC' , 1, ' ')
+                call add_default (trim(cloudTracerName)//'SFSIS' , 1, ' ')
+             endif
+          endif
+       end if
+#else
+
        if (history_dust .and. (index(spc_name,'dst_') > 0))  call add_default( spc_name, 1, ' ')
 
+#endif
     enddo
 
     call addfld( 'MASS', (/ 'lev' /), 'A', 'kg', 'mass of grid box' )
     call addfld( 'AREA', horiz_only,  'A', 'm2', 'area of grid box' )
+#ifdef OSLO_AERO
+    do n=1,N_AEROSOL_TYPES
+       call addfld('cb_'//trim(aerosol_type_name(n)),horiz_only, 'A', 'kg/m2',&
+            'cb_'//trim(aerosol_type_name(n))//' column of aerosol type')
+       call add_default('cb_'//trim(aerosol_type_name(n)), 1, ' ')
 
+       call addfld('mmr_'//trim(aerosol_type_name(n)),(/'lev'/),'A','kg/kg' ,&
+            'mmr_'//trim(aerosol_type_name(n))//' mmr of aerosol type')
+       call add_default('mmr_'//trim(aerosol_type_name(n)), 1, ' ')
+    end do
+#endif
     call addfld( 'dry_deposition_NOy_as_N', horiz_only, 'I', 'kg/m2/s', 'NOy dry deposition flux ' )
     call addfld( 'DF_SOX', horiz_only, 'I', 'kg/m2/s', 'SOx dry deposition flux ' )
     call addfld( 'dry_deposition_NHx_as_N', horiz_only, 'I', 'kg/m2/s', 'NHx dry deposition flux ' )
@@ -506,8 +592,13 @@ contains
 
   end subroutine chm_diags_inti
 
+#ifdef OSLO_AERO
+  subroutine chm_diags( lchnk, ncol, vmr, mmr, rxt_rates, invariants, depvel, depflx, mmr_tend, pdel, pmid, ltrop, &
+                        wetdepflx, nhx_nitrogen_flx, noy_nitrogen_flx, pbuf)
+#else
   subroutine chm_diags( lchnk, ncol, vmr, mmr, rxt_rates, invariants, depvel, depflx, mmr_tend, pdel, pmid, ltrop, &
                         wetdepflx, nhx_nitrogen_flx, noy_nitrogen_flx )
+#endif
     !--------------------------------------------------------------------
     !	... utility routine to output chemistry diagnostic variables
     !--------------------------------------------------------------------
@@ -538,11 +629,24 @@ contains
     real(r8), intent(in)  :: wetdepflx(ncol, gas_pcnst)
     real(r8), intent(out) :: nhx_nitrogen_flx(ncol) ! kgN/m2/sec
     real(r8), intent(out) :: noy_nitrogen_flx(ncol) ! kgN/m2/sec
+#ifdef OSLO_AERO
+    type(physics_buffer_desc), pointer :: pbuf(:)
+#endif
 
     !--------------------------------------------------------------------
     !	... local variables
     !--------------------------------------------------------------------
-    integer     :: i, k, m
+#ifdef OSLO_AERO
+    real(r8), pointer :: cloudTracerField(:,:)
+    integer           :: cloudTracerIndex
+    character(len=20) :: cloudTracerName
+    real(r8)          :: mass_tmp(pcols,pver)
+    real(r8)          :: cb(pcols)
+    real(r8)          :: cb_aerosol_type(pcols,N_AEROSOL_TYPES)         !column burden aerosol types
+    real(r8)          :: mmr_aerosol_type(pcols,pver,N_AEROSOL_TYPES)   !concentration aerosol types
+    character(len=16) :: spc_name
+#endif
+    integer     :: i, k, m, n
     real(r8)    :: wrk(ncol,pver)
     !      real(r8)    :: tmp(ncol,pver)
     !      real(r8)    :: m(ncol,pver)
@@ -592,6 +696,11 @@ contains
 
     call outfld( 'AREA', area(:ncol),   ncol, lchnk )
     call outfld( 'MASS', mass(:ncol,:), ncol, lchnk )
+
+#ifdef OSLO_AERO
+    cb_aerosol_type(:,:) = 0.0_r8
+    mmr_aerosol_type(:,:,:) = 0.0_r8
+#endif
 
     do m = 1,gas_pcnst
 
@@ -675,6 +784,49 @@ contains
           vmr_hox(:ncol,:) = vmr_hox(:ncol,:) +  wgt * vmr(:ncol,:,m)
        endif
 
+#ifdef OSLO_AERO
+       spc_name = trim(solsym(m))
+       call cnst_get_ind(spc_name, n, abort=.false.)
+
+       if (n.gt.0) then
+          if ( any( aer_species == m ) .or. isAerosol(n) ) then
+             call outfld( solsym(m), mmr(:ncol,:,m), ncol ,lchnk )
+             call outfld( trim(solsym(m))//'_SRF', mmr(:ncol,pver,m), ncol ,lchnk )
+          else
+             call outfld( solsym(m), vmr(:ncol,:,m), ncol ,lchnk )
+             call outfld( trim(solsym(m))//'_SRF', vmr(:ncol,pver,m), ncol ,lchnk )
+          endif
+       else
+          call outfld( solsym(m), vmr(:ncol,:,m), ncol ,lchnk )
+          call outfld( trim(solsym(m))//'_SRF', vmr(:ncol,pver,m), ncol ,lchnk )
+       end if
+
+       if (n > 0) then
+          cloudTracerIndex = getCloudTracerIndexDirect(n)
+          if(cloudTracerIndex > 0)then
+             cloudTracerName = getCloudTracerName(n)
+             call pbuf_get_field(pbuf, cloudTracerIndex, cloudTracerField )
+             call outfld ( trim(cloudTracerName), cloudTracerField, pcols, lchnk)
+
+             ! Treat column burden (cloud tracer)
+             mass_tmp(:ncol,:) = cloudTracerField(:ncol,:) *pdel(:ncol,:) * rgrav
+             cb(:ncol) = sum(mass_tmp(:ncol,:),2)
+             call outfld(trim('cb_'//trim(cloudTracerName)), cb, pcols, lchnk)
+          endif
+
+          ! Treat column burden (normal tracer)
+          mass_tmp(:ncol,:) = mmr(:ncol,:,m) * pdel(:ncol,:) * rgrav
+          cb(:ncol) = sum(mass_tmp(:ncol,:),2)
+          call outfld(trim('cb_'//trim(spc_name)), cb, pcols, lchnk)
+
+          !Sum column burden per aerosol type
+          if (aerosolType(n) > 0) then
+             cb_aerosol_type(:ncol,aerosolType(n)) = cb_aerosol_type(:ncol,aerosolType(n)) + cb(:ncol)
+             !Total mass mixing ratio of aerosol type
+             mmr_aerosol_type(:ncol,:,aerosolType(n)) = mmr_aerosol_type(:ncol,:,aerosolType(n)) + mmr(:ncol,:,m)
+          endif
+       end if !Check if this is a chemistry tracer
+#else
        if ( any( aer_species == m ) ) then
           call outfld( solsym(m), mmr(:ncol,:,m), ncol ,lchnk )
           call outfld( trim(solsym(m))//'_SRF', mmr(:ncol,pver,m), ncol ,lchnk )
@@ -682,6 +834,7 @@ contains
           call outfld( solsym(m), vmr(:ncol,:,m), ncol ,lchnk )
           call outfld( trim(solsym(m))//'_SRF', vmr(:ncol,pver,m), ncol ,lchnk )
        endif
+#endif
 
        if (has_drydep(solsym(m))) then
           call outfld( depvel_name(m), depvel(:ncol,m), ncol ,lchnk )
@@ -749,8 +902,12 @@ contains
        end if
 !
     enddo
-
-
+#ifdef OSLO_AERO
+    do n=1,N_AEROSOL_TYPES
+       call outfld("mmr_"//trim(aerosol_type_name(n)), mmr_aerosol_type(:ncol,:,n), ncol,lchnk)
+       call outfld("cb_"//trim(aerosol_type_name(n)) , cb_aerosol_type(:ncol,n)   , ncol,lchnk)
+    enddo
+#endif
     call outfld( 'NOX',  vmr_nox  (:ncol,:), ncol, lchnk )
     call outfld( 'NOY',  vmr_noy  (:ncol,:), ncol, lchnk )
     call outfld( 'HOX',  vmr_hox  (:ncol,:), ncol, lchnk )
@@ -880,7 +1037,11 @@ contains
   subroutine het_diags( het_rates, mmr, pdel, lchnk, ncol )
 
     use cam_history,  only : outfld
+#ifdef OSLO_AERO
+    use phys_grid,    only : get_wght_all_p, get_area_all_p
+#else
     use phys_grid,    only : get_wght_all_p
+#endif
 
     integer,  intent(in)  :: lchnk
     integer,  intent(in)  :: ncol
@@ -889,6 +1050,9 @@ contains
     real(r8), intent(in)  :: pdel(ncol,pver)
 
     real(r8), dimension(ncol) :: noy_wk, sox_wk, nhx_wk, wrk_wd
+#ifdef OSLO_AERO
+    real(r8), dimension(ncol) :: area
+#endif
     integer :: m, k
     real(r8) :: wght(ncol)
     !
@@ -898,6 +1062,10 @@ contains
     sox_wk(:) = 0._r8
     nhx_wk(:) = 0._r8
 
+#ifdef OSLO_AERO
+    call get_area_all_p(lchnk, ncol, area)
+    area = area * rearth**2
+#endif
     call get_wght_all_p(lchnk, ncol, wght)
 
     do m = 1,gas_pcnst
@@ -912,7 +1080,10 @@ contains
        wrk_wd(:ncol) = wrk_wd(:ncol) * rgrav * wght(:ncol) * rearth**2
        !
        if (gas_wetdep_method=='MOZ') then
-          call outfld( wetdep_name(m), wrk_wd(:ncol),               ncol, lchnk )
+          call outfld( wetdep_name(m), wrk_wd(:ncol), ncol, lchnk )
+#ifdef OSLO_AERO
+          call outfld( wetdep_name_area(m), wrk_wd(:ncol)/area(:ncol)  ,ncol, lchnk )
+#endif
           call outfld( wtrate_name(m), het_rates(:ncol,:,m), ncol, lchnk )
 
           if ( any(noy_species == m ) ) then

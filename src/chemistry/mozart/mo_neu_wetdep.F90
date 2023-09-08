@@ -14,6 +14,8 @@ module mo_neu_wetdep
   use cam_abortutils,   only : endrun
   use shr_drydep_mod,   only : n_species_table, species_name_table, dheff
   use gas_wetdep_opts,  only : gas_wetdep_method, gas_wetdep_list, gas_wetdep_cnt
+  use phys_control,     only: phys_getopts ! OSLO_AERO
+  use mo_constants,     only: rgrav        ! OSLO_AERO
 !
   implicit none
 !
@@ -260,9 +262,9 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
   real(r8)                  :: e298, dhr
   real(r8), dimension(ncol) :: dk1s,dk2s,wrk
   real(r8) :: lats(pcols)
-
+  real(r8) :: wrk_wd(pcols)   ! OSLO_AERO
+  logical  :: history_aerosol ! OSLO_AERO
   real(r8), parameter :: rad2deg = 180._r8/pi
-
 !
 ! from cam/src/physics/cam/stratiform.F90
 !
@@ -458,6 +460,21 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
 !
   end do
 !
+#ifdef OSLO_AERO
+  !This is output normally in mo_chm_diags, but if neu wetdep, we have to output it here!
+  call phys_getopts( history_aerosol_out = history_aerosol)
+  if (history_aerosol) then
+     do m=1,gas_wetdep_cnt
+        wrk_wd(:ncol) = 0.0_r8
+        do k=1,pver
+           !Note sign: tendency is negative, so this becomes a positive flux!
+           wrk_wd(:ncol) = wrk_wd(:ncol) - wd_tend(1:ncol,k,mapping_to_mmr(m))*pdel(:ncol,k)*rgrav !kg/m2/sec
+        end do
+        call outfld('WD_A_'//trim(gas_wetdep_list(m)),wrk_wd(:ncol),ncol,lchnk)
+     end do
+  end if
+#endif
+
   if ( do_diag ) then
     call outfld('QT_RAIN_HNO3', qt_rain, ncol, lchnk )
     call outfld('QT_RIME_HNO3', qt_rime, ncol, lchnk )
