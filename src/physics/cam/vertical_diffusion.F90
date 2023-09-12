@@ -141,6 +141,12 @@ integer, allocatable :: pmam_cnst_idx(:)             ! constituent indices of pr
 logical              :: do_pbl_diags = .false.
 logical              :: waccmx_mode = .false.
 
+#ifdef OSLO_AERO
+logical :: oslo_aero = .true.
+#else
+logical :: oslo_aero = .false.
+#endif
+
 contains
 
   ! =============================================================================== !
@@ -320,11 +326,11 @@ subroutine vertical_diffusion_init(pbuf2d)
   call cnst_get_ind( 'NUMICE', ixnumice, abort=.false. )
 
   ! prog_modal_aero determines whether prognostic modal aerosols are present in the run.
-#ifdef OSLO_AERO
-  prog_modal_aero = .true.
-#else
-  call phys_getopts(prog_modal_aero_out=prog_modal_aero)
-#endif
+  if (oslo_aero) then
+     prog_modal_aero = .true.
+  else
+     call phys_getopts(prog_modal_aero_out=prog_modal_aero)
+  end if
   if (prog_modal_aero) then
      ! Get the constituent indices of the number and mass mixing ratios of the modal
      ! aerosols.
@@ -332,32 +338,32 @@ subroutine vertical_diffusion_init(pbuf2d)
      ! N.B. - This implementation assumes that the prognostic modal aerosols are
      !        impacting the climate calculation (i.e., can get info from list 0).
      !
-#ifdef OSLO_AERO
-     pmam_ncnst = getNumberOfAerosolTracers()
-     allocate(pmam_cnst_idx(pmam_ncnst))
-     call fillAerosolTracerList(pmam_cnst_idx)
-#else
-     ! First need total number of mam constituents
-     call rad_cnst_get_info(0, nmodes=nmodes)
-     do m = 1, nmodes
-        call rad_cnst_get_info(0, m, nspec=nspec)
-        pmam_ncnst = pmam_ncnst + 1 + nspec
-     end do
-
-     allocate(pmam_cnst_idx(pmam_ncnst))
-
-     ! Get the constituent indicies
-     im = 1
-     do m = 1, nmodes
-        call rad_cnst_get_mode_num_idx(m, pmam_cnst_idx(im))
-        im = im + 1
-        call rad_cnst_get_info(0, m, nspec=nspec)
-        do l = 1, nspec
-           call rad_cnst_get_mam_mmr_idx(m, l, pmam_cnst_idx(im))
-           im = im + 1
+     if (oslo_aero) then
+        pmam_ncnst = getNumberOfAerosolTracers()
+        allocate(pmam_cnst_idx(pmam_ncnst))
+        call fillAerosolTracerList(pmam_cnst_idx)
+     else
+        ! First need total number of mam constituents
+        call rad_cnst_get_info(0, nmodes=nmodes)
+        do m = 1, nmodes
+           call rad_cnst_get_info(0, m, nspec=nspec)
+           pmam_ncnst = pmam_ncnst + 1 + nspec
         end do
-     end do
-#endif
+
+        allocate(pmam_cnst_idx(pmam_ncnst))
+
+        ! Get the constituent indicies
+        im = 1
+        do m = 1, nmodes
+           call rad_cnst_get_mode_num_idx(m, pmam_cnst_idx(im))
+           im = im + 1
+           call rad_cnst_get_info(0, m, nspec=nspec)
+           do l = 1, nspec
+              call rad_cnst_get_mam_mmr_idx(m, l, pmam_cnst_idx(im))
+              im = im + 1
+           end do
+        end do
+     end if
   end if ! end of if prog_model_aero
 
   ! Initialize upper boundary condition module
@@ -582,10 +588,10 @@ subroutine vertical_diffusion_init(pbuf2d)
   if( history_budget ) then
      call add_default( vdiffnam(ixcldliq), history_budget_histfile_num, ' ' )
      call add_default( vdiffnam(ixcldice), history_budget_histfile_num, ' ' )
-#ifdef OSLO_AERO
-     call add_default( vdiffnam(ixnumliq), history_budget_histfile_num, ' ' )
-     call add_default( vdiffnam(ixnumice), history_budget_histfile_num, ' ' )
-#endif
+     if (oslo_aero) then
+        call add_default( vdiffnam(ixnumliq), history_budget_histfile_num, ' ' )
+        call add_default( vdiffnam(ixnumice), history_budget_histfile_num, ' ' )
+     end if
      if( history_budget_histfile_num > 1 ) then
         call add_default(  vdiffnam(1), history_budget_histfile_num, ' ' )
         call add_default( 'DTV'       , history_budget_histfile_num, ' ' )
@@ -1187,22 +1193,22 @@ subroutine vertical_diffusion_tend( &
 
   end if
 
-#ifdef OSLO_AERO
-  ! Oslo aero adds emissions together with dry deposition - so do not add the explicit
-  ! surface fluxes to the lowest layer
-#else  
-  if (prog_modal_aero) then
-
-     ! Modal aerosol species not diffused, so just add the explicit surface fluxes to the
-     ! lowest layer.  **NOTE** This code assumes wet mmr.
-
-     tmp1(:ncol) = ztodt * gravit * state%rpdel(:ncol,pver)
-     do m = 1, pmam_ncnst
-        l = pmam_cnst_idx(m)
-        q_tmp(:ncol,pver,l) = q_tmp(:ncol,pver,l) + tmp1(:ncol) * cflux(:ncol,l)
-     enddo
+  if (oslo_aero) then
+     ! Do nothing
+     ! Oslo aero adds emissions together with dry deposition - so do not add the explicit
+     ! surface fluxes to the lowest layer
+  else
+     if (prog_modal_aero) then
+        ! Modal aerosol species not diffused, so just add the explicit surface fluxes to the
+        ! lowest layer.  **NOTE** This code assumes wet mmr.
+        
+        tmp1(:ncol) = ztodt * gravit * state%rpdel(:ncol,pver)
+        do m = 1, pmam_ncnst
+           l = pmam_cnst_idx(m)
+           q_tmp(:ncol,pver,l) = q_tmp(:ncol,pver,l) + tmp1(:ncol) * cflux(:ncol,l)
+        enddo
+     end if
   end if
-#endif
 
   ! -------------------------------------------------------- !
   ! Diagnostics and output writing after applying PBL scheme !

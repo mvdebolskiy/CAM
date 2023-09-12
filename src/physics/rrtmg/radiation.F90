@@ -42,8 +42,8 @@ use cam_abortutils,      only: endrun
 use error_messages,      only: handle_err
 use perf_mod,            only: t_startf, t_stopf
 use cam_logfile,         only: iulog
+use prescribed_volcaero, only: has_prescribed_volcaero
 #ifdef OSLO_AERO
-use prescribed_volcaero,      only: has_prescribed_volcaero
 use oslo_aero_optical_params, only: oslo_aero_optical_params_calc
 use oslo_aero_params,         only: nmodes_oslo => nmodes, nbmodes
 #endif
