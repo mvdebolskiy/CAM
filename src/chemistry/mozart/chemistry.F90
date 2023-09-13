@@ -551,9 +551,9 @@ end function chem_is
 
    call aero_model_readnl(nlfile)
 #ifdef OSLO_AERO
-   call oslo_aero_dust_readnl(nlfile)     
+   call oslo_aero_dust_readnl(nlfile)
 #else
-   call dust_readnl(nlfile)     
+   call dust_readnl(nlfile)
 #endif
 !
    call gas_wetdep_readnl(nlfile)

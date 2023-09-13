@@ -12,7 +12,7 @@ module mo_srf_emissions
   use tracer_data,   only : trfld,trfile
 #ifdef OSLO_AERO
   use oslo_aero_ocean, only: oslo_aero_dms_inq
-#endif  
+#endif
 
   implicit none
 
@@ -413,7 +413,7 @@ contains
 #ifdef OSLO_AERO
     ! Zero DMS emissions if option is not "from file"
     ! oslo_aero_dms_inq() Returns "true" if "emissions from file"
-    if (.not. oslo_aero_dms_inq()) then 
+    if (.not. oslo_aero_dms_inq()) then
        if (dms_ndx > 0) then
           sflx(:ncol,dms_ndx) = 0.0_r8
        end if

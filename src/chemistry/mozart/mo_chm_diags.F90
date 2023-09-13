@@ -443,7 +443,7 @@ contains
              end if
           endif
        end if
-#endif          
+#endif
 
        if (spc_name(1:3) == 'num') then
           unit_basename = ' 1'

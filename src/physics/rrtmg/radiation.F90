@@ -557,7 +557,7 @@ subroutine radiation_init(pbuf2d)
    end do
 
 #ifdef OSLO_AERO
-   call addfld('FDSCDRF', (/ 'ilev' /), 'A', 'W/m2', 'Shortwave clear-sky downward flux')   
+   call addfld('FDSCDRF', (/ 'ilev' /), 'A', 'W/m2', 'Shortwave clear-sky downward flux')
    call addfld('FUSCDRF', (/ 'ilev' /), 'A', 'W/m2', 'Shortwave clear-sky upward flux')
 #endif
 
@@ -771,7 +771,7 @@ subroutine radiation_tend( &
 
    use cospsimulator_intr, only: docosp, cospsimulator_intr_run, cosp_nradsteps
 #ifdef OSLO_AERO
-   use constituents,       only: pcnst 
+   use constituents,       only: pcnst
    use physics_buffer,     only: pbuf_get_index
    use oslo_aero_control,  only: oslo_aero_getopts
    use oslo_aero_params
@@ -795,8 +795,8 @@ subroutine radiation_tend( &
     real(r8)          :: volc_fraction_coarse ! Fraction of volcanic aerosols going to coarse mode
     integer           :: band
     character(len=3)  :: c3
-    real(r8), pointer :: rvolcmmr(:,:) ! Read in stratospheric volcanoes aerosol mmr  
-    real(r8), pointer :: volcopt(:,:)  ! Read in stratospheric volcano SW optical parameter (CMIP6) 
+    real(r8), pointer :: rvolcmmr(:,:) ! Read in stratospheric volcanoes aerosol mmr
+    real(r8), pointer :: volcopt(:,:)  ! Read in stratospheric volcano SW optical parameter (CMIP6)
 #endif
    logical                  :: idrf
    type(rad_out_t), pointer :: rd  ! allow rd_out to be optional by allocating a local object
@@ -903,7 +903,7 @@ subroutine radiation_tend( &
 #ifdef OSLO_AERO
     ! Local variables used for calculating aerosol optics and direct and indirect forcings.
     ! aodvis and absvis are AOD and absorptive AOD for visible wavelength close to 0.55 um (0.35-0.64)
-    ! Note that aodvis and absvis output should be devided by dayfoc to give physical (A)AOD values  
+    ! Note that aodvis and absvis output should be devided by dayfoc to give physical (A)AOD values
     integer  :: ns                                    ! spectral loop index
     real(r8) :: qdirind(pcols,pver,pcnst)             ! Common tracers for indirect and direct calculations
     real(r8) :: aodvis(pcols)                         ! AOD vis
@@ -1284,14 +1284,14 @@ subroutine radiation_tend( &
       if (dosw) then
 
 #ifdef OSLO_AERO
-         ! Volcanic optics for solar (SW) bands        
+         ! Volcanic optics for solar (SW) bands
          do band = 1,nswbands
             volc_ext_sun(1:ncol,1:pver,band) = 0.0_r8
             volc_omega_sun(1:ncol,1:pver,band) = 0.999_r8
             volc_g_sun(1:ncol,1:pver,band) = 0.5_r8
          enddo
 
-         !  Volcanic optics for terrestrial (LW) bands (g is not used here)    
+         !  Volcanic optics for terrestrial (LW) bands (g is not used here)
          do band = 1,nlwbands
             volc_ext_earth(1:ncol,1:pver,band) = 0.0_r8
             volc_omega_earth(1:ncol,1:pver,band) = 0.999_r8
@@ -1302,7 +1302,7 @@ subroutine radiation_tend( &
          call oslo_aero_optical_params_calc(lchnk, ncol, 10.0_r8*state%pint, state%pmid,  &
               coszrs, state, state%t, cld, qdirind, Nnatk, &
               per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, &
-              volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, & 
+              volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, &
               aodvis, absvis)
 #endif
          call get_variability(sfac)
@@ -1323,9 +1323,9 @@ subroutine radiation_tend( &
                !                   aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f)
                ! A first call with Oslo aerosols set to zero for radiative forcing diagnostics
                ! follwoing the Ghan (2013) method:
-               
-               ! for calculation of direct radiative forcing, not necessarily "offline" as such anymore 
-               ! (just nudged), but with an extra call with 0 aerosol extiction.  
+
+               ! for calculation of direct radiative forcing, not necessarily "offline" as such anymore
+               ! (just nudged), but with an extra call with 0 aerosol extiction.
                !
                idrf = .true.
                call rad_rrtmg_sw( &
@@ -1345,7 +1345,7 @@ subroutine radiation_tend( &
                !
                ! Dump shortwave radiation information to history tape buffer (diagnostics)
                !
-               ! Note that DRF fields are now from the per_tau=0 call (clean), no longer with per_tau from pmxsub                 
+               ! Note that DRF fields are now from the per_tau=0 call (clean), no longer with per_tau from pmxsub
                call outfld('QRS_DRF ',ftem  ,pcols,lchnk)
                ftem(:ncol,:pver) = rd%qrsc(:ncol,:pver)/cpair
                call outfld('QRSC_DRF',ftem  ,pcols,lchnk)
@@ -1360,7 +1360,7 @@ subroutine radiation_tend( &
                   call outfld('FSUS_DRF',ftem_1d,pcols,lchnk)
                   call outfld('FSDSCDRF',rd%fsdsc(:) ,pcols,lchnk)
                end if
-               idrf = .false.         
+               idrf = .false.
 #else
                call aer_rad_props_sw(icall, state, pbuf, nnite, idxnite, &
                                      aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f)
@@ -1402,7 +1402,7 @@ subroutine radiation_tend( &
       end if
 
 #ifdef OSLO_AERO
-      !Calculate cloud-free fraction assuming random overlap 
+      !Calculate cloud-free fraction assuming random overlap
       !(kind of duplicated from cloud_cover_diags::cldsav)
       cloudfree(1:ncol)    = 1.0_r8
       cloudfreemax(1:ncol) = 1.0_r8
@@ -1414,14 +1414,14 @@ subroutine radiation_tend( &
          end do
       end do
 
-      !Calculate AOD (visible) for cloud free 
+      !Calculate AOD (visible) for cloud free
       do i = 1, ncol
          clearodvis(i)=cloudfree(i)*aodvis(i)
          clearabsvis(i)=cloudfree(i)*absvis(i)
       end do
 
       !  clear-sky AOD and absorptive AOD for visible wavelength close to 0.55 um (0.35-0.64)
-      !  Note that caodvis and cabsvis output should be devided by dayfoc*cloudfree to give physical (A)AOD values  
+      !  Note that caodvis and cabsvis output should be devided by dayfoc*cloudfree to give physical (A)AOD values
       call outfld('CAODVIS ',clearodvis,pcols,lchnk)
       call outfld('CABSVIS ',clearabsvis,pcols,lchnk)
       call outfld('CLDFREE ',cloudfree,pcols,lchnk)
@@ -1784,4 +1784,3 @@ end subroutine calc_col_mean
 !===============================================================================
 
 end module radiation
-

@@ -3,7 +3,7 @@ module mo_usrrxt
   use shr_kind_mod,     only : r8 => shr_kind_r8
   use cam_logfile,      only : iulog
   use ppgrid,           only : pver, pcols
-#ifdef OSLO_AERO 
+#ifdef OSLO_AERO
   use oslo_aero_params, only: nmodes_oslo=> nmodes
 #endif
 
