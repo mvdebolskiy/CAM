@@ -49,10 +49,18 @@
     <alias>NF2000dev</alias>
     <lname>2000_CAM%DEV%NORESM_CLM50%SP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
   </compset>
+  <compset>
+    <alias>NF2000dev_oaer</alias>
+    <lname>2000_CAM%DEV%NORESMoaer_CLM50%SP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
+  </compset>
 
   <compset>
     <alias>NF1850</alias>
     <lname>1850_CAM60%NORESM_CLM51%FATES-SP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
+  </compset>
+  <compset>
+    <alias>NF1850_oaer</alias>
+    <lname>1850_CAM60%NORESMoaer_CLM51%FATES-SP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
   </compset>
 
   <compset>
