@@ -915,17 +915,11 @@ subroutine radiation_tend( &
     real(r8) :: clearabs550(pcols)                    ! AERCOM
     real(r8) :: clearabs550alt(pcols)                 ! AERCOM
     real(r8) :: ftem_1d(pcols)                        ! work-array to avoid NAN and pcols/ncol confusion
-    real(r8) :: Nnatk(pcols,pver,0:nmodes_oslo)       ! Modal aerosol number concentration
     real(r8) :: per_tau    (pcols,0:pver,nswbands)    ! aerosol extinction optical depth
     real(r8) :: per_tau_w  (pcols,0:pver,nswbands)    ! aerosol single scattering albedo * tau
     real(r8) :: per_tau_w_g(pcols,0:pver,nswbands)    ! aerosol assymetry parameter * w * tau
     real(r8) :: per_tau_w_f(pcols,0:pver,nswbands)    ! aerosol forward scattered fraction * w * tau
     real(r8) :: per_lw_abs (pcols,pver,nlwbands)      ! aerosol absorption optics depth (LW)
-    real(r8) :: volc_ext_sun(pcols,pver,nswbands)     ! volcanic aerosol extinction for solar bands       ! CMIP6
-    real(r8) :: volc_omega_sun(pcols,pver,nswbands)   ! volcanic aerosol SSA for solar bands              ! CMIP6
-    real(r8) :: volc_g_sun(pcols,pver,nswbands)       ! volcanic aerosol g for solar bands                ! CMIP6
-    real(r8) :: volc_ext_earth(pcols,pver,nlwbands)   ! volcanic aerosol extinction for terrestrial bands ! CMIP6
-    real(r8) :: volc_omega_earth(pcols,pver,nlwbands) ! volcanic aerosol SSA for terrestrial bands        ! CMIP6
 #endif
 
    real(r8) :: fns(pcols,pverp)                    ! net shortwave flux
@@ -1271,6 +1265,7 @@ subroutine radiation_tend( &
          qdirind(:ncol,:,:) = state%q(:ncol,:,:)
          if (has_prescribed_volcaero) then
             call oslo_aero_getopts(volc_fraction_coarse_out = volc_fraction_coarse)
+            ! TODO: Note that voc_idx here is still zero - so the following will not make any sense
             call pbuf_get_field(pbuf, volc_idx,  rvolcmmr, start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
             qdirind(:ncol,:,l_so4_pr) = qdirind(:ncol,:,l_so4_pr) + (1.0_r8 - volc_fraction_coarse)*rvolcmmr(:ncol,:)
             qdirind(:ncol,:,l_ss_a3)  = qdirind(:ncol,:,l_ss_a3)  +           volc_fraction_coarse*rvolcmmr(:ncol,:)
@@ -1520,7 +1515,6 @@ subroutine radiation_tend( &
                end do
 
                if (write_output) call radiation_output_lw(lchnk, ncol, icall, rd, pbuf, cam_out, freqclr, flntclr)
-
             end if
          end do
       end if
