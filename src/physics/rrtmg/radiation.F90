@@ -45,7 +45,10 @@ use cam_logfile,         only: iulog
 use prescribed_volcaero, only: has_prescribed_volcaero
 #ifdef OSLO_AERO
 use oslo_aero_optical_params, only: oslo_aero_optical_params_calc
-use oslo_aero_params,         only: nmodes_oslo => nmodes, nbmodes
+use oslo_aero_params,         only: nmodes_oslo => nmodes
+#ifdef AEROCOM
+use oslo_aero_aerocom,        only: dod440, dod550, dod870, abs550, abs550alt
+#endif
 #endif
 
 implicit none
@@ -912,11 +915,6 @@ subroutine radiation_tend( &
     real(r8) :: clearabsvis(pcols)
     real(r8) :: cloudfree(pcols)
     real(r8) :: cloudfreemax(pcols)
-    real(r8) :: dod440(pcols)                         ! AERCOM
-    real(r8) :: dod550(pcols)                         ! AERCOM
-    real(r8) :: dod870(pcols)                         ! AERCOM
-    real(r8) :: abs550(pcols)                         ! AERCOM
-    real(r8) :: abs550alt(pcols)                      ! AERCOM
     real(r8) :: clearod440(pcols)                     ! AERCOM
     real(r8) :: clearod550(pcols)                     ! AERCOM
     real(r8) :: clearod870(pcols)                     ! AERCOM
@@ -1279,11 +1277,15 @@ subroutine radiation_tend( &
 
       call t_stopf('cldoptics')
 
+      ! ------------------------------------------
       ! Solar radiation computation
+      ! ------------------------------------------
 
-      if (dosw) then
+   ! OSLO_AERO aerosol
 
 #ifdef OSLO_AERO
+      if (dosw) then
+
          ! Volcanic optics for solar (SW) bands
          do band = 1,nswbands
             volc_ext_sun(1:ncol,1:pver,band) = 0.0_r8
@@ -1298,13 +1300,12 @@ subroutine radiation_tend( &
          enddo
 
          ! No aerocom variables passed for now
-         ! dod440, dod550, dod870, abs550, abs550alt
          call oslo_aero_optical_params_calc(lchnk, ncol, 10.0_r8*state%pint, state%pmid,  &
-              coszrs, state, state%t, cld, qdirind, Nnatk, &
+              coszrs, state, state%t, cld, qdirind, &
               per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, &
               volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, &
               aodvis, absvis)
-#endif
+
          call get_variability(sfac)
 
          ! Get the active climate/diagnostic shortwave calculations
@@ -1318,12 +1319,8 @@ subroutine radiation_tend( &
                ! update the concentrations in the RRTMG state object
                call rrtmg_state_update(state, pbuf, icall, r_state)
 
-#ifdef OSLO_AERO
-               !call aer_rad_props_sw(icall, state, pbuf, nnite, idxnite, &
-               !                   aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f)
                ! A first call with Oslo aerosols set to zero for radiative forcing diagnostics
                ! follwoing the Ghan (2013) method:
-
                ! for calculation of direct radiative forcing, not necessarily "offline" as such anymore
                ! (just nudged), but with an extra call with 0 aerosol extiction.
                !
@@ -1353,19 +1350,14 @@ subroutine radiation_tend( &
                call outfld('FSNS_DRF',fsns(:)  ,pcols,lchnk)
                call outfld('FSNTCDRF',rd%fsntc(:) ,pcols,lchnk)
                call outfld('FSNSCDRF',rd%fsnsc(:) ,pcols,lchnk)
-               if (do_aerocom) then
-                  call outfld('FSUTADRF',rd%fsutoa(:),pcols,lchnk)
-                  call outfld('FSDS_DRF',fsds(:)  ,pcols,lchnk)
-                  ftem_1d(1:ncol) = fsds(1:ncol)-fsns(1:ncol)
-                  call outfld('FSUS_DRF',ftem_1d,pcols,lchnk)
-                  call outfld('FSDSCDRF',rd%fsdsc(:) ,pcols,lchnk)
-               end if
-               idrf = .false.
-#else
-               call aer_rad_props_sw(icall, state, pbuf, nnite, idxnite, &
-                                     aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f)
-               idrf = .false.
+#ifdef AEROCOM
+               call outfld('FSUTADRF',rd%fsutoa(:),pcols,lchnk)
+               call outfld('FSDS_DRF',fsds(:)  ,pcols,lchnk)
+               ftem_1d(1:ncol) = fsds(1:ncol)-fsns(1:ncol)
+               call outfld('FSUS_DRF',ftem_1d,pcols,lchnk)
+               call outfld('FSDSCDRF',rd%fsdsc(:) ,pcols,lchnk)
 #endif
+               idrf = .false.
 
                rd%cld_tau_cloudsim(:ncol,:) = cld_tau(rrtmg_sw_cloudsim_band,:ncol,:)
                rd%aer_tau550(:ncol,:)       = aer_tau(:ncol,:,idx_sw_diag)
@@ -1398,12 +1390,10 @@ subroutine radiation_tend( &
 
             end if
          end do
-
       end if
 
-#ifdef OSLO_AERO
-      !Calculate cloud-free fraction assuming random overlap
-      !(kind of duplicated from cloud_cover_diags::cldsav)
+      ! Calculate cloud-free fraction assuming random overlap
+      ! (kind of duplicated from cloud_cover_diags::cldsav)
       cloudfree(1:ncol)    = 1.0_r8
       cloudfreemax(1:ncol) = 1.0_r8
       !Find cloud-free fraction (note this duplicated code and may not be consistent with cldtot calculated elsewhere)
@@ -1414,38 +1404,96 @@ subroutine radiation_tend( &
          end do
       end do
 
-      !Calculate AOD (visible) for cloud free
+      ! Calculate AOD (visible) for cloud free
       do i = 1, ncol
          clearodvis(i)=cloudfree(i)*aodvis(i)
          clearabsvis(i)=cloudfree(i)*absvis(i)
       end do
 
-      !  clear-sky AOD and absorptive AOD for visible wavelength close to 0.55 um (0.35-0.64)
-      !  Note that caodvis and cabsvis output should be devided by dayfoc*cloudfree to give physical (A)AOD values
-      call outfld('CAODVIS ',clearodvis,pcols,lchnk)
-      call outfld('CABSVIS ',clearabsvis,pcols,lchnk)
-      call outfld('CLDFREE ',cloudfree,pcols,lchnk)
-      if (do_aerocom) then
-         do i = 1, ncol
-            clearod440(i)=cloudfree(i)*dod440(i)
-            clearod550(i)=cloudfree(i)*dod550(i)
-            clearod870(i)=cloudfree(i)*dod870(i)
-            clearabs550(i)=cloudfree(i)*abs550(i)
-            clearabs550alt(i)=cloudfree(i)*abs550alt(i)
+      ! clear-sky AOD and absorptive AOD for visible wavelength close to 0.55 um (0.35-0.64)
+      ! Note that caodvis and cabsvis output should be devided by dayfoc*cloudfree to give physical (A)AOD values
+      call outfld('CAODVIS ',clearodvis  ,pcols,lchnk)
+      call outfld('CABSVIS ',clearabsvis ,pcols,lchnk)
+      call outfld('CLDFREE ',cloudfree   ,pcols,lchnk)
+#ifdef AEROCOM
+      do i = 1, ncol
+         clearod440(i)     = cloudfree(i)*dod440(i)
+         clearod550(i)     = cloudfree(i)*dod550(i)
+         clearod870(i)     = cloudfree(i)*dod870(i)
+         clearabs550(i)    = cloudfree(i)*abs550(i)
+         clearabs550alt(i) = cloudfree(i)*abs550alt(i)
+      end do
+      call outfld('CDOD440 ',clearod440  ,pcols,lchnk)
+      call outfld('CDOD550 ',clearod550  ,pcols,lchnk)
+      call outfld('CDOD870 ',clearod870  ,pcols,lchnk)
+      call outfld('CABS550 ',clearabs550  ,pcols,lchnk)
+      call outfld('CABS550A',clearabs550alt,pcols,lchnk)
+#endif
+#endif
+
+   ! CAM Aerosol 
+
+#ifndef OSLO_AERO
+   if (dosw) then
+
+         call get_variability(sfac)
+
+         ! Get the active climate/diagnostic shortwave calculations
+         call rad_cnst_get_call_list(active_calls)
+
+         ! The climate (icall==0) calculation must occur last.
+         do icall = N_DIAG, 0, -1
+
+            if (active_calls(icall)) then
+
+               ! update the concentrations in the RRTMG state object
+               call rrtmg_state_update(state, pbuf, icall, r_state)
+
+               call aer_rad_props_sw(icall, state, pbuf, nnite, idxnite, &
+                                     aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f)
+
+               rd%cld_tau_cloudsim(:ncol,:) = cld_tau(rrtmg_sw_cloudsim_band,:ncol,:)
+               rd%aer_tau550(:ncol,:)       = aer_tau(:ncol,:,idx_sw_diag)
+               rd%aer_tau400(:ncol,:)       = aer_tau(:ncol,:,idx_sw_diag+1)
+               rd%aer_tau700(:ncol,:)       = aer_tau(:ncol,:,idx_sw_diag-1)
+
+               call rad_rrtmg_sw( &
+                  lchnk, ncol, num_rrtmg_levs, r_state, state%pmid,          &
+                  cldfprime, aer_tau, aer_tau_w, aer_tau_w_g,  aer_tau_w_f,  &
+                  eccf, coszrs, rd%solin, sfac, cam_in%asdir,                &
+                  cam_in%asdif, cam_in%aldir, cam_in%aldif, qrs, rd%qrsc,    &
+                  fsnt, rd%fsntc, rd%fsntoa, rd%fsutoa, rd%fsntoac,          &
+                  rd%fsnirt, rd%fsnrtc, rd%fsnirtsq, fsns, rd%fsnsc,         &
+                  rd%fsdsc, fsds, cam_out%sols, cam_out%soll, cam_out%solsd, &
+                  cam_out%solld, fns, fcns, Nday, Nnite,                     &
+                  IdxDay, IdxNite, su, sd, E_cld_tau=c_cld_tau,              &
+                  E_cld_tau_w=c_cld_tau_w, E_cld_tau_w_g=c_cld_tau_w_g,      &
+                  E_cld_tau_w_f=c_cld_tau_w_f, old_convert=.false.)
+
+               ! Output net fluxes at 200 mb
+               call vertinterp(ncol, pcols, pverp, state%pint, 20000._r8, fcns, rd%fsn200c)
+               call vertinterp(ncol, pcols, pverp, state%pint, 20000._r8, fns,  rd%fsn200)
+               if (hist_fld_active('FSNR')) then
+                  do i = 1,ncol
+                     call vertinterp(1, 1, pverp, state%pint(i,:), p_trop(i), fns(i,:), rd%fsnr(i))
+                  end do
+               end if
+
+               if (write_output) call radiation_output_sw(lchnk, ncol, icall, rd, pbuf, cam_out)
+
+            end if
          end do
-         call outfld('CDOD440 ',clearod440  ,pcols,lchnk)
-         call outfld('CDOD550 ',clearod550  ,pcols,lchnk)
-         call outfld('CDOD870 ',clearod870  ,pcols,lchnk)
-         call outfld('CABS550 ',clearabs550  ,pcols,lchnk)
-         call outfld('CABS550A',clearabs550alt,pcols,lchnk)
-      end if
+      end if ! end of (if do_sw)
 #endif
 
       ! Output aerosol mmr
       call rad_cnst_out(0, state, pbuf)
 
+      ! ------------------------------------------
       ! Longwave radiation computation
+      ! ------------------------------------------
 
+#ifdef OSLO_AERO
       if (dolw) then
 
          call rad_cnst_get_call_list(active_calls)
@@ -1456,11 +1504,8 @@ subroutine radiation_tend( &
             if (active_calls(icall)) then
 
                ! update the conctrations in the RRTMG state object
-               call  rrtmg_state_update( state, pbuf, icall, r_state)
+               call rrtmg_state_update( state, pbuf, icall, r_state)
 
-               call aer_rad_props_lw(icall, state, pbuf,  aer_lw_abs)
-
-#ifdef OSLO_AERO
                call rad_rrtmg_lw( &
                     lchnk, ncol, num_rrtmg_levs, r_state, state%pmid,  &
                     per_lw_abs*0.0_r8, cldfprime, c_cld_lw_abs, qrl, rd%qrlc, &
@@ -1481,14 +1526,6 @@ subroutine radiation_tend( &
                ! FLNT_ORG is just for temporary testing vs. FLNT
                ftem_1d(1:ncol) = cam_out%flwds(1:ncol) - flns(1:ncol)
                call outfld('FLUS    ',ftem_1d ,pcols,lchnk)
-#else
-               call rad_rrtmg_lw( &
-                  lchnk, ncol, num_rrtmg_levs, r_state, state%pmid,  &
-                  aer_lw_abs, cldfprime, c_cld_lw_abs, qrl, rd%qrlc, &
-                  flns, flnt, rd%flnsc, rd%flntc, cam_out%flwds,     &
-                  rd%flut, rd%flutc, fnl, fcnl, rd%fldsc,            &
-                  lu, ld)
-#endif
 
                !  Output fluxes at 200 mb
                call vertinterp(ncol, pcols, pverp, state%pint, 20000._r8, fnl,  rd%fln200)
@@ -1512,8 +1549,55 @@ subroutine radiation_tend( &
 
             end if
          end do
-
       end if
+#endif
+
+#ifndef OSLO_AERO
+      if (dolw) then
+
+         call rad_cnst_get_call_list(active_calls)
+
+         ! The climate (icall==0) calculation must occur last.
+         do icall = N_DIAG, 0, -1
+
+            if (active_calls(icall)) then
+
+               ! update the conctrations in the RRTMG state object
+               call  rrtmg_state_update( state, pbuf, icall, r_state)
+
+               call aer_rad_props_lw(icall, state, pbuf,  aer_lw_abs)
+
+               call rad_rrtmg_lw( &
+                  lchnk, ncol, num_rrtmg_levs, r_state, state%pmid,  &
+                  aer_lw_abs, cldfprime, c_cld_lw_abs, qrl, rd%qrlc, &
+                  flns, flnt, rd%flnsc, rd%flntc, cam_out%flwds,     &
+                  rd%flut, rd%flutc, fnl, fcnl, rd%fldsc,            &
+                  lu, ld)
+
+               !  Output fluxes at 200 mb
+               call vertinterp(ncol, pcols, pverp, state%pint, 20000._r8, fnl,  rd%fln200)
+               call vertinterp(ncol, pcols, pverp, state%pint, 20000._r8, fcnl, rd%fln200c)
+               if (hist_fld_active('FLNR')) then
+                  do i = 1,ncol
+                     call vertinterp(1, 1, pverp, state%pint(i,:), p_trop(i), fnl(i,:), rd%flnr(i))
+                  end do
+               end if
+
+               flntclr(:) = 0._r8
+               freqclr(:) = 0._r8
+               do i = 1, ncol
+                  if (maxval(cldfprime(i,:)) <= 0.1_r8) then
+                     freqclr(i) = 1._r8
+                     flntclr(i) = rd%flntc(i)
+                  end if
+               end do
+
+               if (write_output) call radiation_output_lw(lchnk, ncol, icall, rd, pbuf, cam_out, freqclr, flntclr)
+
+            end if
+         end do
+      end if
+#endif
 
       ! deconstruct the RRTMG state object
       call rrtmg_state_destroy(r_state)
@@ -1561,7 +1645,7 @@ subroutine radiation_tend( &
                snow_tau_in=gb_snow_tau, snow_emis_in=gb_snow_lw)
             cosp_cnt(lchnk) = 0
          end if
-      end if
+      end if ! end of if (docosp)
 
    else   !  if (dosw .or. dolw) then
 
