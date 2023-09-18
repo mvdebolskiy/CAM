@@ -167,12 +167,6 @@ real(r8) :: rad_uniform_angle = -99._r8
 type(var_desc_t) :: cospcnt_desc
 type(var_desc_t) :: nextsw_cday_desc
 
-#ifdef AEROCOM
-logical :: do_aerocom = .true.
-#else
-logical :: do_aerocom = .false.
-#endif
-
 !===============================================================================
 contains
 !===============================================================================
@@ -955,14 +949,6 @@ subroutine radiation_tend( &
    lchnk = state%lchnk
    ncol = state%ncol
 
-#ifdef OSLO_AERO
-   per_lw_abs(:,:,:)  = 0._r8
-   per_tau(:,:,:)     = 0._r8
-   per_tau_w(:,:,:)   = 0._r8
-   per_tau_w_g(:,:,:) = 0._r8
-   per_tau_w_f(:,:,:) = 0._r8
-#endif
-
    if (present(rd_out)) then
       rd => rd_out
       write_output = .false.
@@ -1038,16 +1024,6 @@ subroutine radiation_tend( &
          cld(:ncol,k)= cldobs(k)
       end do
    end if
-
-#ifdef OSLO_AERO
-   qdirind(:ncol,:,:) = state%q(:ncol,:,:)
-   if (has_prescribed_volcaero) then
-      call oslo_aero_getopts(volc_fraction_coarse_out = volc_fraction_coarse)
-      call pbuf_get_field(pbuf, volc_idx,  rvolcmmr, start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
-      qdirind(:ncol,:,l_so4_pr) = qdirind(:ncol,:,l_so4_pr) + (1.0_r8 - volc_fraction_coarse)*rvolcmmr(:ncol,:)
-      qdirind(:ncol,:,l_ss_a3) = qdirind(:ncol,:,l_ss_a3) + volc_fraction_coarse*rvolcmmr(:ncol,:)
-   end if
-#endif
 
    ! Find tropopause height if needed for diagnostic output
    if (hist_fld_active('FSNR') .or. hist_fld_active('FLNR')) then
@@ -1286,25 +1262,23 @@ subroutine radiation_tend( &
 #ifdef OSLO_AERO
       if (dosw) then
 
-         ! Volcanic optics for solar (SW) bands
-         do band = 1,nswbands
-            volc_ext_sun(1:ncol,1:pver,band) = 0.0_r8
-            volc_omega_sun(1:ncol,1:pver,band) = 0.999_r8
-            volc_g_sun(1:ncol,1:pver,band) = 0.5_r8
-         enddo
+         per_lw_abs(:,:,:)  = 0._r8
+         per_tau(:,:,:)     = 0._r8
+         per_tau_w(:,:,:)   = 0._r8
+         per_tau_w_g(:,:,:) = 0._r8
+         per_tau_w_f(:,:,:) = 0._r8
 
-         !  Volcanic optics for terrestrial (LW) bands (g is not used here)
-         do band = 1,nlwbands
-            volc_ext_earth(1:ncol,1:pver,band) = 0.0_r8
-            volc_omega_earth(1:ncol,1:pver,band) = 0.999_r8
-         enddo
+         qdirind(:ncol,:,:) = state%q(:ncol,:,:)
+         if (has_prescribed_volcaero) then
+            call oslo_aero_getopts(volc_fraction_coarse_out = volc_fraction_coarse)
+            call pbuf_get_field(pbuf, volc_idx,  rvolcmmr, start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
+            qdirind(:ncol,:,l_so4_pr) = qdirind(:ncol,:,l_so4_pr) + (1.0_r8 - volc_fraction_coarse)*rvolcmmr(:ncol,:)
+            qdirind(:ncol,:,l_ss_a3)  = qdirind(:ncol,:,l_ss_a3)  +           volc_fraction_coarse*rvolcmmr(:ncol,:)
+         end if
 
-         ! No aerocom variables passed for now
-         call oslo_aero_optical_params_calc(lchnk, ncol, 10.0_r8*state%pint, state%pmid,  &
-              coszrs, state, state%t, cld, qdirind, &
-              per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, &
-              volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, &
-              aodvis, absvis)
+         call oslo_aero_optical_params_calc(&
+              lchnk, ncol, 10.0_r8*state%pint, state%pmid, state%t, qdirind, cld, coszrs, &
+              per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, aodvis, absvis)
 
          call get_variability(sfac)
 
