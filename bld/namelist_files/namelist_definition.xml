@@ -766,6 +766,28 @@ Flag to determine how to handle dpcoup warning messages
 Default: off
 </entry>
 
+<entry id="fv_am_fix_taper" type="logical"  category="dyn_fv"
+       group="dyn_fv_inparm" valid_values="" >
+Flag to taper the fixer (regardless of whether applied level by level or
+as a global constant) from full to nil (def. above 95hPa).  This further
+limits the artifical effect of the fixer in the stratosphere where the gw
+forcing can be very sensitive to its increments. This option is experimental.
+Default: .false.
+</entry>
+
+<entry id="fv_am_fix_tpr_h" type="real"  category="dyn_fv"
+       group="dyn_fv_inparm" valid_values="" >
+Height (pressure) to start tapering the fixer. This option is experimental.
+Default: 9500._r8
+</entry>
+
+<entry id="fv_am_fix_tpr_w" type="real"  category="dyn_fv"
+       group="dyn_fv_inparm" valid_values="" >
+Height (pressure) interval over which the fixer taper function drops to zero.
+This option is experimental.
+Default: 1000._r8
+</entry>
+
 <!-- MPI configuration for FV dycore -->
 
 <entry id="force_2d" type="integer"  category="dyn_fv"
@@ -4935,6 +4957,16 @@ full ionosphere and neutral thermosphere, 'neutral' for just
 neutral thermosphere, and off for no WACCM-X.
 Default: 'off'
 </entry>
+
+<!--==============================================-->
+<!-- Hydrostatic pressure work in mass adjustment -->
+<entry id="dme_energy_adjust" type="logical"  category="NorESM"
+       group="phys_ctl_nl" valid_values="" >
+Switch to use appropriate energy adjustment in dry-mass adjustment at the
+end of tphysac.
+Default: .false.
+</entry>
+<!--==============================================-->
 
 <entry id="oplus_adiff_limiter" type="real" category="waccmx"
        group="ionosphere_nl" valid_values="" >
