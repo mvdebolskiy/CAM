@@ -11,10 +11,11 @@ module mo_chm_diags
   use mo_jeuv,      only : neuv
   use gas_wetdep_opts,only : gas_wetdep_method
   use mo_drydep,    only : has_drydep
+  !
+  use ppgrid,          only : pcols                                               ! OSLO_AERO
+  use physics_buffer,  only : pbuf_get_field, pbuf_get_index, physics_buffer_desc ! OSLO_AERO
+  use constituents,    only : cnst_get_ind                                        ! OSLO_AERO
 #ifdef OSLO_AERO
-  use phys_grid,       only : pcols
-  use physics_buffer,  only : pbuf_get_field, pbuf_get_index, physics_buffer_desc
-  use constituents,    only : cnst_get_ind
   use oslo_aero_share, only : getCloudTracerIndexDirect, getCloudTracerName, aerosolType, isAerosol
   use oslo_aero_params
 #endif
