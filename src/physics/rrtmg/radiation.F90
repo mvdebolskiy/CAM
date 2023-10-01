@@ -44,6 +44,7 @@ use perf_mod,            only: t_startf, t_stopf
 use cam_logfile,         only: iulog
 use prescribed_volcaero, only: has_prescribed_volcaero
 #ifdef OSLO_AERO
+use prescribed_volcaero,      only: has_prescribed_volcaero
 use oslo_aero_optical_params, only: oslo_aero_optical_params_calc
 use oslo_aero_params,         only: nmodes_oslo => nmodes
 #ifdef AEROCOM
@@ -793,7 +794,6 @@ subroutine radiation_tend( &
     integer           :: band
     character(len=3)  :: c3
     real(r8), pointer :: rvolcmmr(:,:) ! Read in stratospheric volcanoes aerosol mmr
-    real(r8), pointer :: volcopt(:,:)  ! Read in stratospheric volcano SW optical parameter (CMIP6)
 #endif
    logical                  :: idrf
    type(rad_out_t), pointer :: rd  ! allow rd_out to be optional by allocating a local object
@@ -915,11 +915,17 @@ subroutine radiation_tend( &
     real(r8) :: clearabs550(pcols)                    ! AERCOM
     real(r8) :: clearabs550alt(pcols)                 ! AERCOM
     real(r8) :: ftem_1d(pcols)                        ! work-array to avoid NAN and pcols/ncol confusion
+    real(r8) :: Nnatk(pcols,pver,0:nmodes)            ! modal aerosol number concentration
     real(r8) :: per_tau    (pcols,0:pver,nswbands)    ! aerosol extinction optical depth
     real(r8) :: per_tau_w  (pcols,0:pver,nswbands)    ! aerosol single scattering albedo * tau
     real(r8) :: per_tau_w_g(pcols,0:pver,nswbands)    ! aerosol assymetry parameter * w * tau
     real(r8) :: per_tau_w_f(pcols,0:pver,nswbands)    ! aerosol forward scattered fraction * w * tau
     real(r8) :: per_lw_abs (pcols,pver,nlwbands)      ! aerosol absorption optics depth (LW)
+    real(r8) :: volc_ext_sun(pcols,pver,nswbands)     ! volcanic aerosol extinction for solar bands, CMIP6
+    real(r8) :: volc_omega_sun(pcols,pver,nswbands)   ! volcanic aerosol SSA for solar bands, CMIP6
+    real(r8) :: volc_g_sun(pcols,pver,nswbands)       ! volcanic aerosol g for solar bands, CMIP6
+    real(r8) :: volc_ext_earth(pcols,pver,nlwbands)   ! volcanic aerosol extinction for terrestrial bands, CMIP6
+    real(r8) :: volc_omega_earth(pcols,pver,nlwbands) ! volcanic aerosol SSA for terrestrial bands, CMIP6
 #endif
 
    real(r8) :: fns(pcols,pverp)                    ! net shortwave flux
@@ -1251,7 +1257,7 @@ subroutine radiation_tend( &
       ! Solar radiation computation
       ! ------------------------------------------
 
-   ! OSLO_AERO aerosol
+      ! OSLO_AERO aerosol
 
 #ifdef OSLO_AERO
       if (dosw) then
@@ -1262,6 +1268,18 @@ subroutine radiation_tend( &
          per_tau_w_g(:,:,:) = 0._r8
          per_tau_w_f(:,:,:) = 0._r8
 
+         ! Volcanic optics for solar (SW) bands
+         do band=1,nswbands
+            volc_ext_sun(1:ncol,1:pver,band) = 0.0_r8
+            volc_omega_sun(1:ncol,1:pver,band) = 0.999_r8
+            volc_g_sun(1:ncol,1:pver,band) = 0.5_r8
+         enddo
+         !  Volcanic optics for terrestrial (LW) bands (g is not used here)
+         do band=1,nlwbands
+            volc_ext_earth(1:ncol,1:pver,band) = 0.0_r8
+            volc_omega_earth(1:ncol,1:pver,band) = 0.999_r8
+         enddo
+
          qdirind(:ncol,:,:) = state%q(:ncol,:,:)
          if (has_prescribed_volcaero) then
             call oslo_aero_getopts(volc_fraction_coarse_out = volc_fraction_coarse)
@@ -1271,9 +1289,11 @@ subroutine radiation_tend( &
             qdirind(:ncol,:,l_ss_a3)  = qdirind(:ncol,:,l_ss_a3)  +           volc_fraction_coarse*rvolcmmr(:ncol,:)
          end if
 
-         call oslo_aero_optical_params_calc(&
-              lchnk, ncol, 10.0_r8*state%pint, state%pmid, state%t, qdirind, cld, coszrs, &
-              per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, aodvis, absvis)
+         call oslo_aero_optical_params_calc(lchnk, ncol, 10.0_r8*state%pint, state%pmid,  &
+              coszrs, state, state%t, cld, qdirind, Nnatk, &
+              per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, &
+              volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, &
+              aodvis, absvis)
 
          call get_variability(sfac)
 
@@ -1400,7 +1420,7 @@ subroutine radiation_tend( &
 #endif
 #endif
 
-   ! CAM Aerosol 
+   ! CAM Aerosol
 
 #ifndef OSLO_AERO
    if (dosw) then
