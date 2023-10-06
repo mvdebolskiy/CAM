@@ -44,9 +44,7 @@ use perf_mod,            only: t_startf, t_stopf
 use cam_logfile,         only: iulog
 use prescribed_volcaero, only: has_prescribed_volcaero
 #ifdef OSLO_AERO
-use prescribed_volcaero,      only: has_prescribed_volcaero
 use oslo_aero_optical_params, only: oslo_aero_optical_params_calc
-use oslo_aero_params,         only: nmodes_oslo => nmodes
 #ifdef AEROCOM
 use oslo_aero_aerocom,        only: dod440, dod550, dod870, abs550, abs550alt
 #endif
@@ -153,9 +151,6 @@ integer :: flnt_idx     = 0
 integer :: cldfsnow_idx = 0
 integer :: cld_idx      = 0
 integer :: cldfgrau_idx = 0
-#ifdef OSLO_AERO
-integer :: volc_idx     = 0
-#endif
 
 character(len=4) :: diag(0:N_DIAG) =(/'    ','_d1 ','_d2 ','_d3 ','_d4 ','_d5 ','_d6 ','_d7 ','_d8 ','_d9 ','_d10'/)
 
@@ -769,10 +764,6 @@ subroutine radiation_tend( &
 
    use cospsimulator_intr, only: docosp, cospsimulator_intr_run, cosp_nradsteps
 #ifdef OSLO_AERO
-   use constituents,       only: pcnst
-   use physics_buffer,     only: pbuf_get_index
-   use oslo_aero_control,  only: oslo_aero_getopts
-   use oslo_aero_params
    use oslo_aero_share
 #endif
 
@@ -789,12 +780,6 @@ subroutine radiation_tend( &
 
 
    ! Local variables
-#ifdef OSLO_AERO
-    real(r8)          :: volc_fraction_coarse ! Fraction of volcanic aerosols going to coarse mode
-    integer           :: band
-    character(len=3)  :: c3
-    real(r8), pointer :: rvolcmmr(:,:) ! Read in stratospheric volcanoes aerosol mmr
-#endif
    logical                  :: idrf
    type(rad_out_t), pointer :: rd  ! allow rd_out to be optional by allocating a local object
                                    ! if the argument is not present
@@ -902,9 +887,13 @@ subroutine radiation_tend( &
     ! aodvis and absvis are AOD and absorptive AOD for visible wavelength close to 0.55 um (0.35-0.64)
     ! Note that aodvis and absvis output should be devided by dayfoc to give physical (A)AOD values
     integer  :: ns                                    ! spectral loop index
-    real(r8) :: qdirind(pcols,pver,pcnst)             ! Common tracers for indirect and direct calculations
     real(r8) :: aodvis(pcols)                         ! AOD vis
     real(r8) :: absvis(pcols)                         ! absorptive AOD vis
+    real(r8) :: per_tau    (pcols,0:pver,nswbands)    ! aerosol extinction optical depth
+    real(r8) :: per_tau_w  (pcols,0:pver,nswbands)    ! aerosol single scattering albedo * tau
+    real(r8) :: per_tau_w_g(pcols,0:pver,nswbands)    ! aerosol assymetry parameter * w * tau
+    real(r8) :: per_tau_w_f(pcols,0:pver,nswbands)    ! aerosol forward scattered fraction * w * tau
+    real(r8) :: per_lw_abs (pcols,pver,nlwbands)      ! aerosol absorption optics depth (LW)
     real(r8) :: clearodvis(pcols)
     real(r8) :: clearabsvis(pcols)
     real(r8) :: cloudfree(pcols)
@@ -915,17 +904,6 @@ subroutine radiation_tend( &
     real(r8) :: clearabs550(pcols)                    ! AERCOM
     real(r8) :: clearabs550alt(pcols)                 ! AERCOM
     real(r8) :: ftem_1d(pcols)                        ! work-array to avoid NAN and pcols/ncol confusion
-    real(r8) :: Nnatk(pcols,pver,0:nmodes)            ! modal aerosol number concentration
-    real(r8) :: per_tau    (pcols,0:pver,nswbands)    ! aerosol extinction optical depth
-    real(r8) :: per_tau_w  (pcols,0:pver,nswbands)    ! aerosol single scattering albedo * tau
-    real(r8) :: per_tau_w_g(pcols,0:pver,nswbands)    ! aerosol assymetry parameter * w * tau
-    real(r8) :: per_tau_w_f(pcols,0:pver,nswbands)    ! aerosol forward scattered fraction * w * tau
-    real(r8) :: per_lw_abs (pcols,pver,nlwbands)      ! aerosol absorption optics depth (LW)
-    real(r8) :: volc_ext_sun(pcols,pver,nswbands)     ! volcanic aerosol extinction for solar bands, CMIP6
-    real(r8) :: volc_omega_sun(pcols,pver,nswbands)   ! volcanic aerosol SSA for solar bands, CMIP6
-    real(r8) :: volc_g_sun(pcols,pver,nswbands)       ! volcanic aerosol g for solar bands, CMIP6
-    real(r8) :: volc_ext_earth(pcols,pver,nlwbands)   ! volcanic aerosol extinction for terrestrial bands, CMIP6
-    real(r8) :: volc_omega_earth(pcols,pver,nlwbands) ! volcanic aerosol SSA for terrestrial bands, CMIP6
 #endif
 
    real(r8) :: fns(pcols,pverp)                    ! net shortwave flux
@@ -1268,32 +1246,9 @@ subroutine radiation_tend( &
          per_tau_w_g(:,:,:) = 0._r8
          per_tau_w_f(:,:,:) = 0._r8
 
-         ! Volcanic optics for solar (SW) bands
-         do band=1,nswbands
-            volc_ext_sun(1:ncol,1:pver,band) = 0.0_r8
-            volc_omega_sun(1:ncol,1:pver,band) = 0.999_r8
-            volc_g_sun(1:ncol,1:pver,band) = 0.5_r8
-         enddo
-         !  Volcanic optics for terrestrial (LW) bands (g is not used here)
-         do band=1,nlwbands
-            volc_ext_earth(1:ncol,1:pver,band) = 0.0_r8
-            volc_omega_earth(1:ncol,1:pver,band) = 0.999_r8
-         enddo
-
-         qdirind(:ncol,:,:) = state%q(:ncol,:,:)
-         if (has_prescribed_volcaero) then
-            call oslo_aero_getopts(volc_fraction_coarse_out = volc_fraction_coarse)
-            ! TODO: Note that voc_idx here is still zero - so the following will not make any sense
-            call pbuf_get_field(pbuf, volc_idx,  rvolcmmr, start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
-            qdirind(:ncol,:,l_so4_pr) = qdirind(:ncol,:,l_so4_pr) + (1.0_r8 - volc_fraction_coarse)*rvolcmmr(:ncol,:)
-            qdirind(:ncol,:,l_ss_a3)  = qdirind(:ncol,:,l_ss_a3)  +           volc_fraction_coarse*rvolcmmr(:ncol,:)
-         end if
-
          call oslo_aero_optical_params_calc(lchnk, ncol, 10.0_r8*state%pint, state%pmid,  &
-              coszrs, state, state%t, cld, qdirind, Nnatk, &
-              per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, &
-              volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, &
-              aodvis, absvis)
+              coszrs, pbuf, state, state%t, cld, &
+              per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, aodvis, absvis)
 
          call get_variability(sfac)
 
