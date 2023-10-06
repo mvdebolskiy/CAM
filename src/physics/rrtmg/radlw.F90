@@ -227,16 +227,12 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    fsul(:ncol,pverp-rrtmg_levs+1:pverp)=uflxc(:ncol,rrtmg_levs:1:-1)
    fsdl(:ncol,pverp-rrtmg_levs+1:pverp)=dflxc(:ncol,rrtmg_levs:1:-1)
 
-#ifndef OSLO_AERO
    if (single_column.and.scm_crm_mode) then
-#endif
       call outfld('FUL     ',ful,pcols,lchnk)
       call outfld('FDL     ',fdl,pcols,lchnk)
       call outfld('FULC    ',fsul,pcols,lchnk)
       call outfld('FDLC    ',fsdl,pcols,lchnk)
-#ifndef OSLO_AERO
    endif
-#endif
    
    fnl(:ncol,:) = ful(:ncol,:) - fdl(:ncol,:)
    ! mji/ cam excluded this?

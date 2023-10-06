@@ -53,7 +53,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
                     Nday     ,Nnite      ,IdxDay       ,IdxNite      , &
                     su       ,sd         ,                             &
                     E_cld_tau, E_cld_tau_w, E_cld_tau_w_g, E_cld_tau_w_f,  &
-                    old_convert, idrf)
+                    old_convert)
 
 
 !-----------------------------------------------------------------------
@@ -132,8 +132,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), optional, intent(in) :: E_cld_tau_w  (nbndsw, pcols, pver)      ! cloud optical 
    real(r8), optional, intent(in) :: E_cld_tau_w_g(nbndsw, pcols, pver)      ! cloud optical 
    real(r8), optional, intent(in) :: E_cld_tau_w_f(nbndsw, pcols, pver)      ! cloud optical 
-   logical , optional, intent(in) :: old_convert
-   logical , optional, intent(in) :: idrf
+   logical, optional, intent(in) :: old_convert
 
    ! Output arguments
 
@@ -305,16 +304,12 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    qrsc(1:ncol,1:pver) = 0.0_r8
    fns(1:ncol,1:pverp) = 0.0_r8
    fcns(1:ncol,1:pverp) = 0.0_r8
-#ifndef OSLO_AERO
    if (single_column.and.scm_crm_mode) then 
-#endif
       fus(1:ncol,1:pverp) = 0.0_r8
       fds(1:ncol,1:pverp) = 0.0_r8
       fusc(:ncol,:pverp) = 0.0_r8
       fdsc(:ncol,:pverp) = 0.0_r8
-#ifndef OSLO_AERO
    endif
-#endif
 
    if (associated(su)) su(1:ncol,:,:) = 0.0_r8
    if (associated(sd)) sd(1:ncol,:,:) = 0.0_r8
@@ -627,9 +622,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    end if
 
    !  these outfld calls don't work for spmd only outfield in scm mode (nonspmd)
-#ifndef OSLO_AERO
    if (single_column .and. scm_crm_mode) then 
-#endif
       ! Following outputs added for CRM
       call ExpDayNite(fus,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
       call ExpDayNite(fds,Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
@@ -639,15 +632,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
       call outfld('FDS     ', fds,  pcols, lchnk)
       call outfld('FUSC    ', fusc, pcols, lchnk)
       call outfld('FDSC    ', fdsc, pcols, lchnk)
-#ifndef OSLO_AERO
-   end if
-#endif
-   if (present(idrf)) then
-      if (idrf) then
-         call outfld('FUSCDRF ', fusc, pcols, lchnk)
-         call outfld('FDSCDRF ', fdsc, pcols, lchnk)
-      endif
-   end if
+   endif
 
 end subroutine rad_rrtmg_sw
 

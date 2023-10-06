@@ -25,10 +25,6 @@ module mo_gas_phase_chemdr
   integer :: het1_ndx
   integer :: ndx_cldfr, ndx_cmfdqr, ndx_nevapr, ndx_cldtop, ndx_prain
   integer :: ndx_h2so4
-#ifdef OSLO_AERO
-  logical :: inv_o3, inv_oh, inv_no3, inv_ho2
-  integer :: id_o3, id_oh, id_no3, id_ho2
-#endif
 !
 ! CCMI
 !
@@ -60,11 +56,7 @@ contains
 
   subroutine gas_phase_chemdr_inti()
 
-#ifdef OSLO_AERO
     use mo_chem_utls,      only : get_spc_ndx, get_extfrc_ndx, get_rxt_ndx, get_inv_ndx
-#else
-    use mo_chem_utls,      only : get_spc_ndx, get_extfrc_ndx, get_rxt_ndx, get_inv_ndx
-#endif
     use cam_history,       only : addfld,add_default,horiz_only
     use mo_chm_diags,      only : chm_diags_inti
     use constituents,      only : cnst_get_ind
@@ -83,16 +75,6 @@ contains
 
     call phys_getopts( convproc_do_aer_out = convproc_do_aer, history_cesm_forcing_out=history_cesm_forcing )
 
-#ifdef OSLO_AERO
-    inv_o3   = get_inv_ndx('O3') > 0
-    inv_oh   = get_inv_ndx('OH') > 0
-    inv_no3  = get_inv_ndx('NO3') > 0
-    inv_ho2  = get_inv_ndx('HO2') > 0
-    if (inv_o3)  id_o3 = get_inv_ndx('O3')
-    if (inv_oh)  id_oh = get_inv_ndx('OH')
-    if (inv_no3) id_no3 = get_inv_ndx('NO3')
-    if (inv_ho2) id_ho2 = get_inv_ndx('HO2')
-#endif
     ndx_h2so4 = get_spc_ndx('H2SO4')
 !
 ! CCMI
@@ -211,26 +193,11 @@ contains
     call addfld( 'HCL_GAS',    (/ 'lev' /), 'I', 'mol/mol', 'gas-phase hcl' )
     call addfld( 'HCL_STS',    (/ 'lev' /), 'I', 'mol/mol', 'STS condensed HCL' )
 
-#ifdef OSLO_AERO
-    ! Adding extra fields for oxi-output (before and after diurnal variations.)
-    call addfld ('OH_bef    ',  (/ 'lev' /), 'A','unit', 'OH invariants before adding diurnal variations'           )
-    call addfld ('HO2_bef   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants before adding diurnal variations'          )
-    call addfld ('NO3_bef   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants before adding diurnal variations'          )
-    call addfld ('OH_aft    ',  (/ 'lev' /), 'A','unit', 'OH invariants after adding diurnal variations'            )
-    call addfld ('HO2_aft   ',  (/ 'lev' /), 'A','unit', 'HO2 invariants after adding diurnal variations'           )
-    call addfld ('NO3_aft   ',  (/ 'lev' /), 'A','unit', 'NO3 invariants after adding diurnal variations'           )
-
-    call add_default ('OH_bef       ', 1, ' ')
-    call add_default ('HO2_bef      ', 1, ' ')
-    call add_default ('NO3_bef      ', 1, ' ')
-    call add_default ('OH_aft       ', 1, ' ')
-    call add_default ('HO2_aft      ', 1, ' ')
-    call add_default ('NO3_aft      ', 1, ' ')
-#endif
     if (het1_ndx>0) then
        call addfld( 'het1_total', (/ 'lev' /), 'I', '/s', 'total N2O5 + H2O het rate constant' )
     endif
     call addfld( 'SZA', horiz_only, 'I', 'degrees', 'solar zenith angle' )
+
     call chm_diags_inti()
     call rate_diags_init()
 
@@ -342,17 +309,14 @@ contains
     use rate_diags,        only : rate_diags_calc, rate_diags_o3s_loss
     use mo_mass_xforms,    only : mmr2vmr, vmr2mmr, h2o_to_vmr, mmr2vmri
     use orbit,             only : zenith
+
 !
 ! for aqueous chemistry and aerosol growth
 !
-#ifdef OSLO_AERO
-    use oslo_aero_diurnal_var, only : set_diurnal_invariants
-    use oslo_aero_model,       only : aero_model_gasaerexch
-    use oslo_aero_model,       only : aero_model_strat_surfarea
-#else
-    use aero_model,            only : aero_model_gasaerexch
-    use aero_model,            only : aero_model_strat_surfarea
-#endif
+    use aero_model,        only : aero_model_gasaerexch
+
+    use aero_model,        only : aero_model_strat_surfarea
+
     !-----------------------------------------------------------------------
     !        ... Dummy arguments
     !-----------------------------------------------------------------------
@@ -655,21 +619,6 @@ contains
     !        ... Set the "invariants"
     !-----------------------------------------------------------------------
     call setinv( invariants, tfld, h2ovmr, vmr, pmid, ncol, lchnk, pbuf )
-
-#ifdef OSLO_AERO
-    !-----------------------------------------------------------------------
-    !        ... Set the "day/night cycle for prescribed oxidants"
-    !-----------------------------------------------------------------------
-    call outfld('OH_bef',    invariants(:,:,id_oh),  ncol, lchnk)
-    call outfld('HO2_bef',   invariants(:,:,id_ho2), ncol, lchnk)
-    call outfld('NO3_bef',   invariants(:,:,id_no3), ncol, lchnk)
-    if (inv_oh.or.inv_ho2.or.inv_no3) then
-       call set_diurnal_invariants(invariants,delt,ncol,lchnk,inv_oh,inv_ho2,id_oh,id_ho2,inv_no3,id_no3)
-    end if
-    call outfld('OH_aft',    invariants(:,:,id_oh),  ncol, lchnk)
-    call outfld('HO2_aft',   invariants(:,:,id_ho2), ncol, lchnk)
-    call outfld('NO3_aft',   invariants(:,:,id_no3), ncol, lchnk)
-#endif
 
     !-----------------------------------------------------------------------
     !        ... stratosphere aerosol surface area
@@ -1148,17 +1097,10 @@ contains
        endif
     endif
 
-#ifdef OSLO_AERO
-    call chm_diags( lchnk, ncol, vmr(:ncol,:,:), mmr_new(:ncol,:,:), &
-                    reaction_rates(:ncol,:,:), invariants(:ncol,:,:), depvel(:ncol,:),  sflx(:ncol,:), &
-                    mmr_tend(:ncol,:,:), pdel(:ncol,:), pmid(:ncol,:), troplev(:ncol), wetdepflx_diag(:ncol,:), &
-                    nhx_nitrogen_flx(:ncol), noy_nitrogen_flx(:ncol), pbuf )
-#else
     call chm_diags( lchnk, ncol, vmr(:ncol,:,:), mmr_new(:ncol,:,:), &
                     reaction_rates(:ncol,:,:), invariants(:ncol,:,:), depvel(:ncol,:),  sflx(:ncol,:), &
                     mmr_tend(:ncol,:,:), pdel(:ncol,:), pmid(:ncol,:), troplev(:ncol), wetdepflx_diag(:ncol,:), &
                     nhx_nitrogen_flx(:ncol), noy_nitrogen_flx(:ncol) )
-#endif
 
     call rate_diags_calc( reaction_rates(:,:,:), vmr(:,:,:), invariants(:,:,indexm), ncol, lchnk )
 !
