@@ -763,9 +763,6 @@ subroutine radiation_tend( &
    use tropopause,         only: tropopause_find, TROP_ALG_HYBSTOB, TROP_ALG_CLIMATE
 
    use cospsimulator_intr, only: docosp, cospsimulator_intr_run, cosp_nradsteps
-#ifdef OSLO_AERO
-   use oslo_aero_share
-#endif
 
    ! Arguments
    type(physics_state), intent(in), target :: state
@@ -886,14 +883,13 @@ subroutine radiation_tend( &
     ! Local variables used for calculating aerosol optics and direct and indirect forcings.
     ! aodvis and absvis are AOD and absorptive AOD for visible wavelength close to 0.55 um (0.35-0.64)
     ! Note that aodvis and absvis output should be devided by dayfoc to give physical (A)AOD values
-    integer  :: ns                                    ! spectral loop index
-    real(r8) :: aodvis(pcols)                         ! AOD vis
-    real(r8) :: absvis(pcols)                         ! absorptive AOD vis
     real(r8) :: per_tau    (pcols,0:pver,nswbands)    ! aerosol extinction optical depth
     real(r8) :: per_tau_w  (pcols,0:pver,nswbands)    ! aerosol single scattering albedo * tau
     real(r8) :: per_tau_w_g(pcols,0:pver,nswbands)    ! aerosol assymetry parameter * w * tau
     real(r8) :: per_tau_w_f(pcols,0:pver,nswbands)    ! aerosol forward scattered fraction * w * tau
     real(r8) :: per_lw_abs (pcols,pver,nlwbands)      ! aerosol absorption optics depth (LW)
+    real(r8) :: aodvis(pcols)                         ! AOD vis
+    real(r8) :: absvis(pcols)                         ! absorptive AOD vis
     real(r8) :: clearodvis(pcols)
     real(r8) :: clearabsvis(pcols)
     real(r8) :: cloudfree(pcols)
@@ -1302,15 +1298,9 @@ subroutine radiation_tend( &
                call outfld('FSDSCDRF',rd%fsdsc(:) ,pcols,lchnk)
 #endif
                idrf = .false.
-
-               rd%cld_tau_cloudsim(:ncol,:) = cld_tau(rrtmg_sw_cloudsim_band,:ncol,:)
-               rd%aer_tau550(:ncol,:)       = aer_tau(:ncol,:,idx_sw_diag)
-               rd%aer_tau400(:ncol,:)       = aer_tau(:ncol,:,idx_sw_diag+1)
-               rd%aer_tau700(:ncol,:)       = aer_tau(:ncol,:,idx_sw_diag-1)
-
                call rad_rrtmg_sw( &
                   lchnk, ncol, num_rrtmg_levs, r_state, state%pmid,          &
-                  cldfprime, aer_tau, aer_tau_w, aer_tau_w_g,  aer_tau_w_f,  &
+                  cldfprime, per_tau, per_tau_w, per_tau_w_g, per_tau_w_f,   &
                   eccf, coszrs, rd%solin, sfac, cam_in%asdir,                &
                   cam_in%asdif, cam_in%aldir, cam_in%aldif, qrs, rd%qrsc,    &
                   fsnt, rd%fsntc, rd%fsntoa, rd%fsutoa, rd%fsntoac,          &
