@@ -270,6 +270,9 @@
       <value compset="HIST_CAM60"        >hist_cam6</value>
       <value compset="HIST_CAM%DEV%LT"   >hist_cam_lt</value>
       <value compset="HIST_CAM%DEV%MT"   >hist_cam_mt</value>
+
+      <value compset="HIST_CAM%DEV%LT%NORESM%CAMoslo">hist_cam6_noresm</value>
+
       <value compset="HIST_CAM60%WCTS"   >waccm_tsmlt_hist_cam6</value>
       <value compset="HIST_CAM60%WCSC"   >waccm_sc_hist_cam6</value>
       <value compset="HIST_CAM60%WCCM"   >waccm_ma_hist_cam6</value>
