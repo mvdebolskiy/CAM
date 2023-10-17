@@ -735,14 +735,6 @@ contains
     use oslo_aero_share
 #endif
 
-#ifdef OSLO_AERO
-    real(r8)         :: flnt_tmp(pcols)      ! Net outgoing lw flux at model top for AIE calculations
-    real(r8)         :: volc_fraction_coarse ! Fraction of volcanic aerosols going to coarse mode
-    integer          :: band
-    character(len=3) :: c3
-    logical          :: idrf
-#endif
-
     ! Arguments
     type(physics_state), intent(in), target :: state
     type(physics_ptend), intent(out)        :: ptend
@@ -756,6 +748,12 @@ contains
 
 
     ! Local variables
+#ifdef OSLO_AERO
+    real(r8)         :: volc_fraction_coarse ! Fraction of volcanic aerosols going to coarse mode
+    integer          :: band
+    character(len=3) :: c3
+    logical          :: idrf
+#endif
     type(rad_out_t), pointer :: rd  ! allow rd_out to be optional by allocating a local object
     ! if the argument is not present
     logical  :: write_output
