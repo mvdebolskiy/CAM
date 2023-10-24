@@ -3043,7 +3043,6 @@ unless (defined $nl->get_value('dms_source_type')) {
 }
 #add_default($nl, 'opom_source_type');
 #add_default($nl, 'opom_cycle_year');
-#if ($chem =~ /_mam_oslo/) {$nl->set_variable_value('phys_ctl_nl','use_hetfrz_classnuc','.true.');}
 
 # WACCM-X runtime options
 add_default($nl, 'waccmx_opt');
