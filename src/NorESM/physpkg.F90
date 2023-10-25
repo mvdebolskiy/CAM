@@ -1290,12 +1290,7 @@ contains
     use qneg_module,        only: qneg4
     use co2_cycle,          only: co2_cycle_set_ptend
     use nudging,            only: Nudge_Model,Nudge_ON,nudging_timestep_tend
-#ifdef OSLO_AERO
-    use oslo_aero_model,    only: aero_model_drydep
-#else
     use aero_model,    only: aero_model_drydep
-#endif
-
     !
     ! Arguments
     !
@@ -1750,14 +1745,13 @@ contains
     use subcol,          only: subcol_gen, subcol_ptend_avg
     use subcol_utils,    only: subcol_ptend_copy, is_subcol_on
     use qneg_module,     only: qneg3
+    use aero_model,      only: aero_model_wetdep
 #ifdef OSLO_AERO
-    use oslo_aero_model, only: aero_model_wetdep
     use oslo_aero_microp,only: oslo_aero_microp_run
     use oslo_aero_params
     use oslo_aero_share
 #else
     use microp_aero,     only: microp_aero_run
-    use aero_model,      only: aero_model_wetdep
 #endif
     implicit none
 

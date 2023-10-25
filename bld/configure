@@ -2763,7 +2763,11 @@ sub write_filepath
    print $fh "$camsrcdir/cam/src/NorESM/$dyn\n";
    #--djlo
 
-   # offline unit driver (defaults to stub)
+    if ($chem =~/_oslo/) {
+	print $fh "$camsrcdir/src/chemistry/oslo_aero/src_cam\n";
+    }
+
+    # offline unit driver (defaults to stub)
     print $fh "$camsrcdir/cam/src/unit_drivers\n";
     print $fh "$camsrcdir/cam/src/unit_drivers/${offline_drv}\n";
 
@@ -2788,7 +2792,7 @@ sub write_filepath
         print $fh "$chem_src_dir\n";
     }
     if ($chem =~/_oslo/) {
-         print $fh "$camsrcdir/cam/src/chemistry/oslo_aero\n";
+         print $fh "$camsrcdir/cam/src/chemistry/oslo_aero/src\n";
     }
     else{
 	 if ($chem =~ /_mam/) {
