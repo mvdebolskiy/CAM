@@ -130,19 +130,19 @@ module radiation
   logical :: spectralflux = .false. ! calculate fluxes (up and down) per band.
 
   ! Physics buffer indices
-  integer :: qrs_idx      = 0 
-  integer :: qrl_idx      = 0 
-  integer :: su_idx       = 0 
-  integer :: sd_idx       = 0 
-  integer :: lu_idx       = 0 
-  integer :: ld_idx       = 0 
+  integer :: qrs_idx      = 0
+  integer :: qrl_idx      = 0
+  integer :: su_idx       = 0
+  integer :: sd_idx       = 0
+  integer :: lu_idx       = 0
+  integer :: ld_idx       = 0
   integer :: fsds_idx     = 0
   integer :: fsns_idx     = 0
   integer :: fsnt_idx     = 0
   integer :: flns_idx     = 0
   integer :: flnt_idx     = 0
-  integer :: cldfsnow_idx = 0 
-  integer :: cld_idx      = 0 
+  integer :: cldfsnow_idx = 0
+  integer :: cld_idx      = 0
 #ifdef OSLO_AERO
   integer :: volc_idx     = 0
 #endif
@@ -216,7 +216,7 @@ contains
     if (iradlw      < 0) iradlw      = nint((-iradlw     *3600._r8)/dtime)
     if (irad_always < 0) irad_always = nint((-irad_always*3600._r8)/dtime)
 
-    !----------------------------------------------------------------------- 
+    !-----------------------------------------------------------------------
     ! Print runtime options to log.
     !-----------------------------------------------------------------------
 
@@ -242,8 +242,8 @@ contains
     use physics_buffer, only: pbuf_add_field, dtype_r8
     use radiation_data, only: rad_data_register
 
-    call pbuf_add_field('QRS' , 'global',dtype_r8,(/pcols,pver/), qrs_idx) ! shortwave radiative heating rate 
-    call pbuf_add_field('QRL' , 'global',dtype_r8,(/pcols,pver/), qrl_idx) ! longwave  radiative heating rate 
+    call pbuf_add_field('QRS' , 'global',dtype_r8,(/pcols,pver/), qrs_idx) ! shortwave radiative heating rate
+    call pbuf_add_field('QRL' , 'global',dtype_r8,(/pcols,pver/), qrl_idx) ! longwave  radiative heating rate
 
     call pbuf_add_field('FSDS' , 'global',dtype_r8,(/pcols/), fsds_idx) ! Surface solar downward flux
     call pbuf_add_field('FSNS' , 'global',dtype_r8,(/pcols/), fsns_idx) ! Surface net shortwave flux
@@ -311,10 +311,10 @@ contains
 
     ! Local variables
     integer :: nstep      ! timestep counter
-    logical :: dosw       ! true => do shosrtwave calc   
+    logical :: dosw       ! true => do shosrtwave calc
     integer :: offset     ! offset for calendar day calculation
     integer :: dTime      ! integer timestep size
-    real(r8):: calday     ! calendar day of 
+    real(r8):: calday     ! calendar day of
     !-----------------------------------------------------------------------
 
     radiation_nextsw_cday = -1._r8
@@ -326,7 +326,7 @@ contains
        nstep = nstep + 1
        offset = offset + dtime
        if (radiation_do('sw', nstep)) then
-          radiation_nextsw_cday = get_curr_calday(offset=offset) 
+          radiation_nextsw_cday = get_curr_calday(offset=offset)
           dosw = .true.
        end if
     end do
@@ -417,7 +417,7 @@ contains
     if (is_first_restart_step()) then
        cosp_cnt(begchunk:endchunk) = cosp_cnt_init
     else
-       cosp_cnt(begchunk:endchunk) = 0     
+       cosp_cnt(begchunk:endchunk) = 0
     end if
 
     call addfld('O3colAbove',    horiz_only,   'A', 'DU', 'Column O3 above model top', sampling_seq='rad_lwsw')
@@ -519,7 +519,7 @@ contains
     end do
 
 #ifdef OSLO_AERO
-    call addfld('FDSCDRF', (/ 'ilev' /), 'A', 'W/m2', 'Shortwave clear-sky downward flux')   
+    call addfld('FDSCDRF', (/ 'ilev' /), 'A', 'W/m2', 'Shortwave clear-sky downward flux')
     call addfld('FUSCDRF', (/ 'ilev' /), 'A', 'W/m2', 'Shortwave clear-sky upward flux')
 #endif
 
@@ -689,15 +689,15 @@ contains
   subroutine radiation_tend( &
        state, ptend, pbuf, cam_out, cam_in, net_flx, rd_out)
 
-    !----------------------------------------------------------------------- 
-    ! 
+    !-----------------------------------------------------------------------
+    !
     ! Driver for radiation computation.
-    ! 
+    !
     ! Revision history:
     ! 2007-11-05  M. Iacono        Install rrtmg_lw and sw as radiation model.
     ! 2007-12-27  M. Iacono        Modify to use CAM cloud optical properties with rrtmg.
     !
-    ! 2019-05-06  A. Kirkevåg: Changes for testing the 
+    ! 2019-05-06  A. Kirkevåg: Changes for testing the
     !   "simple plumes" aerosols, based on NorESM1 code P. Räisänen.
     !-----------------------------------------------------------------------
 
@@ -763,8 +763,8 @@ contains
     logical  :: dosw, dolw
 
 #ifdef OSLO_AERO
-    real(r8), pointer, dimension(:,:) :: rvolcmmr ! Read in stratospheric volcanoes aerosol mmr  
-    real(r8), pointer, dimension(:,:) :: volcopt  ! Read in stratospheric volcano SW optical parameter (CMIP6) 
+    real(r8), pointer, dimension(:,:) :: rvolcmmr ! Read in stratospheric volcanoes aerosol mmr
+    real(r8), pointer, dimension(:,:) :: volcopt  ! Read in stratospheric volcano SW optical parameter (CMIP6)
 #endif
     real(r8) :: calday          ! current calendar day
     real(r8) :: delta           ! Solar declination angle  in radians
@@ -773,7 +773,7 @@ contains
     real(r8) :: clon(pcols)     ! current longitudes(radians)
     real(r8) :: coszrs(pcols)   ! Cosine solar zenith angle
 
-    ! Gathered indices of day and night columns 
+    ! Gathered indices of day and night columns
     !  chunk_column_index = IdxDay(daylight_column_index)
     integer :: Nday           ! Number of daylight columns
     integer :: Nnite          ! Number of night columns
@@ -784,8 +784,8 @@ contains
 
     real(r8), pointer :: cld(:,:)      ! cloud fraction
     real(r8), pointer :: cldfsnow(:,:) ! cloud fraction of just "snow clouds- whatever they are"
-    real(r8), pointer :: qrs(:,:)      ! shortwave radiative heating rate 
-    real(r8), pointer :: qrl(:,:)      ! longwave  radiative heating rate 
+    real(r8), pointer :: qrs(:,:)      ! shortwave radiative heating rate
+    real(r8), pointer :: qrl(:,:)      ! longwave  radiative heating rate
     real(r8), pointer :: fsds(:)  ! Surface solar down flux
     real(r8), pointer :: fsns(:)  ! Surface solar absorbed flux
     real(r8), pointer :: fsnt(:)  ! Net column abs solar flux at model top
@@ -854,7 +854,7 @@ contains
 #ifdef OSLO_AERO
     ! Local variables used for calculating aerosol optics and direct and indirect forcings.
     ! aodvis and absvis are AOD and absorptive AOD for visible wavelength close to 0.55 um (0.35-0.64)
-    ! Note that aodvis and absvis output should be devided by dayfoc to give physical (A)AOD values  
+    ! Note that aodvis and absvis output should be devided by dayfoc to give physical (A)AOD values
     real(r8) :: qdirind(pcols,pver,pcnst)  ! Common tracers for indirect and direct calculations
     real(r8) :: aodvis(pcols)              ! AOD vis
     real(r8) :: absvis(pcols)              ! absorptive AOD vis
@@ -1161,7 +1161,7 @@ contains
        if (dosw) then
 
 #ifdef OSLO_AERO
-          ! Volcanic optics for solar (SW) bands        
+          ! Volcanic optics for solar (SW) bands
           do band=1, solar_bands
              volc_ext_sun(1:ncol,1:pver,band)=0.0_r8
              volc_omega_sun(1:ncol,1:pver,band)=0.999_r8
@@ -1170,18 +1170,18 @@ contains
           if (has_prescribed_volcaero_cmip6) then
              do band=1, solar_bands
                 write(c3,'(i3)') band
-                volc_idx = pbuf_get_index('ext_sun'//trim(adjustl(c3))) 
+                volc_idx = pbuf_get_index('ext_sun'//trim(adjustl(c3)))
                 call pbuf_get_field(pbuf, volc_idx,  volcopt,      start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
                 volc_ext_sun(1:ncol,1:pver,band)=volcopt(1:ncol,1:pver)
-                volc_idx = pbuf_get_index('omega_sun'//trim(adjustl(c3))) 
+                volc_idx = pbuf_get_index('omega_sun'//trim(adjustl(c3)))
                 call pbuf_get_field(pbuf, volc_idx,  volcopt,      start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
                 volc_omega_sun(1:ncol,1:pver,band)=volcopt(1:ncol,1:pver)
-                volc_idx = pbuf_get_index('g_sun'//trim(adjustl(c3))) 
+                volc_idx = pbuf_get_index('g_sun'//trim(adjustl(c3)))
                 call pbuf_get_field(pbuf, volc_idx,  volcopt,      start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
                 volc_g_sun(1:ncol,1:pver,band)=volcopt(1:ncol,1:pver)
              enddo
           endif
-          !  Volcanic optics for terrestrial (LW) bands (g is not used here)       
+          !  Volcanic optics for terrestrial (LW) bands (g is not used here)
           do band=1, terrestrial_bands
              volc_ext_earth(1:ncol,1:pver,band)=0.0_r8
              volc_omega_earth(1:ncol,1:pver,band)=0.999_r8
@@ -1189,11 +1189,11 @@ contains
           if (has_prescribed_volcaero_cmip6) then
              do band=1, terrestrial_bands
                 write(c3,'(i3)') band
-                volc_idx = pbuf_get_index('ext_earth'//trim(adjustl(c3))) 
+                volc_idx = pbuf_get_index('ext_earth'//trim(adjustl(c3)))
                 call pbuf_get_field(pbuf, volc_idx,  volcopt,      start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
                 volc_ext_earth(1:ncol,1:pver,band)=volcopt(1:ncol,1:pver)
 
-                volc_idx = pbuf_get_index('omega_earth'//trim(adjustl(c3))) 
+                volc_idx = pbuf_get_index('omega_earth'//trim(adjustl(c3)))
                 call pbuf_get_field(pbuf, volc_idx,  volcopt,      start=(/1,1,itim_old/), kount=(/pcols,pver,1/) )
                 volc_omega_earth(1:ncol,1:pver,band)=volcopt(1:ncol,1:pver)
              enddo
@@ -1204,7 +1204,7 @@ contains
           call oslo_aero_optical_params_calc(lchnk, ncol, 10.0_r8*state%pint, state%pmid,  &
                coszrs, state, state%t, cld, qdirind, Nnatk, &
                per_tau, per_tau_w, per_tau_w_g, per_tau_w_f, per_lw_abs, &
-               volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, & 
+               volc_ext_sun, volc_omega_sun, volc_g_sun, volc_ext_earth, volc_omega_earth, &
                aodvis, absvis)
 
 #endif
@@ -1227,8 +1227,8 @@ contains
                 ! A first call with Oslo aerosols set to zero for radiative forcing diagnostics
                 ! follwoing the Ghan (2013) method:
 
-                ! for calculation of direct radiative forcing, not necessarily "offline" as such anymore 
-                ! (just nudged), but with an extra call with 0 aerosol extiction.  
+                ! for calculation of direct radiative forcing, not necessarily "offline" as such anymore
+                ! (just nudged), but with an extra call with 0 aerosol extiction.
                 !
                 idrf = .true.
                 call rad_rrtmg_sw( &
@@ -1250,7 +1250,7 @@ contains
                 !
                 ! Dump shortwave radiation information to history tape buffer (diagnostics)
                 !
-                ! Note that DRF fields are now from the per_tau=0 call (clean), no longer with per_tau from pmxsub                 
+                ! Note that DRF fields are now from the per_tau=0 call (clean), no longer with per_tau from pmxsub
                 call outfld('QRS_DRF ',ftem  ,pcols,lchnk)
                 ftem(:ncol,:pver) = rd%qrsc(:ncol,:pver)/cpair
                 call outfld('QRSC_DRF',ftem  ,pcols,lchnk)
@@ -1265,7 +1265,7 @@ contains
                    call outfld('FSUS_DRF',ftem_1d,pcols,lchnk)
                    call outfld('FSDSCDRF',rd%fsdsc(:) ,pcols,lchnk)
                 end if
-                idrf = .false.         
+                idrf = .false.
 #else
                call aer_rad_props_sw(icall, state, pbuf, nnite, idxnite, &
                                      aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f)
@@ -1285,7 +1285,7 @@ contains
                      fsnt, rd%fsntc, rd%fsntoa, rd%fsutoa, rd%fsntoac,          &
                      rd%fsnirt, rd%fsnrtc, rd%fsnirtsq, fsns, rd%fsnsc,         &
                      rd%fsdsc, fsds, cam_out%sols, cam_out%soll, cam_out%solsd, &
-                     cam_out%solld, fns, fcns, idrf, Nday, Nnite,               & ! Note the extra idrf 
+                     cam_out%solld, fns, fcns, idrf, Nday, Nnite,               & ! Note the extra idrf
                      IdxDay, IdxNite, su, sd, E_cld_tau=c_cld_tau,              &
                      E_cld_tau_w=c_cld_tau_w, E_cld_tau_w_g=c_cld_tau_w_g,      &
                      E_cld_tau_w_f=c_cld_tau_w_f, old_convert=.false.)
@@ -1322,7 +1322,7 @@ contains
        end if
 
 #ifdef OSLO_AERO
-       !Calculate cloud-free fraction assuming random overlap 
+       !Calculate cloud-free fraction assuming random overlap
        !(kind of duplicated from cloud_cover_diags::cldsav)
        cloudfree(1:ncol)    = 1.0_r8
        cloudfreemax(1:ncol) = 1.0_r8
@@ -1334,14 +1334,14 @@ contains
           end do
        end do
 
-       !Calculate AOD (visible) for cloud free 
+       !Calculate AOD (visible) for cloud free
        do i = 1, ncol
           clearodvis(i)=cloudfree(i)*aodvis(i)
           clearabsvis(i)=cloudfree(i)*absvis(i)
        end do
 
        !  clear-sky AOD and absorptive AOD for visible wavelength close to 0.55 um (0.35-0.64)
-       !  Note that caodvis and cabsvis output should be devided by dayfoc*cloudfree to give physical (A)AOD values  
+       !  Note that caodvis and cabsvis output should be devided by dayfoc*cloudfree to give physical (A)AOD values
        call outfld('CAODVIS ',clearodvis,pcols,lchnk)
        call outfld('CABSVIS ',clearabsvis,pcols,lchnk)
        call outfld('CLDFREE ',cloudfree,pcols,lchnk)
@@ -1382,7 +1382,7 @@ contains
 
                 call aer_rad_props_lw(icall, state, pbuf,  aer_lw_abs)
 
-                ! for calculation of direct and direct radiative forcing 
+                ! for calculation of direct and direct radiative forcing
 
 #ifdef OSLO_AERO
                 call rad_rrtmg_lw( &
@@ -1668,7 +1668,7 @@ contains
 
   subroutine calc_col_mean(state, mmr_pointer, mean_value)
 
-    ! Compute the column mean mass mixing ratio.  
+    ! Compute the column mean mass mixing ratio.
 
     type(physics_state),        intent(in)  :: state
     real(r8), dimension(:,:),   pointer     :: mmr_pointer  ! mass mixing ratio (lev)
@@ -1697,4 +1697,3 @@ contains
   !===============================================================================
 
 end module radiation
-
