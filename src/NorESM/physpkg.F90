@@ -1743,7 +1743,6 @@ contains
     use aero_model,      only: aero_model_wetdep
 #ifdef OSLO_AERO
     use oslo_aero_microp,only: oslo_aero_microp_run
-    use oslo_aero_params
     use oslo_aero_share
 #else
     use microp_aero,     only: microp_aero_run

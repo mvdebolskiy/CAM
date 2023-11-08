@@ -1416,7 +1416,8 @@ if ($chem_pkg =~ '_mam3') {
 }
 
 if ($chem_pkg =~ '_oslo') {
- $chem_cppdefs = ' -DOSLO_AERO -DDIRIND'
+    $chem_cppdefs = ' -DOSLO_AERO -DAEROCOM'
+   #$chem_cppdefs = ' -DOSLO_AERO'
 }
 
 # CARMA sectional microphysics
@@ -2764,7 +2765,7 @@ sub write_filepath
    #--djlo
 
     if ($chem =~/_oslo/) {
-	print $fh "$camsrcdir/src/chemistry/oslo_aero/src_cam\n";
+	print $fh "$camsrcdir/cam/src/chemistry/oslo_aero/src_cam\n";
     }
 
     # offline unit driver (defaults to stub)
