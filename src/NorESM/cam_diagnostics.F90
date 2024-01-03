@@ -77,17 +77,17 @@ logical          :: history_waccm                  ! outputs typically used for 
 
 ! Physics buffer indices
 
-integer  ::      psl_idx    = 0 
-integer  ::      relhum_idx = 0 
-integer  ::      qcwat_idx  = 0 
-integer  ::      tcwat_idx  = 0 
-integer  ::      lcwat_idx  = 0 
-integer  ::      cld_idx    = 0 
-integer  ::      concld_idx = 0 
-integer  ::      tke_idx    = 0 
-integer  ::      kvm_idx    = 0 
-integer  ::      kvh_idx    = 0 
-integer  ::      cush_idx   = 0 
+integer  ::      psl_idx    = 0
+integer  ::      relhum_idx = 0
+integer  ::      qcwat_idx  = 0
+integer  ::      tcwat_idx  = 0
+integer  ::      lcwat_idx  = 0
+integer  ::      cld_idx    = 0
+integer  ::      concld_idx = 0
+integer  ::      tke_idx    = 0
+integer  ::      kvm_idx    = 0
+integer  ::      kvh_idx    = 0
+integer  ::      cush_idx   = 0
 integer  ::      t_ttend_idx = 0
 
 integer  ::      prec_dp_idx  = 0
@@ -171,7 +171,7 @@ contains
   end subroutine diag_register
 
 !==============================================================================
-  
+
   subroutine diag_init_dry(pbuf2d)
     ! Declare the history fields for which this module contains outfld calls.
 
@@ -181,7 +181,7 @@ contains
     use physics_buffer,     only: pbuf_set_field
     use tidal_diag,         only: tidal_diag_init
 #ifdef OSLO_AERO
-    use oslo_aero_share,    only: nbmodes 
+    use oslo_aero_share,    only: nbmodes
 #endif
 
     type(physics_buffer_desc), pointer, intent(in) :: pbuf2d(:,:)
@@ -317,14 +317,14 @@ contains
     call addfld ('ABSVIS  ',horiz_only, 'A','unitless','Aerosol absorptive optical depth at 0.442-0.625um') ! CAM4-Oslo: 0.35-0.64um
     call addfld ('AODVVOLC ',horiz_only, 'A','unitless','CMIP6 volcanic aerosol optical depth at 0.442-0.625um') ! CAM4-Oslo: 0.35-0.64um
     call addfld ('ABSVVOLC ',horiz_only, 'A','unitless','CMIP6 volcanic aerosol absorptive optical depth at 0.442-0.625um') ! CAM4-Oslo: 0.35-0.64um
-    call addfld ('CAODVIS ',horiz_only, 'A','unitless','Clear air aerosol optical depth')  
+    call addfld ('CAODVIS ',horiz_only, 'A','unitless','Clear air aerosol optical depth')
     call addfld ('CABSVIS ',horiz_only, 'A','unitless','Clear air aerosol absorptive optical depth')
     call addfld ('CLDFREE ',horiz_only, 'A','unitless','Cloud free fraction wrt CAODVIS and CABSVIS')
     call addfld ('DAYFOC  ',horiz_only, 'A','unitless','Daylight fraction')
     call addfld ('N_AER   ',(/'lev'/),  'A', 'unitless','Aerosol number concentration')
-    call addfld ('SSAVIS  ',(/'lev'/),  'A','unitless','Aerosol single scattering albedo in visible wavelength band')    
-    call addfld ('ASYMMVIS',(/'lev'/),  'A','unitless','Aerosol assymetry factor in visible wavelength band')    
-    call addfld ('EXTVIS  ',(/'lev'/),  'A','1/km    ','Aerosol extinction')     
+    call addfld ('SSAVIS  ',(/'lev'/),  'A','unitless','Aerosol single scattering albedo in visible wavelength band')
+    call addfld ('ASYMMVIS',(/'lev'/),  'A','unitless','Aerosol assymetry factor in visible wavelength band')
+    call addfld ('EXTVIS  ',(/'lev'/),  'A','1/km    ','Aerosol extinction')
     call addfld ('BVISVOLC ',(/'lev'/),   'A','1/km    ','CMIP6 volcanic aerosol extinction at 0.442-0.625um')
 
     ! AEROFFL start
@@ -344,132 +344,132 @@ contains
     ! AEROFFL end
 
     if (do_aerocom) then
-      call addfld ('AKCXS   ',horiz_only, 'A','mg/m2   ','Scheme excess aerosol mass burden')     
+      call addfld ('AKCXS   ',horiz_only, 'A','mg/m2   ','Scheme excess aerosol mass burden')
       call addfld ('PMTOT   ',horiz_only, 'A','ug/m3   ','Aerosol PM, all sizes')
       call addfld ('PM25    ',horiz_only, 'A','ug/m3   ','Aerosol PM2.5')
       call addfld ('PM2P5   ',(/'lev'/), 'A','ug/m3   ','3D aerosol PM2.5')
       call addfld ('MMRPM2P5',(/'lev'/), 'A','kg/kg   ','3D aerosol PM2.5 mass mixing ratio')
       call addfld ('MMRPM1  ',(/'lev'/), 'A','kg/kg   ','3D aerosol PM1.0 mass mixing ratio')
-      call addfld ('MMRPM2P5_SRF',horiz_only, 'A','kg/kg   ','Aerosol PM2.5 mass mixing ratio in bottom layer')   
+      call addfld ('MMRPM2P5_SRF',horiz_only, 'A','kg/kg   ','Aerosol PM2.5 mass mixing ratio in bottom layer')
       call addfld ('GRIDAREA',horiz_only, 'A','m2      ','Grid area for 1.9x2.5 horizontal resolution')
       call addfld ('DAERH2O ',horiz_only, 'A', 'mg/m2   ','Aerosol water load')
       call addfld ('MMR_AH2O',(/'lev'/), 'A', 'kg/kg   ','Aerosol water mmr')
-      call addfld ('ECDRYAER',(/'lev'/), 'A', 'kg/kg   ','Dry aerosol extinction at 550nm')  
-      call addfld ('ABSDRYAE',(/'lev'/), 'A','m-1     ','Dry aerosol absorption at 550nm')  
-      call addfld ('ECDRY440',(/'lev'/), 'A','m-1     ','Dry aerosol extinction at 440nm')  
-      call addfld ('ABSDR440',(/'lev'/),'A','m-1     ','Dry aerosol absorption at 440nm')  
-      call addfld ('ECDRY870',(/'lev'/),'A','m-1     ','Dry aerosol extinction at 870nm')  
-      call addfld ('ABSDR870',(/'lev'/),'A','m-1     ','Dry aerosol absorption at 870nm')  
-      call addfld ('ASYMMDRY',(/'lev'/),'A','unitless','Dry asymmetry factor in visible wavelength band')  
+      call addfld ('ECDRYAER',(/'lev'/), 'A', 'kg/kg   ','Dry aerosol extinction at 550nm')
+      call addfld ('ABSDRYAE',(/'lev'/), 'A','m-1     ','Dry aerosol absorption at 550nm')
+      call addfld ('ECDRY440',(/'lev'/), 'A','m-1     ','Dry aerosol extinction at 440nm')
+      call addfld ('ABSDR440',(/'lev'/),'A','m-1     ','Dry aerosol absorption at 440nm')
+      call addfld ('ECDRY870',(/'lev'/),'A','m-1     ','Dry aerosol extinction at 870nm')
+      call addfld ('ABSDR870',(/'lev'/),'A','m-1     ','Dry aerosol absorption at 870nm')
+      call addfld ('ASYMMDRY',(/'lev'/),'A','unitless','Dry asymmetry factor in visible wavelength band')
       call addfld ('ECDRYLT1',(/'lev'/),'A','m-1     ','Dry aerosol extinction at 550nm lt05')
       call addfld ('ABSDRYBC',(/'lev'/),'A','m-1     ','Dry BC absorption at 550nm')
       call addfld ('ABSDRYOC',(/'lev'/),'A','m-1     ','Dry OC absorption at 550nm')
       call addfld ('ABSDRYSU',(/'lev'/),'A','m-1     ','Dry sulfate absorption at 550nm')
       call addfld ('ABSDRYSS',(/'lev'/),'A','m-1     ','Dry sea-salt absorption at 550nm')
       call addfld ('ABSDRYDU',(/'lev'/),'A','m-1     ','Dry dust absorption at 550nm')
-      call addfld ('OD550DRY',horiz_only,'A','unitless','Dry aerosol optical depth at 550nm')  
-      call addfld ('AB550DRY',horiz_only, 'A','unitless','Dry aerosol absorptive optical depth at 550nm')   
+      call addfld ('OD550DRY',horiz_only,'A','unitless','Dry aerosol optical depth at 550nm')
+      call addfld ('AB550DRY',horiz_only, 'A','unitless','Dry aerosol absorptive optical depth at 550nm')
       call addfld ('DERLT05 ',horiz_only, 'A','um      ','Effective aerosol dry radius<0.5um')
-      call addfld ('DERGT05 ',horiz_only, 'A','um      ','Effective aerosol dry radius>0.5um') 
-      call addfld ('DER     ',horiz_only, 'A','um      ','Effective aerosol dry radius') 
-      call addfld ('DOD440  ',horiz_only, 'A', 'unitless','Aerosol optical depth at 440nm')  
-      call addfld ('ABS440  ',horiz_only, 'A', 'unitless','Aerosol absorptive optical depth at 440nm')   
-      call addfld ('DOD500  ',horiz_only, 'A', 'unitless','Aerosol optical depth at 500nm')  
-      call addfld ('ABS500  ',horiz_only, 'A', 'unitless','Aerosol absorptive optical depth at 500nm')   
-      call addfld ('DOD550  ',horiz_only, 'A','unitless','Aerosol optical depth at 550nm')  
-      call addfld ('ABS550  ',horiz_only, 'A','unitless','Aerosol absorptive optical depth at 550nm')   
-      call addfld ('ABS550AL',horiz_only, 'A','unitless','Alt. aerosol absorptive optical depth at 550nm')   
-      call addfld ('DOD670  ',horiz_only, 'A','unitless','Aerosol optical depth at 670nm')  
-      call addfld ('ABS670  ',horiz_only, 'A','unitless','Aerosol absorptive optical depth at 670nm')   
-      call addfld ('DOD870  ',horiz_only, 'A','unitless','Aerosol optical depth at 870nm')  
-      call addfld ('ABS870  ',horiz_only, 'A','unitless','Aerosol absorptive optical depth at 870nm')   
-      call addfld ('DLOAD_MI',horiz_only, 'A','mg/m2   ','mineral aerosol load')     
-      call addfld ('DLOAD_SS',horiz_only, 'A','mg/m2   ','sea-salt aerosol load')     
-      call addfld ('DLOAD_S4',horiz_only, 'A','mg/m2   ','sulfate aerosol load')     
-      call addfld ('DLOAD_OC',horiz_only, 'A','mg/m2   ','OC aerosol load')     
-      call addfld ('DLOAD_BC',horiz_only, 'A','mg/m2   ','BC aerosol load')     
+      call addfld ('DERGT05 ',horiz_only, 'A','um      ','Effective aerosol dry radius>0.5um')
+      call addfld ('DER     ',horiz_only, 'A','um      ','Effective aerosol dry radius')
+      call addfld ('DOD440  ',horiz_only, 'A', 'unitless','Aerosol optical depth at 440nm')
+      call addfld ('ABS440  ',horiz_only, 'A', 'unitless','Aerosol absorptive optical depth at 440nm')
+      call addfld ('DOD500  ',horiz_only, 'A', 'unitless','Aerosol optical depth at 500nm')
+      call addfld ('ABS500  ',horiz_only, 'A', 'unitless','Aerosol absorptive optical depth at 500nm')
+      call addfld ('DOD550  ',horiz_only, 'A','unitless','Aerosol optical depth at 550nm')
+      call addfld ('ABS550  ',horiz_only, 'A','unitless','Aerosol absorptive optical depth at 550nm')
+      call addfld ('ABS550AL',horiz_only, 'A','unitless','Alt. aerosol absorptive optical depth at 550nm')
+      call addfld ('DOD670  ',horiz_only, 'A','unitless','Aerosol optical depth at 670nm')
+      call addfld ('ABS670  ',horiz_only, 'A','unitless','Aerosol absorptive optical depth at 670nm')
+      call addfld ('DOD870  ',horiz_only, 'A','unitless','Aerosol optical depth at 870nm')
+      call addfld ('ABS870  ',horiz_only, 'A','unitless','Aerosol absorptive optical depth at 870nm')
+      call addfld ('DLOAD_MI',horiz_only, 'A','mg/m2   ','mineral aerosol load')
+      call addfld ('DLOAD_SS',horiz_only, 'A','mg/m2   ','sea-salt aerosol load')
+      call addfld ('DLOAD_S4',horiz_only, 'A','mg/m2   ','sulfate aerosol load')
+      call addfld ('DLOAD_OC',horiz_only, 'A','mg/m2   ','OC aerosol load')
+      call addfld ('DLOAD_BC',horiz_only, 'A','mg/m2   ','BC aerosol load')
 
-      call addfld ('LOADBCAC',horiz_only, 'A','mg/m2   ','BC aerosol coag load')     
-      call addfld ('LOADBC0 ',horiz_only, 'A','mg/m2   ','BC aerosol mode 0 load')     
-      call addfld ('LOADBC2 ',horiz_only, 'A','mg/m2   ','BC aerosol mode 2 load')     
-      call addfld ('LOADBC4 ',horiz_only, 'A','mg/m2   ','BC aerosol mode 4 load')     
-      call addfld ('LOADBC12',horiz_only, 'A','mg/m2   ','BC aerosol mode 12 load')     
-      call addfld ('LOADBC14',horiz_only, 'A','mg/m2   ','BC aerosol mode 14 load')     
-      call addfld ('LOADOCAC',horiz_only, 'A','mg/m2   ','OC aerosol coag load')     
-      call addfld ('LOADOC3 ',horiz_only, 'A','mg/m2   ','OC aerosol mode 3 load')     
-      call addfld ('LOADOC4 ',horiz_only, 'A','mg/m2   ','OC aerosol mode 4 load')     
-      call addfld ('LOADOC13',horiz_only, 'A','mg/m2   ','OC aerosol mode 13 load')     
-      call addfld ('LOADOC14',horiz_only, 'A','mg/m2   ','OC aerosol mode 14 load')     
+      call addfld ('LOADBCAC',horiz_only, 'A','mg/m2   ','BC aerosol coag load')
+      call addfld ('LOADBC0 ',horiz_only, 'A','mg/m2   ','BC aerosol mode 0 load')
+      call addfld ('LOADBC2 ',horiz_only, 'A','mg/m2   ','BC aerosol mode 2 load')
+      call addfld ('LOADBC4 ',horiz_only, 'A','mg/m2   ','BC aerosol mode 4 load')
+      call addfld ('LOADBC12',horiz_only, 'A','mg/m2   ','BC aerosol mode 12 load')
+      call addfld ('LOADBC14',horiz_only, 'A','mg/m2   ','BC aerosol mode 14 load')
+      call addfld ('LOADOCAC',horiz_only, 'A','mg/m2   ','OC aerosol coag load')
+      call addfld ('LOADOC3 ',horiz_only, 'A','mg/m2   ','OC aerosol mode 3 load')
+      call addfld ('LOADOC4 ',horiz_only, 'A','mg/m2   ','OC aerosol mode 4 load')
+      call addfld ('LOADOC13',horiz_only, 'A','mg/m2   ','OC aerosol mode 13 load')
+      call addfld ('LOADOC14',horiz_only, 'A','mg/m2   ','OC aerosol mode 14 load')
 !
-      call addfld ('EC550AER',(/'lev'/),'A','m-1     ','aerosol extinction coefficient')     
-      call addfld ('ABS550_A',(/'lev'/),'A','m-1     ','aerosol absorption coefficient')     
-      call addfld ('BS550AER',(/'lev'/),'A','m-1 sr-1','aerosol backscatter coefficient')     
+      call addfld ('EC550AER',(/'lev'/),'A','m-1     ','aerosol extinction coefficient')
+      call addfld ('ABS550_A',(/'lev'/),'A','m-1     ','aerosol absorption coefficient')
+      call addfld ('BS550AER',(/'lev'/),'A','m-1 sr-1','aerosol backscatter coefficient')
 !
-      call addfld ('EC550SO4',(/'lev'/),'A','m-1     ','SO4 aerosol extinction coefficient')     
-      call addfld ('EC550BC ',(/'lev'/),'A','m-1     ','BC aerosol extinction coefficient')     
-      call addfld ('EC550POM',(/'lev'/), 'A','m-1    ','POM aerosol extinction coefficient')     
-      call addfld ('EC550SS ',(/'lev'/), 'A','m-1    ','SS aerosol extinction coefficient')     
-      call addfld ('EC550DU ',(/'lev'/), 'A','m-1    ','DU aerosol extinction coefficient')     
+      call addfld ('EC550SO4',(/'lev'/),'A','m-1     ','SO4 aerosol extinction coefficient')
+      call addfld ('EC550BC ',(/'lev'/),'A','m-1     ','BC aerosol extinction coefficient')
+      call addfld ('EC550POM',(/'lev'/), 'A','m-1    ','POM aerosol extinction coefficient')
+      call addfld ('EC550SS ',(/'lev'/), 'A','m-1    ','SS aerosol extinction coefficient')
+      call addfld ('EC550DU ',(/'lev'/), 'A','m-1    ','DU aerosol extinction coefficient')
 !
-      call addfld ('CDOD440  ',horiz_only, 'A','unitless','Clear air Aerosol optical depth at 440nm')  
-      call addfld ('CDOD550  ',horiz_only, 'A','unitless','Clear air Aerosol optical depth at 550nm')  
-      call addfld ('CABS550  ',horiz_only, 'A','unitless','Clear air Aerosol abs optical depth at 550nm')  
-      call addfld ('CABS550A ',horiz_only, 'A','unitless','Clear air Aerosol abs optical depth at 550nm')  
-      call addfld ('CDOD870 ' ,horiz_only, 'A','unitless','Clear air Aerosol optical depth at 870nm')  
-      call addfld ('A550_DU ' ,horiz_only, 'A','unitless', 'mineral abs. aerosol optical depth 550nm')     
-      call addfld ('A550_SS ' ,horiz_only, 'A','unitless','sea-salt abs aerosol optical depth 550nm')     
-      call addfld ('A550_SO4' ,horiz_only, 'A','unitless','SO4 aerosol abs. optical depth 550nm')     
-      call addfld ('A550_POM' ,horiz_only, 'A','unitless', 'OC abs. aerosol optical depth 550nm')     
+      call addfld ('CDOD440  ',horiz_only, 'A','unitless','Clear air Aerosol optical depth at 440nm')
+      call addfld ('CDOD550  ',horiz_only, 'A','unitless','Clear air Aerosol optical depth at 550nm')
+      call addfld ('CABS550  ',horiz_only, 'A','unitless','Clear air Aerosol abs optical depth at 550nm')
+      call addfld ('CABS550A ',horiz_only, 'A','unitless','Clear air Aerosol abs optical depth at 550nm')
+      call addfld ('CDOD870 ' ,horiz_only, 'A','unitless','Clear air Aerosol optical depth at 870nm')
+      call addfld ('A550_DU ' ,horiz_only, 'A','unitless', 'mineral abs. aerosol optical depth 550nm')
+      call addfld ('A550_SS ' ,horiz_only, 'A','unitless','sea-salt abs aerosol optical depth 550nm')
+      call addfld ('A550_SO4' ,horiz_only, 'A','unitless','SO4 aerosol abs. optical depth 550nm')
+      call addfld ('A550_POM' ,horiz_only, 'A','unitless', 'OC abs. aerosol optical depth 550nm')
       call addfld ('A550_BC ' ,horiz_only, 'A','unitless', 'BC abs. aerosol optical depth 550nm')
-      call addfld ('D440_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 440nm')     
-      call addfld ('D440_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 440nm')     
-      call addfld ('D440_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 440nm')     
-      call addfld ('D440_POM',horiz_only, 'A','unitless','OC aerosol optical depth 440nm')     
-      call addfld ('D440_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 440nm')     
-      call addfld ('D500_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 500nm')     
-      call addfld ('D500_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 500nm')     
-      call addfld ('D500_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 500nm')     
-      call addfld ('D500_POM',horiz_only, 'A','unitless','OC aerosol optical depth 500nm')     
-      call addfld ('D500_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 500nm')     
-      call addfld ('D550_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 550nm')     
-      call addfld ('D550_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 550nm')     
-      call addfld ('D550_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 550nm')     
-      call addfld ('D550_POM',horiz_only, 'A','unitless','OC aerosol optical depth 550nm')     
-      call addfld ('D550_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 550nm')     
-      call addfld ('D670_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 670nm')     
-      call addfld ('D670_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 670nm')     
-      call addfld ('D670_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 670nm')     
-      call addfld ('D670_POM',horiz_only, 'A','unitless','OC aerosol optical depth 670nm')     
-      call addfld ('D670_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 670nm')     
-      call addfld ('D870_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 870nm')     
-      call addfld ('D870_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 870nm')     
-      call addfld ('D870_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 870nm')     
-      call addfld ('D870_POM',horiz_only, 'A','unitless','OC aerosol optical depth 870nm')     
-      call addfld ('D870_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 870nm')     
-      call addfld ('DLT_DUST',horiz_only, 'A','unitless','mineral aerosol optical depth 550nm lt05')     
-      call addfld ('DLT_SS  ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 550nm lt05')     
-      call addfld ('DLT_SO4 ',horiz_only, 'A','unitless','SO4 aerosol optical depth 550nm lt05')     
-      call addfld ('DLT_POM ',horiz_only, 'A','unitless','OC aerosol optical depth 550nm lt05')     
-      call addfld ('DLT_BC  ',horiz_only, 'A','unitless','BC aerosol optical depth 550nm lt05')     
-      call addfld ('DGT_DUST',horiz_only, 'A','unitless','mineral aerosol optical depth 550nm gt05')     
-      call addfld ('DGT_SS  ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 550nm gt05')     
-      call addfld ('DGT_SO4 ',horiz_only, 'A','unitless','SO4 aerosol optical depth 550nm gt05')     
-      call addfld ('DGT_POM ',horiz_only, 'A','unitless','OC aerosol optical depth 550nm gt05')     
-      call addfld ('DGT_BC  ',horiz_only, 'A','unitless','BC aerosol optical depth 550nm gt05')     
+      call addfld ('D440_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 440nm')
+      call addfld ('D440_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 440nm')
+      call addfld ('D440_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 440nm')
+      call addfld ('D440_POM',horiz_only, 'A','unitless','OC aerosol optical depth 440nm')
+      call addfld ('D440_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 440nm')
+      call addfld ('D500_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 500nm')
+      call addfld ('D500_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 500nm')
+      call addfld ('D500_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 500nm')
+      call addfld ('D500_POM',horiz_only, 'A','unitless','OC aerosol optical depth 500nm')
+      call addfld ('D500_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 500nm')
+      call addfld ('D550_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 550nm')
+      call addfld ('D550_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 550nm')
+      call addfld ('D550_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 550nm')
+      call addfld ('D550_POM',horiz_only, 'A','unitless','OC aerosol optical depth 550nm')
+      call addfld ('D550_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 550nm')
+      call addfld ('D670_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 670nm')
+      call addfld ('D670_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 670nm')
+      call addfld ('D670_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 670nm')
+      call addfld ('D670_POM',horiz_only, 'A','unitless','OC aerosol optical depth 670nm')
+      call addfld ('D670_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 670nm')
+      call addfld ('D870_DU ',horiz_only, 'A','unitless','mineral aerosol optical depth 870nm')
+      call addfld ('D870_SS ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 870nm')
+      call addfld ('D870_SO4',horiz_only, 'A','unitless','SO4 aerosol optical depth 870nm')
+      call addfld ('D870_POM',horiz_only, 'A','unitless','OC aerosol optical depth 870nm')
+      call addfld ('D870_BC ',horiz_only, 'A','unitless','BC aerosol optical depth 870nm')
+      call addfld ('DLT_DUST',horiz_only, 'A','unitless','mineral aerosol optical depth 550nm lt05')
+      call addfld ('DLT_SS  ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 550nm lt05')
+      call addfld ('DLT_SO4 ',horiz_only, 'A','unitless','SO4 aerosol optical depth 550nm lt05')
+      call addfld ('DLT_POM ',horiz_only, 'A','unitless','OC aerosol optical depth 550nm lt05')
+      call addfld ('DLT_BC  ',horiz_only, 'A','unitless','BC aerosol optical depth 550nm lt05')
+      call addfld ('DGT_DUST',horiz_only, 'A','unitless','mineral aerosol optical depth 550nm gt05')
+      call addfld ('DGT_SS  ',horiz_only, 'A','unitless','sea-salt aerosol optical depth 550nm gt05')
+      call addfld ('DGT_SO4 ',horiz_only, 'A','unitless','SO4 aerosol optical depth 550nm gt05')
+      call addfld ('DGT_POM ',horiz_only, 'A','unitless','OC aerosol optical depth 550nm gt05')
+      call addfld ('DGT_BC  ',horiz_only, 'A','unitless','BC aerosol optical depth 550nm gt05')
       call addfld ('AIRMASS ',horiz_only, 'A','kg/m2   ','Vertically integrated airmass')     !akc6
-      call addfld ('NNAT_0  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 0 number concentration')     
-      call addfld ('NNAT_1  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 1 number concentration')     
-      call addfld ('NNAT_2  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 2 number concentration')     
-      call addfld ('NNAT_4  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 4 number concentration')     
-      call addfld ('NNAT_5  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 5 number concentration')     
-      call addfld ('NNAT_6  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 6 number concentration')     
-      call addfld ('NNAT_7  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 7 number concentration')     
-      call addfld ('NNAT_8  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 8 number concentration')     
-      call addfld ('NNAT_9  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 9 number concentration')     
-      call addfld ('NNAT_10 ',(/'lev'/),'A','1/cm3   ','Aerosol mode 10 number concentration')     
-      call addfld ('NNAT_12 ',(/'lev'/),'A','1/cm3   ','Aerosol mode 12 number concentration')     
-      call addfld ('NNAT_14 ',(/'lev'/),'A','1/cm3   ','Aerosol mode 14 number concentration')     
-      call addfld ('AIRMASSL',(/'lev'/),'A','kg/m2   ','Layer airmass')     
+      call addfld ('NNAT_0  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 0 number concentration')
+      call addfld ('NNAT_1  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 1 number concentration')
+      call addfld ('NNAT_2  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 2 number concentration')
+      call addfld ('NNAT_4  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 4 number concentration')
+      call addfld ('NNAT_5  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 5 number concentration')
+      call addfld ('NNAT_6  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 6 number concentration')
+      call addfld ('NNAT_7  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 7 number concentration')
+      call addfld ('NNAT_8  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 8 number concentration')
+      call addfld ('NNAT_9  ',(/'lev'/),'A','1/cm3   ','Aerosol mode 9 number concentration')
+      call addfld ('NNAT_10 ',(/'lev'/),'A','1/cm3   ','Aerosol mode 10 number concentration')
+      call addfld ('NNAT_12 ',(/'lev'/),'A','1/cm3   ','Aerosol mode 12 number concentration')
+      call addfld ('NNAT_14 ',(/'lev'/),'A','1/cm3   ','Aerosol mode 14 number concentration')
+      call addfld ('AIRMASSL',(/'lev'/),'A','kg/m2   ','Layer airmass')
       call addfld ('BETOTVIS',(/'lev'/),'A','1/km','Aerosol 3d extinction at 0.442-0.625')  ! CAM4-Oslo: 0.35-0.64um
       call addfld ('BATOTVIS',(/'lev'/),'A','1/km','Aerosol 3d absorption at 0.442-0.625') ! CAM4-Oslo: 0.35-0.64um
       call addfld ('BATSW13 ',(/'lev'/),'A','1/km','Aerosol 3d SW absorption at 3.077-3.846um')
@@ -481,17 +481,17 @@ contains
          if(i.lt.10) modeString="0"//adjustl(modeString)
          varName = "Camrel"//trim(modeString)
          if(i.ne.3) call addfld(varName, (/'lev'/),'A','unitless', 'relative added mass for mode'//modeString)
-      enddo  
+      enddo
       do i=1,nbmodes
          modeString="  "
          write(modeString,"(I2)"),i
          if(i.lt.10) modeString="0"//adjustl(modeString)
          varName = "Cxsrel"//trim(modeString)
          if(i.ne.3) call addfld(varName, horiz_only, 'A', 'unitless', 'relative exessive added mass column for mode'//modeString)
-      enddo  
+      enddo
 #endif
    end if
- 
+
     if (history_amwg) then
       call add_default ('PHIS    '  , 1, ' ')
       call add_default ('PS      '  , 1, ' ')
@@ -541,7 +541,7 @@ contains
       ! State after physics (FV)
       call add_default ('TAP     '  , history_budget_histfile_num, ' ')
       call add_default ('UAP     '  , history_budget_histfile_num, ' ')
-      call add_default ('VAP     '  , history_budget_histfile_num, ' ')  
+      call add_default ('VAP     '  , history_budget_histfile_num, ' ')
       call add_default (apcnst(1)   , history_budget_histfile_num, ' ')
       if ( dycore_is('LR') .or. dycore_is('SE') ) then
         call add_default ('TFIX    '    , history_budget_histfile_num, ' ')
@@ -788,14 +788,14 @@ contains
          if(i.lt.10) modeString="0"//adjustl(modeString)
          varName = "Camrel"//trim(modeString)
          if(i.ne.3) call add_default(varName, 1, ' ')
-      enddo  
+      enddo
       do i=1,nbmodes
          modeString="  "
          write(modeString,"(I2)"),i
          if(i.lt.10) modeString="0"//adjustl(modeString)
          varName = "Cxsrel"//trim(modeString)
          if(i.ne.3) call add_default(varName, 1, ' ')
-      enddo  
+      enddo
 #endif
    end if
 
@@ -939,7 +939,7 @@ contains
 !AL
       call addfld (dmetendnam(ixcldnc),(/ 'lev' /), 'A','#/kg/s ',   &
            trim(cnst_name(ixcldnc))//' dme adjustment tendency (FV) ')
-      call addfld (dmetendnam(ixcldni),(/ 'lev' /), 'A','#/kg/s ',   & 
+      call addfld (dmetendnam(ixcldni),(/ 'lev' /), 'A','#/kg/s ',   &
            trim(cnst_name(ixcldni))//' dme adjustment tendency (FV) ')
 !AL
     end if
@@ -1370,7 +1370,7 @@ contains
 
     do m = 1, pcnst
       if (cnst_cam_outfld(m)) then
-        call outfld(cnst_name(m), state%q(1,1,m), pcols, lchnk)
+        call outfld(cnst_name(m), state%q(:,:,m), pcols, lchnk)
       end if
     end do
 
@@ -1563,9 +1563,9 @@ contains
     !
     ! Output U, V, T, P and Z at bottom level
     !
-    call outfld ('UBOT    ', state%u(1,pver)  ,  pcols, lchnk)
-    call outfld ('VBOT    ', state%v(1,pver)  ,  pcols, lchnk)
-    call outfld ('ZBOT    ', state%zm(1,pver) , pcols, lchnk)
+    call outfld ('UBOT    ', state%u(:,pver)  ,  pcols, lchnk)
+    call outfld ('VBOT    ', state%v(:,pver)  ,  pcols, lchnk)
+    call outfld ('ZBOT    ', state%zm(:,pver) ,  pcols, lchnk)
 
     !! Boundary layer atmospheric stability, temperature, water vapor diagnostics
 
@@ -1701,13 +1701,13 @@ contains
     ncol  = state%ncol
     do m=1,pcnst
       if ( cnst_cam_outfld(m) ) then
-        call outfld(cnst_name(m),state%q(1,1,m),pcols ,lchnk )
+        call outfld(cnst_name(m),state%q(:,:,m),pcols ,lchnk )
       end if
     end do
 
     if (co2_transport()) then
       do m = 1,4
-        call outfld(trim(cnst_name(c_i(m)))//'_BOT', state%q(1,pver,c_i(m)), pcols, lchnk)
+        call outfld(trim(cnst_name(c_i(m)))//'_BOT', state%q(:,pver,c_i(m)), pcols, lchnk)
       end do
     end if
 
@@ -1772,7 +1772,7 @@ contains
        ftem(:ncol,:) = state%q(:ncol,:,1)/ftem(:ncol,:)*100._r8
        call outfld ('RHW  ',ftem    ,pcols   ,lchnk     )
     end if
-    
+
       ! Convert to RHI (ice)
       do i=1,ncol
         do k=1,pver
@@ -1813,7 +1813,7 @@ contains
     !
     ! Output Q at bottom level
     !
-    call outfld ('QBOT    ', state%q(1,pver,1),  pcols, lchnk)
+    call outfld ('QBOT    ', state%q(:,pver,1),  pcols, lchnk)
 
     ! Total energy of the atmospheric column for atmospheric heat storage calculations
 
@@ -1830,7 +1830,7 @@ contains
     do k=2,pver
       ftem(:ncol,1) = ftem(:ncol,1) + ftem(:ncol,k)
     end do
-    call outfld ('ATMEINT   ',ftem(:ncol,1)  ,pcols   ,lchnk     )
+    call outfld ('ATMEINT   ',ftem(:ncol,1)  ,ncol   ,lchnk     )
 
     !! Boundary layer atmospheric stability, temperature, water vapor diagnostics
 
@@ -2155,7 +2155,7 @@ contains
     if (moist_physics) then
       call outfld('SHFLX',    cam_in%shf,       pcols, lchnk)
       call outfld('LHFLX',    cam_in%lhf,       pcols, lchnk)
-      call outfld('QFLX',     cam_in%cflx(1,1), pcols, lchnk)
+      call outfld('QFLX',     cam_in%cflx(:,:), pcols, lchnk)
 
       call outfld('TAUX',     cam_in%wsx,       pcols, lchnk)
       call outfld('TAUY',     cam_in%wsy,       pcols, lchnk)
@@ -2530,16 +2530,16 @@ contains
 !AL
 
     if ( cnst_cam_outfld(       1) ) then
-      call outfld (apcnst(       1), state%q(1,1,       1), pcols, lchnk)
+      call outfld (apcnst(       1), state%q(:,:,       1), pcols, lchnk)
     end if
     if (ixcldliq > 0) then
       if (cnst_cam_outfld(ixcldliq)) then
-        call outfld (apcnst(ixcldliq), state%q(1,1,ixcldliq), pcols, lchnk)
+        call outfld (apcnst(ixcldliq), state%q(:,:,ixcldliq), pcols, lchnk)
       end if
     end if
     if (ixcldice > 0) then
       if ( cnst_cam_outfld(ixcldice) ) then
-        call outfld (apcnst(ixcldice), state%q(1,1,ixcldice), pcols, lchnk)
+        call outfld (apcnst(ixcldice), state%q(:,:,ixcldice), pcols, lchnk)
       end if
     end if
 
@@ -2711,16 +2711,16 @@ contains
     call cnst_get_ind('CLDICE', ixcldice, abort=.false.)
 
     if ( cnst_cam_outfld(       1) ) then
-      call outfld (bpcnst(       1), state%q(1,1,       1), pcols, lchnk)
+      call outfld (bpcnst(       1), state%q(:,:,       1), pcols, lchnk)
     end if
     if (ixcldliq > 0) then
       if (cnst_cam_outfld(ixcldliq)) then
-        call outfld (bpcnst(ixcldliq), state%q(1,1,ixcldliq), pcols, lchnk)
+        call outfld (bpcnst(ixcldliq), state%q(:,:,ixcldliq), pcols, lchnk)
       end if
     end if
     if (ixcldice > 0) then
       if (cnst_cam_outfld(ixcldice)) then
-        call outfld (bpcnst(ixcldice), state%q(1,1,ixcldice), pcols, lchnk)
+        call outfld (bpcnst(ixcldice), state%q(:,:,ixcldice), pcols, lchnk)
       end if
     end if
 
