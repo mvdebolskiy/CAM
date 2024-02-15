@@ -55,7 +55,9 @@
 module mod_modis_sim
   USE MOD_COSP_CONFIG, only: R_UNDEF,modis_histTau,modis_histPres,numMODISTauBins,       &
                              numMODISPresBins,numMODISReffIceBins,numMODISReffLiqBins,   &
-                             modis_histReffIce,modis_histReffLiq
+                             modis_histReffIce,modis_histReffLiq, &
+                             modis_histLWP, & ! YQIN 04/04/23
+                             numMODISLWPBins 
   USE COSP_KINDS,      ONLY: wp
   use MOD_COSP_STATS,  ONLY: hist2D
 
@@ -241,7 +243,11 @@ contains
        Optical_Thickness_Total_MeanLog10, Optical_Thickness_Water_MeanLog10, Optical_Thickness_Ice_MeanLog10,&
        Cloud_Particle_Size_Water_Mean,    Cloud_Particle_Size_Ice_Mean,      Cloud_Top_Pressure_Total_Mean,  &
        Liquid_Water_Path_Mean,            Ice_Water_Path_Mean,                                               &    
-       Optical_Thickness_vs_Cloud_Top_Pressure,Optical_Thickness_vs_ReffIce,Optical_Thickness_vs_ReffLiq)
+       Optical_Thickness_vs_Cloud_Top_Pressure,Optical_Thickness_vs_ReffIce,Optical_Thickness_vs_ReffLiq,    &
+       Optical_Thickness_vs_Cloud_Top_Pressure_Liq,  & ! YQIN 04/04/23
+       Optical_Thickness_vs_Cloud_Top_Pressure_Ice,  &
+       LWP_vs_ReffLiq                                &
+       )
     
     ! INPUTS
     integer,intent(in) :: &
@@ -274,7 +280,13 @@ contains
          Liquid_Water_Path_Mean,            & !
          Ice_Water_Path_Mean                  !
     real(wp),intent(inout),dimension(nPoints,numMODISTauBins,numMODISPresBins) :: &
-         Optical_Thickness_vs_Cloud_Top_Pressure
+         Optical_Thickness_vs_Cloud_Top_Pressure, &
+         Optical_Thickness_vs_Cloud_Top_Pressure_Liq, &  ! YQIN 04/04/23
+         Optical_Thickness_vs_Cloud_Top_Pressure_Ice 
+    ! YQIN 04/04/23
+    real(wp),intent(inout),dimension(nPoints,numMODISLWPBins,numMODISReffLiqBins) :: &    
+         LWP_vs_ReffLiq
+
     real(wp),intent(inout),dimension(nPoints,numMODISTauBins,numMODISReffIceBins) :: &    
          Optical_Thickness_vs_ReffIce
     real(wp),intent(inout),dimension(nPoints,numMODISTauBins,numMODISReffLiqBins) :: &    
@@ -290,7 +302,8 @@ contains
          iceCloudMask,   &
          validRetrievalMask
     real(wp),dimension(nPoints,nSubCols) :: &
-         tauWRK,ctpWRK,reffIceWRK,reffLiqWRK
+         tauWRK,ctpWRK,reffIceWRK,reffLiqWRK, &
+         tauLiqWRK,tauIceWRK,lwpWRK ! YQIN 04/04/23
 
     ! ########################################################################################
     ! Include only those pixels with successful retrievals in the statistics 
@@ -379,18 +392,46 @@ contains
     ctpWRK(1:nPoints,1:nSubCols)     = cloud_top_pressure(1:nPoints,1:nSubCols)
     reffIceWRK(1:nPoints,1:nSubCols) = merge(particle_size,R_UNDEF,iceCloudMask)
     reffLiqWRK(1:nPoints,1:nSubCols) = merge(particle_size,R_UNDEF,waterCloudMask)
+
+    ! YQIN 04/04/23
+    tauLiqWRK(1:nPoints,1:nSubCols) = merge(optical_thickness,R_UNDEF,waterCloudMask)
+    tauIceWRK(1:nPoints,1:nSubCols) = merge(optical_thickness,R_UNDEF,iceCloudMask)
+    lwpWRK(1:nPoints,1:nSubCols)    = merge(LWP_conversion*particle_size*optical_thickness,R_UNDEF,waterCloudMask)
+
     do j=1,nPoints
 
        ! Fill clear and optically thin subcolumns with fill
        where(.not. cloudMask(j,1:nSubCols)) 
           tauWRK(j,1:nSubCols) = -999._wp
           ctpWRK(j,1:nSubCols) = -999._wp
+          ! YQIN 04/04/23
+          tauLiqWRK(j,1:nSubCols) = -999._wp
+          tauIceWRK(j,1:nSubCols) = -999._wp
+          lwpWRK(j,1:nSubCols)    = -999._wp
        endwhere
        ! Joint histogram of tau/CTP
        call hist2D(tauWRK(j,1:nSubCols),ctpWRK(j,1:nSubCols),nSubCols,&
                    modis_histTau,numMODISTauBins,&
                    modis_histPres,numMODISPresBins,&
                    Optical_Thickness_vs_Cloud_Top_Pressure(j,1:numMODISTauBins,1:numMODISPresBins))
+
+       ! YQIN 04/04/23 -- start 
+       ! Joint histogram of tau/CTP for Liquid clouds
+       call hist2D(tauLiqWRK(j,1:nSubCols),ctpWRK(j,1:nSubCols),nSubCols,&
+                   modis_histTau,numMODISTauBins,&
+                   modis_histPres,numMODISPresBins,&
+                   Optical_Thickness_vs_Cloud_Top_Pressure_Liq(j,1:numMODISTauBins,1:numMODISPresBins))
+       ! Joint histogram of tau/CTP for Ice clouds
+       call hist2D(tauIceWRK(j,1:nSubCols),ctpWRK(j,1:nSubCols),nSubCols,&
+                   modis_histTau,numMODISTauBins,&
+                   modis_histPres,numMODISPresBins,&
+                   Optical_Thickness_vs_Cloud_Top_Pressure_Ice(j,1:numMODISTauBins,1:numMODISPresBins))
+       ! Joint histogram of LWP/ReffLiq
+       call hist2D(lwpWRK(j,1:nSubCols),reffLiqWRK(j,1:nSubCols),nSubCols,               &
+                   modis_histLWP,numMODISLWPBins,modis_histReffLiq,         &
+                   numMODISReffLiqBins, LWP_vs_ReffLiq(j,1:numMODISLWPBins,1:numMODISReffLiqBins))                   
+       ! -- end 
+
        ! Joint histogram of tau/ReffICE
        call hist2D(tauWRK(j,1:nSubCols),reffIceWrk(j,1:nSubCols),nSubCols,               &
                    modis_histTau,numMODISTauBins,modis_histReffIce,         &
@@ -403,6 +444,14 @@ contains
     enddo   
     Optical_Thickness_vs_Cloud_Top_Pressure(1:nPoints,1:numMODISTauBins,1:numMODISPresBins) = &
          Optical_Thickness_vs_Cloud_Top_Pressure(1:nPoints,1:numMODISTauBins,1:numMODISPresBins)/nSubCols
+    ! YQIN 04/04/23
+    Optical_Thickness_vs_Cloud_Top_Pressure_Liq(1:nPoints,1:numMODISTauBins,1:numMODISPresBins) = &
+         Optical_Thickness_vs_Cloud_Top_Pressure_Liq(1:nPoints,1:numMODISTauBins,1:numMODISPresBins)/nSubCols
+    Optical_Thickness_vs_Cloud_Top_Pressure_Ice(1:nPoints,1:numMODISTauBins,1:numMODISPresBins) = &
+         Optical_Thickness_vs_Cloud_Top_Pressure_Ice(1:nPoints,1:numMODISTauBins,1:numMODISPresBins)/nSubCols
+    LWP_vs_ReffLiq(1:nPoints,1:numMODISLWPBins,1:numMODISReffLiqBins) = &
+         LWP_vs_ReffLiq(1:nPoints,1:numMODISLWPBins,1:numMODISReffLiqBins)/nSubCols 
+
     Optical_Thickness_vs_ReffIce(1:nPoints,1:numMODISTauBins,1:numMODISReffIceBins) = &
          Optical_Thickness_vs_ReffIce(1:nPoints,1:numMODISTauBins,1:numMODISReffIceBins)/nSubCols
     Optical_Thickness_vs_ReffLiq(1:nPoints,1:numMODISTauBins,1:numMODISReffLiqBins) = &
@@ -412,6 +461,14 @@ contains
     ! Unit conversion
     where(Optical_Thickness_vs_Cloud_Top_Pressure /= R_UNDEF) &
       Optical_Thickness_vs_Cloud_Top_Pressure = Optical_Thickness_vs_Cloud_Top_Pressure*100._wp
+
+    ! YQIN 04/04/23
+    where(Optical_Thickness_vs_Cloud_Top_Pressure_Liq /= R_UNDEF) &
+      Optical_Thickness_vs_Cloud_Top_Pressure_Liq = Optical_Thickness_vs_Cloud_Top_Pressure_Liq*100._wp
+    where(Optical_Thickness_vs_Cloud_Top_Pressure_Ice /= R_UNDEF) &
+      Optical_Thickness_vs_Cloud_Top_Pressure_Ice = Optical_Thickness_vs_Cloud_Top_Pressure_Ice*100._wp
+    where(LWP_vs_ReffLiq /= R_UNDEF) LWP_vs_ReffLiq = LWP_vs_ReffLiq*100._wp
+
     where(Optical_Thickness_vs_ReffIce /= R_UNDEF) Optical_Thickness_vs_ReffIce = Optical_Thickness_vs_ReffIce*100._wp
     where(Optical_Thickness_vs_ReffLiq /= R_UNDEF) Optical_Thickness_vs_ReffLiq = Optical_Thickness_vs_ReffLiq*100._wp
     where(Cloud_Fraction_Total_Mean /= R_UNDEF) Cloud_Fraction_Total_Mean = Cloud_Fraction_Total_Mean*100._wp
