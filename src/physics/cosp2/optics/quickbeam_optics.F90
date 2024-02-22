@@ -475,7 +475,7 @@ contains
        if((abs(p1+1) > 1E-8) ) then   ! N0 has been specified, determine ld
           N0   = p1
           tmp1 = 1._wp/(1._wp+bpm)
-          ld   = ((apm*gamma(1.+bpm)*N0)/(rho_a*Q*1E-3))**tmp1
+          ld   = ((apm*gamma(1._wp+bpm)*N0)/(rho_a*Q*1E-3))**tmp1
           ld   = ld/1E6                     ! set units to microns^-1
        elseif (abs(p2+1) > 1E-8) then  ! lambda=ld has been specified as default
           ld = p2     ! should have units of microns^-1 
@@ -730,7 +730,7 @@ contains
           ! Use N0 default value
           N0   = p1
           tmp1 = 1._wp/(1._wp+bpm)
-          fc   = ((apm*gamma(1.+bpm)*N0)**tmp1)*(D*1E-6)
+          fc   = ((apm*gamma(1._wp+bpm)*N0)**tmp1)*(D*1E-6)
           N    = (N0*exp(-1._wp*fc*(1._wp/(rho_a*Q*1E-3))**tmp1)) * 1E-12
        elseif (abs(p2+1) > 1E-8) then
           ! Use default value for lambda 
