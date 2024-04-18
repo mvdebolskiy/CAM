@@ -2,20 +2,17 @@
 null  :=
 
 # Check for netcdf locations
-ifeq ($(LIB_NETCDF),$(null))
-LIB_NETCDF := /usr/local/lib
-endif
-
-ifeq ($(INC_NETCDF),$(null))
-INC_NETCDF := /usr/local/include
-endif
 
 # FFLAGS and LDFLAGS will have at least these values in all situations
-FFLAGS  = -c -I$(INC_NETCDF)
-LDFLAGS = -L$(LIB_NETCDF) -lnetcdf
+# netCDF/4.9.0-iimpi-2022a
+FFLAGS  = -c 
+FFLAGS += $(shell nc-config --fflags)
+LDFLAGS = $(shell nc-config --flibs)
 
 # Determine platform 
 UNAMES := $(shell uname -s)
+
+DEBUG=TRUE
 
 #------------------------------------------------------------------------
 # Linux
@@ -30,11 +27,11 @@ ifeq ($(UNAMES),Linux)
       FFLAGS += -fast
     endif
   else
-    FC = lf95
+    FC = ifort
     ifeq ($(DEBUG),TRUE)
-      FFLAGS += -g --chk esu
+      FFLAGS += -gdwarf-4
     else
-      FFLAGS += -O
+      FFLAGS += -O3
     endif
   endif
 endif

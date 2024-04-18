@@ -19,3 +19,9 @@ cime_config/__pycache__
 .#*
 \#*#
 *.swp
+
+## ignore bcgen
+**/bcgen/*.o
+**/bcgen/*.mod
+**/bcgen/*.nc
+**/bcgen/bcgen

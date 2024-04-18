@@ -45,6 +45,7 @@ program pcmdisst
    character(len=19)  :: cur_timestamp
    character(len=1024) :: prev_history = ' ' ! history attribute from input file
    character(len=1024) :: history = ' '      ! history attribute for output files
+   character(len=1024)  :: NLfile = ' ' !
 !
 ! netcdf info
 !
@@ -54,8 +55,8 @@ program pcmdisst
 !
 ! Cmd line
 !
-   integer, external :: iargc
    integer           :: n, nargs
+   integer :: rc, fu
 !
 ! Namelist
 !
@@ -65,7 +66,18 @@ program pcmdisst
 !
 ! Read namelist
 !
-   read (5,cntlvars)
+   call getcwd(NLfile)
+   NLfile=trim(NLfile)//'/namelist'
+   inquire(file=NLfile, iostat=rc)
+    if (rc /= 0) then 
+      call err_exit ('namelist not found')
+    endif
+
+   open(action='read',file=trim(NLfile),iostat=rc,newunit=fu)
+
+   read (unit=fu,nml=cntlvars)
+
+   close(fu)
 !
 ! Check that all required input items were specified in the namelist
 !
@@ -154,7 +166,7 @@ program pcmdisst
       write(6,*)'Climatological averaging period is not as expected (1982-2001)'
       write(6,*)'If you REALLY want to change the averaging period, delete the'
       write(6,*)'appropriate err_exit call from driver.f90'
-      call err_exit ('pcmdisst')
+!      call err_exit ('pcmdisst')
    end if
 !
 ! Calculate derived variables
@@ -168,26 +180,26 @@ program pcmdisst
    end if
 
    ! parse command line arguments, saving them to be written to history attribute
-   nargs = iargc ()
+   nargs = command_argument_count ()
    n = 1
    cmdline = 'bcgen '
    do while (n <= nargs)
       arg = ' '
-      call getarg (n, arg)
+      call get_command_argument (n, arg)
       n = n + 1
       select case (arg)
       case ('-i')
-         call getarg (n, arg)
+         call get_command_argument (n, arg)
          n = n + 1
          infil = arg
          cmdline = trim(cmdline) // ' -i ' // trim(infil)
       case ('-c')
-         call getarg (n, arg)
+         call get_command_argument (n, arg)
          n = n + 1
          outfilclim = arg
          cmdline = trim(cmdline) // ' -c ' // trim(outfilclim)
       case ('-t')
-         call getarg (n, arg)
+         call get_command_argument (n, arg)
          n = n + 1
          outfilamip = arg
          cmdline = trim(cmdline) // ' -t ' // trim(outfilamip)

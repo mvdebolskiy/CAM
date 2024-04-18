@@ -1,18 +1,18 @@
  &cntlvars
  mon1 = 1
- iyr1 = 1948
+ iyr1 = 0
  monn = 12
- iyrn = 2005
+ iyrn = 15
  mon1rd = 1
- iyr1rd = 1949
+ iyr1rd = 1
  monnrd = 12
- iyrnrd = 2004
+ iyrnrd = 10
  mon1clm = 1
- iyr1clm = 1982
+ iyr1clm = 5
  monnclm = 12
- iyrnclm = 2001
+ iyrnclm = 6
  mon1out = 1
- iyr1out = 1949
- monnout = 10
- iyrnout = 2004
+ iyr1out = 1
+ monnout = 12
+ iyrnout = 10
  /
