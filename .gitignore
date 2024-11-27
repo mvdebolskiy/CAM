@@ -5,7 +5,7 @@ components
 manage_externals.log
 src/physics/carma/base
 src/physics/clubb
-src/physics/cosp2/src
+#src/physics/cosp2/src
 src/physics/silhs
 
 
