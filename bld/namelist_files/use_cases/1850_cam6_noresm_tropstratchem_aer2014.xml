@@ -34,9 +34,7 @@
 <ext_frc_cycle_yr>  1850       </ext_frc_cycle_yr>
 
 <!-- surface emissions -->
-<srf_emis_specifier hgrid="0.9x1.25">
-  'SPECIES -> NOTAVAILABLE'
-</srf_emis_specifier>
+<!-- No srf_emis_specifier for hgrid="0.9x1.25" -->
 <srf_emis_specifier hgrid="1.9x2.5">
   'BC_AX  ->  $INPUTDATA_ROOT/atm/cam/chem/emis/cmip6_emissions_version20211124/perturbations/emissions_cmip6_noresm2_BC_AX_anthrosurfALL_surface_2014_date_1850_1.9x2.5_version20211124.nc',
   'BC_N   ->  $INPUTDATA_ROOT/atm/cam/chem/emis/cmip6_emissions_version20211124/perturbations/emissions_cmip6_noresm2_BC_N_anthrosurfALL_surface_2014_date_1850_1.9x2.5_version20211124.nc',
@@ -105,9 +103,7 @@
 </srf_emis_specifier>
 
 <!-- 3D emissions -->
-<ext_frc_specifier hgrid="0.9x1.25">
-  'SPECIES ->  NOTAVAILABLE'
-</ext_frc_specifier>
+<!-- No ext_frc_specifier for hgrid="0.9x1.25" -->
 <ext_frc_specifier hgrid="1.9x2.5">
   'BC_AX  ->  $INPUTDATA_ROOT/atm/cam/chem/emis/cmip6_emissions_version20211124/perturbations/emissions_cmip6_noresm2_BC_AX_airALL_vertical_2014_date_1850_1.9x2.5_version20211124.nc',
   'BC_AX  ->  $INPUTDATA_ROOT/atm/cam/chem/emis/cmip6_emissions_version20211124/perturbations/emissions_cmip6_noresm2_BC_AX_anthroprofALL_vertical_2014_date_1850_1.9x2.5_version20211124.nc',
