@@ -2,10 +2,6 @@
 
 <namelist_defaults>
 
-<!--micro_do_sb_physics>   .true.   </micro_do_sb_physics-->
-<!--do_tms>                .false.  </do_tms-->
-<!--do_beljaars>           .true.   </do_beljaars-->
-
 <history_aerosol>.true.</history_aerosol>
 <modal_strat_sulfate>.true.</modal_strat_sulfate>
 <lght_no_prd_factor hgrid="0.9x1.25"> 1.0 </lght_no_prd_factor>
@@ -208,12 +204,6 @@
   'NO2    ->  $INPUTDATA_ROOT/atm/cam/chem/emis/cmip6_emissions_version20230630/emissions_cmip6_noresm2_ScenarioMIP_IAMC-REMIND-MAGPIE-ssp585-1-1_NO2_airALL_vertical_2014-2301_1.9x2.5_version20230630.nc'
 </ext_frc_specifier>
 
-<!--use_gw_oro               >   .false.   </use_gw_oro-->
-<!--use_gw_rdg_beta          >   .true.    </use_gw_rdg_beta-->
-<!--zmconv_num_cin           >   1         </zmconv_num_cin-->
-
-<!--prescribed_strataero_cycle_yr>  1850          </prescribed_strataero_cycle_yr-->
-
 <clubb_gamma_coef hgrid="0.9x1.25">0.286</clubb_gamma_coef>
 <clubb_gamma_coef hgrid="1.9x2.5" >0.264</clubb_gamma_coef>
 
@@ -253,7 +243,6 @@
 <cldfrc2m_rhmini hgrid="0.9x1.25">0.90D0</cldfrc2m_rhmini>
 
 <!--Options for megan -->
-<!--megan_specifier>'isoprene = isoprene','monoterp = myrcene + sabinene + limonene+ carene_3 + ocimene_t_b + pinene_b + pinene_a'</megan_specifier-->
 <megan_specifier>'ISOP = isoprene',
                  'MTERP = pinene_a + carene_3 + thujene_a + 2met_styrene + cymene_p + cymene_o + terpinolene + bornene + fenchene_a + ocimene_al + pinene_b + sabinene + camphene + limonene + phellandrene_a + terpinene_g + terpinene_a + phellandrene_b +  myrcene + ocimene_t_b + ocimene_c_b',
                  'BCARY = caryophyllene_b + bergamotene_a + bisabolene_b + farnescene_b + humulene_a',
@@ -264,21 +253,9 @@
                  'BIGALK = pentane + hexane + heptane + tricyclene', 'BIGENE = butene',
                  'TOLUENE = toluene'</megan_specifier>
 
-<!--set SOA emissions since reading emissions from MEGAN -->
-<!--isoprene_oslo_emis_file>noresm-only/atm/cam/chem/trop_mozart_aero/emis/soanucl/bvocgcmFV19_isopr_1850_2000_zero.nc </isoprene_oslo_emis_file-->
-<!--monoterp_oslo_emis_file>noresm-only/atm/cam/chem/trop_mozart_aero/emis/soanucl/bvocgcmFV19_monoterp_1850_2000_zero.nc </monoterp_oslo_emis_file-->
-
 <!-- sim_year used for CLM datasets and SSTs forcings -->
 <sim_year>1850</sim_year>
 
-<!-- CMIP6 climatological volcanic background forcing -->
-<!--prescribed_strataero_file>' '</prescribed_strataero_file-->
-<!--prescribed_volcaero_datapath>atm/cam/volc</prescribed_volcaero_datapath-->
-<!--prescribed_volcaero_file>CMIP_CAM6_radiation_average_v3_reformatted.nc</prescribed_volcaero_file-->
-<!--prescribed_volcaero_cycle_yr>1850</prescribed_volcaero_cycle_yr-->
-<!--prescribed_volcaero_type>CYCLICAL</prescribed_volcaero_type-->
-<!--rad_climate>'A:Q:H2O','N:O2:O2','N:CO2:CO2','N:ozone:O3','N:N2O:N2O','N:CH4:CH4','N:CFC11:CFC11','N:CFC12:CFC12'</rad_climate-->
-<!--rad_climate>'A:Q:H2O','N:O2:O2','A:CO2:CO2','N:ozone:O3','A:N2O:N2O','A:CH4:CH4','N:CFC11STAR:CFC11','A:CFC12:CFC12'</rad_climate-->
 <rad_climate>'A:Q:H2O','N:O2:O2','A:CO2:CO2','A:O3:O3','A:N2O:N2O','A:CH4:CH4','N:CFC11STAR:CFC11','A:CFC12:CFC12'</rad_climate>
 
 <fincl1>
