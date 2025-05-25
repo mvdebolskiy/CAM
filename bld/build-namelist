@@ -2253,23 +2253,14 @@ if ($chem eq 'trop_mam_oslo' or $chem eq 'tropstrat_mam_oslo') {
     my $first = 1;
     my $pre = "";
     my $val = "";
-    my $errstr = "";
     foreach my $id (sort keys %species) {
         my $rel_filepath = get_default_value($species{$id} );
-        if ($rel_filepath eq "") {
-            my $idstrip = $id =~ s/[ ].*//r;
-            $errstr .= $eol . "  No default filepath for $idstrip";
-        } else {
-            my $abs_filepath = set_abs_filepath($rel_filepath, $inputdata_rootdir);
-            $val .= $pre . quote_string($id . $abs_filepath);
-            if ($first) {
-                $pre = ",";
-                $first = 0;
-            }
+        my $abs_filepath = set_abs_filepath($rel_filepath, $inputdata_rootdir);
+        $val .= $pre . quote_string($id . $abs_filepath);
+        if ($first) {
+          $pre = ",";
+          $first = 0;
         }
-    }
-    if ($errstr ne "") {
-        die "Default emission datasets not found:" . $errstr . $eol;
     }
     add_default($nl, 'srf_emis_specifier', 'val'=>$val);
     unless (defined $nl->get_value('srf_emis_type')) {
