@@ -2258,8 +2258,8 @@ if ($chem eq 'trop_mam_oslo' or $chem eq 'tropstrat_mam_oslo') {
         my $abs_filepath = set_abs_filepath($rel_filepath, $inputdata_rootdir);
         $val .= $pre . quote_string($id . $abs_filepath);
         if ($first) {
-            $pre = ",";
-            $first = 0;
+          $pre = ",";
+          $first = 0;
         }
     }
     add_default($nl, 'srf_emis_specifier', 'val'=>$val);

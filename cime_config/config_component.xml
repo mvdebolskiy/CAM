@@ -279,6 +279,7 @@
       <value compset="2000_CAM60%NORESM%FRC2"       >2000_cam6_noresm_frc2</value>
       <value compset="1850_CAM60%NORESM"            >1850_cam6_noresm</value>
       <value compset="1850_CAM60%NORESM%NORBC%TROPSTRATCHEM">1850_cam6_noresm_tropstratchem</value>
+      <value compset="1850_CAM60%NORESM%NORBC%TROPSTRATCHEM%AER2014">1850_cam6_noresm_tropstratchem_aer2014</value>
       <value compset="1850_CAM60%NORESM%TROPSTRATCHEM">1850_cam6_noresm_tropstratchem</value>
       <value compset="1850_CAM60%NORESM%FRC2"       >1850_cam6_noresm_frc2</value>
       <value compset="1850_CAM60%NORESM%NORBC%FRC2" >1850_cam6_noresm_frc2</value>
