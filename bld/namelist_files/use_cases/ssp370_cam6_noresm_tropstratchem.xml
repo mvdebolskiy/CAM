@@ -150,13 +150,13 @@
   'XYLENES -> $INPUTDATA_ROOT/atm/cam/chem/emis/cmip6_emissions_version20230630/emissions_cmip6_noresm2_ScenarioMIP_IAMC-AIM-ssp370-1-1_XYLENES_anthrosurfgasALL_surface_2014-2301_1.9x2.5_version20230630.nc',
   'XYLENES -> $INPUTDATA_ROOT/atm/cam/chem/emis/cmip6_emissions_version20230630/emissions_cmip6_noresm2_ScenarioMIP_IAMC-AIM-ssp370-1-1_XYLENES_bbsurfALL_surface_2014-2301_1.9x2.5_version20230630.nc',
   'E90 ->  $INPUTDATA_ROOT/atm/cam/chem/emis/CMIP6_emissions_1750_2015/emissions_E90global_surface_175001-210101_0.9x1.25_c20190224.nc',
-  'C2H4 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585/emissions-cmip6-SSP_C2H4_other_surface_mol_175001-210101_0.9x1.25_c20190224.nc',
-  'C2H6 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585/emissions-cmip6-SSP_C2H6_other_surface_mol_175001-210101_0.9x1.25_c20190224.nc',
-  'C3H6 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585/emissions-cmip6-SSP_C3H6_other_surface_mol_175001-210101_0.9x1.25_c20190224.nc',
-  'C3H8 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585/emissions-cmip6-SSP_C3H8_other_surface_mol_175001-210101_0.9x1.25_c20190224.nc',
-  'CO -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585/emissions-cmip6-SSP_CO_other_surface_mol_175001-210101_0.9x1.25_c20190224.nc',
-  'NH3 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585/emissions-cmip6-SSP_NH3_other_surface_mol_175001-210101_0.9x1.25_c20190224.nc',
-  'NO -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585/emissions-cmip6-SSP_NO_other_surface_mol_175001-210101_0.9x1.25_c20190224.nc'
+  'C2H4 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585_2deg/emissions-cmip6_C2H4_other_surface_1750-2015-2101_1.9x2.5_c20170322.nc',
+  'C2H6 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585_2deg/emissions-cmip6_C2H6_other_surface_1750-2015-2101_1.9x2.5_c20170322.nc',
+  'C3H6 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585_2deg/emissions-cmip6_C3H6_other_surface_1750-2015-2101_1.9x2.5_c20170322.nc',
+  'C3H8 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585_2deg/emissions-cmip6_C3H8_other_surface_1750-2015-2101_1.9x2.5_c20170322.nc',
+  'CO -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585_2deg/emissions-cmip6_CO_other_surface_1750-2015-2101_1.9x2.5_c20170322.nc',
+  'NH3 -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585_2deg/emissions-cmip6_NH3_other_surface_1750-2015-2101_1.9x2.5_c20170322.nc',
+  'NO -> $INPUTDATA_ROOT/atm/cam/chem/emis/emissions_ssp585_2deg/emissions-cmip6_NO_other_surface_1750-2015-2101_1.9x2.5_c20170322.nc'
 </srf_emis_specifier>
 
 <!-- 3D emissions -->
