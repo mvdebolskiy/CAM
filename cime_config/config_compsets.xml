@@ -374,6 +374,18 @@ When using NorESM-derived boundary conditions, we have opted to use the same lan
     <lname>1850_CAM60%NORESM%NORBC%OXID2014%FRC2_CLM50%BGC-CROP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
   </compset>
 
+  <!-- NorESM compsets with MAM4 -->
+
+  <compset>
+    <alias>NF1850MAM4</alias>
+    <lname>1850_CAM60%NORESM%MAM4_CLM50%SP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
+  </compset>
+
+  <compset>
+    <alias>NFHISTMAM4</alias>
+    <lname>HIST_CAM60%NORESM%MAM4_CLM50%SP_CICE%PRES_DOCN%DOM_MOSART_SGLC_SWAV</lname>
+  </compset>
+
   <!-- CAM simpler model compsets -->
 
   <compset>
