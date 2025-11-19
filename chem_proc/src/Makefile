@@ -62,7 +62,7 @@ ifeq ($(USER_FC),$(null))
 # Linux -- including pleiades
 #------------------------------------------------------------------------
 ifeq ($(UNAMES),Linux)
-  USER_FC := pgf95
+  USER_FC := gfortran
 endif
 #------------------------------------------------------------------------
 # Altix (columbia)
