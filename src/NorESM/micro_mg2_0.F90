@@ -1764,7 +1764,7 @@ subroutine micro_mg_tend ( &
               FEATURESB =(/ Pb, LWCb, IWCb, Tb, PBLHb, TSKb /)
               call runforest(MDIMB, MAX_NODESB, JBTB, FEATURESB, YPREDB,
                              LEFTCHILDB, RIGHTCHILDB, SPLITFEATB, THRESHB, OUTB)
-              wbf_factor(i,k) = max(0.0_r8, YPREDB)
+              wbf_factor(i,k) = max(0.0_r8, min(1.0_r8,YPREDB))
            else
               wbf_factor(i,k) = 1.0_r8
            end if
@@ -1786,7 +1786,7 @@ subroutine micro_mg_tend ( &
              icldm(:,k), rho(:,k), dv(:,k), qvl(:,k), qvi(:,k), &
              berg(:,k), vap_dep(:,k), ice_sublim(:,k), mgncol)
 
-        berg(:,k)=berg(:,k)*micro_mg_berg_eff_factor * * wbf_factor(:,k)
+        berg(:,k)=berg(:,k)*micro_mg_berg_eff_factor * wbf_factor(:,k)
 
         where (ice_sublim(:,k) < 0._r8 .and. qi(:,k) > qsmall .and. icldm(:,k) > mincld)
            nsubi(:,k) = sublim_factor*ice_sublim(:,k) / qi(:,k) * ni(:,k) / icldm(:,k)
