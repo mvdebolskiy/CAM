@@ -3073,6 +3073,8 @@ if ($cfg->get('microphys') =~ /^mg/) {
         add_default($nl, 'forestfileBR');
         add_default($nl, 'forestfileBRwarm');
     }
+    add_default($nl, 'rafwbf_on');
+    add_default($nl, 'forestfileWBF');
 }
 
 # Ice nucleation options
