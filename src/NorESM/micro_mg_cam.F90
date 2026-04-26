@@ -87,6 +87,8 @@ use cldfrc2m,       only: rhmini=>rhmini_const
 
 use cam_history,    only: addfld, add_default, outfld, horiz_only
 
+use camsrfexch,  only: cam_in_t
+
 use cam_logfile,    only: iulog
 use cam_abortutils, only: endrun
 use scamMod,        only: single_column
@@ -258,7 +260,7 @@ subroutine micro_mg_cam_readnl(nlfile)
   use units,                 only: getunit, freeunit
   use spmd_utils,            only: mpicom, mstrid=>masterprocid, mpi_integer, &
                                    mpi_real8, mpi_logical, mpi_character
-  use module_random_forests, only: sec_ice_readnl
+  use module_random_forests, only: sec_ice_readnl, wbf_readnl
 
   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
@@ -388,6 +390,8 @@ subroutine micro_mg_cam_readnl(nlfile)
   end if
 
   call sec_ice_readnl(nlfile)
+
+  call wbf_readnl(nlfile)
 
 contains
 
@@ -1193,7 +1197,7 @@ end subroutine micro_mg_cam_init
 
 !===============================================================================
 
-subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
+subroutine micro_mg_cam_tend(state, ptend, dtime, cam_in, pbuf)
 
    use micro_mg1_0, only: micro_mg_get_cols1_0 => micro_mg_get_cols
    use micro_mg2_0, only: micro_mg_get_cols2_0 => micro_mg_get_cols
@@ -1201,6 +1205,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    type(physics_state),         intent(in)    :: state
    type(physics_ptend),         intent(out)   :: ptend
    real(r8),                    intent(in)    :: dtime
+   type(cam_in_t),              intent(in)    :: cam_in
    type(physics_buffer_desc),   pointer       :: pbuf(:)
 
    ! Local variables
@@ -1221,11 +1226,11 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
            mgncol, mgcols)
    end select
 
-   call micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nlev)
+   call micro_mg_cam_tend_pack(state, ptend, dtime, cam_in, pbuf, mgncol, mgcols, nlev)
 
 end subroutine micro_mg_cam_tend
 
-subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nlev)
+subroutine micro_mg_cam_tend_pack(state, ptend, dtime,cam_in, pbuf, mgncol, mgcols, nlev)
 
    use micro_mg_utils, only: size_dist_param_basic, size_dist_param_liq, &
         mg_liq_props, mg_ice_props, avg_diameter, rhoi, rhosn, rhow, rhows, &
@@ -1244,6 +1249,7 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
    type(physics_state),         intent(in)    :: state
    type(physics_ptend),         intent(out)   :: ptend
    real(r8),                    intent(in)    :: dtime
+   type(cam_in_t),              intent(in)    :: cam_in
    type(physics_buffer_desc),   pointer       :: pbuf(:)
 
    integer, intent(in) :: nlev
@@ -1285,6 +1291,7 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
    real(r8), pointer :: mu(:,:)           ! Size distribution shape parameter for radiation
    real(r8), pointer :: lambdac(:,:)      ! Size distribution slope parameter for radiation
    real(r8), pointer :: des(:,:)          ! Snow effective diameter (m)
+   real(r8), pointer :: pblh(:)           ! Planetary boundary layer height (m) for RaFWBF
 
    real(r8) :: rho(state%psetcols,pver)
    real(r8) :: cldmax(state%psetcols,pver)
@@ -1434,6 +1441,8 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
 
    real(r8), allocatable :: packed_rndst(:,:,:)
    real(r8), allocatable :: packed_nacon(:,:,:)
+   real(r8) :: packed_tsk(mgncol)
+   real(r8) :: packed_pblh(mgncol)
 
    ! Optional outputs.
    real(r8) :: packed_tnd_qsnow(mgncol,nlev)
@@ -1816,6 +1825,7 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
 
    logical :: use_subcol_microp
    integer :: col_type ! Flag to store whether accessing grid or sub-columns in pbuf_get_field
+   integer :: lpblh_idx ! local version of pblh index
 
    character(128) :: errstring   ! return status (non-blank for error return)
 
@@ -1853,6 +1863,8 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
    call pbuf_get_field(pbuf, relvar_idx,      relvar,      col_type=col_type, copy_if_needed=use_subcol_microp)
    call pbuf_get_field(pbuf, accre_enhan_idx, accre_enhan, col_type=col_type, copy_if_needed=use_subcol_microp)
    call pbuf_get_field(pbuf, cmeliq_idx,      cmeliq,      col_type=col_type, copy_if_needed=use_subcol_microp)
+   lpblh_idx = pbuf_get_index('pblh')
+   call pbuf_get_field(pbuf, lpblh_idx,       pblh,        col_type=col_type, copy_if_needed=use_subcol_microp)
 
    call pbuf_get_field(pbuf, cld_idx,         cld,     start=(/1,1,itim_old/), kount=(/psetcols,pver,1/), &
         col_type=col_type, copy_if_needed=use_subcol_microp)
@@ -2257,6 +2269,11 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
       packed_frzdep = packer%pack(frzdep)
    end if
 
+   if (micro_mg_version > 1) then
+      packed_tsk = packer%pack(cam_in%ts)
+      packed_pblh - packer%pack(pblh)
+   end if
+
    do it = 1, num_steps
 
       ! Pack input variables that are updated during substeps.
@@ -2266,6 +2283,7 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
       packed_nc = packer%pack(state_loc%q(:,:,ixnumliq))
       packed_qi = packer%pack(state_loc%q(:,:,ixcldice))
       packed_ni = packer%pack(state_loc%q(:,:,ixnumice))
+
       if (micro_mg_version > 1) then
          packed_qr = packer%pack(state_loc%q(:,:,ixrain))
          packed_nr = packer%pack(state_loc%q(:,:,ixnumrain))
@@ -2321,6 +2339,7 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime, pbuf, mgncol, mgcols, nle
             call micro_mg_tend2_0( &
                  mgncol,         nlev,           dtime/num_steps,&
                  packed_t,               packed_q,               &
+                 packed_tsk,             packed_pblh,            &
                  packed_qc,              packed_qi,              &
                  packed_nc,              packed_ni,              &
                  packed_qr,              packed_qs,              &
