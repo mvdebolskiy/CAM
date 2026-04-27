@@ -41,7 +41,6 @@ module module_random_forests
    PUBLIC :: runforest
    PUBLIC :: runforestriv
    PUBLIC :: runforestmulti
-   PUBLIC :: runforestwbf
 
    !!MDIM DEFINES THE NUMBER OF FEATURES/INPUTS TO THE RaFSIP PARAMETERIZATION
    INTEGER, PARAMETER, PUBLIC :: MDIM5=5
@@ -58,7 +57,7 @@ module module_random_forests
    INTEGER, PARAMETER, PUBLIC :: MAX_NODES3=7833  !forestALL
    INTEGER, PARAMETER, PUBLIC :: MAX_NODES4=7093  !forestBRDS
    INTEGER, PARAMETER, PUBLIC :: MAX_NODES5=8593  !forestBRwarm
-   INTEGER, PARAMETER, PUBLIC :: MAX_NODESB=123881  !forestWBF
+   INTEGER, PARAMETER, PUBLIC :: MAX_NODESB=124209  !forestWBF
 
    !!Thresh = threshold value at each internal node
    !!Outi = prediction for a given node
@@ -85,7 +84,7 @@ module module_random_forests
 
    !! Namelist variables
    logical, public, protected :: rafsip_on = .false.
-   logical, public, protected :: wbfsip_on = .false.
+   logical, public, protected :: rafwbf_on = .false.
 
    character(len=256) :: forestfileALL = 'NONE'
    character(len=256) :: forestfileBRDS = 'NONE'
@@ -96,7 +95,7 @@ module module_random_forests
 
    !! Make sure init is only called once
    logical :: rafsip_initialized = .false.
-   logical :: rafbdf_initialized = .false.
+   logical :: rafwbf_initialized = .false.
 
 CONTAINS
 
@@ -173,7 +172,7 @@ CONTAINS
 
    !------------------------------------------------------------------------+
 
-   subroutine wbf_readnl(nlfile)
+   subroutine wbf_readnl(nlfile, mg_ver)
       ! Read files needed for random forest tables of wbf factor
 
       use mpi,            only: mpi_character, mpi_logical
@@ -182,28 +181,32 @@ CONTAINS
       use cam_logfile,    only: iulog
 
       character(len=*), intent(in) :: nlfile ! path to file containing namelist input
+      integer,          intent(in) :: mg_ver
 
       ! Local variables
       integer                     :: unitn, ierr
       character(len=*), parameter :: subname = 'wbf_readnl'
 
-      namelist /sec_ice_nl/ rafwbf_on,                                        &
-           forestfileWBF,                                                     &
+      namelist /wbf_nl/ rafwbf_on, forestfileWBF
+
       ! Initialize all namelist variables
       rafwbf_on = .false.
       forestfileWBF = 'None'
-
-      if (masterproc) then
-         open(newunit=unitn, file=trim(nlfile), status='old' )
-         call find_group_name(unitn, 'wbf_nl', status=ierr)
-         if (ierr == 0) then
-            read(unitn, sec_ice_nl, iostat=ierr)
-            if (ierr /= 0) then
-               call endrun(subname//':: ERROR reading namelist')
-            end if
-         end if
-         close(unitn)
-      end if
+      if (mg_ver>1) then
+        if (masterproc) then
+          open(newunit=unitn, file=trim(nlfile), status='old' )
+          call find_group_name(unitn, 'wbf_nl', status=ierr)
+          if (ierr == 0) then
+              read(unitn, wbf_nl, iostat=ierr)
+              if (ierr /= 0) then
+                call endrun(subname//':: ERROR reading namelist')
+              end if
+          end if
+          close(unitn)
+        end if
+      else
+         call endrun(subname//':: ERROR rafwbf_on = .true. is incompatible with micro_mg_version=2')
+      endif
 
       call MPI_Bcast(rafwbf_on, 1, mpi_logical, mstrid, mpicom, ierr)
 
@@ -212,7 +215,7 @@ CONTAINS
 
       if (masterproc) then
          write(iulog ,*) 'Microphysics WBF factor namelist:'
-         write(iulog ,*) '  rafsip_on        = ', rafsip_on
+         write(iulog ,*) '  rafwbf_on        = ', rafwbf_on
          if (rafsip_on) then
             write(iulog, *) '  forestfileWBF    = ', trim(forestfileWBF)
          end if
@@ -393,6 +396,7 @@ CONTAINS
       integer :: j_ind, n_ind
       integer :: unitn
       integer :: ierr
+      character(len=*), parameter :: subname = 'wbf_init'
 
       if (.not. rafwbf_initialized) then
          !---------------------------------------------------------------------
@@ -403,7 +407,7 @@ CONTAINS
          if (masterproc) then
             ! Initialize forestBRHM parameters
             ! Initialize forestALL parameters
-            open(newunit=unitn, file=trim(forestfileALL), status="old",       &
+            open(newunit=unitn, file=trim(forestfileWBF), status="old",       &
                  action="read")
             do j_ind = 1, JBTB
                read(unitn, *) nrnodesb(j_ind)
@@ -414,6 +418,9 @@ CONTAINS
             end do
 
             close(unitn)
+              if (any(SPLITFEATB<-1)) then
+                call endrun(subname//':: ERROR tree has split feature index invalid')
+              end if
          end if ! masterproc
 
          ! Broadcast

@@ -259,7 +259,7 @@ subroutine micro_mg_init( &
      allow_sed_supersat_in, do_sb_physics_in, &
      nccons_in, nicons_in, ncnst_in, ninst_in, errstring)
 
-  use module_random_forests, only: sec_ice_init
+  use module_random_forests, only: sec_ice_init, wbf_init
   use micro_mg_utils,        only: micro_mg_utils_init
 
   !-----------------------------------------------------------------------
@@ -416,7 +416,7 @@ subroutine micro_mg_tend ( &
      qrsedten,                     qssedten,                     &
      pratot,                       prctot,                       &
      mnuccctot,          mnuccttot,          msacwitot,          &
-     psacwstot,          bergstot,           bergtot,            &
+     psacwstot,          bergstot,           bergtot, bergf,     &
      melttot,                      homotot,                      &
      qcrestot,           prcitot,            praitot,            &
      qirestot,           mnuccrtot,          pracstot,           &
@@ -592,6 +592,7 @@ subroutine micro_mg_tend ( &
   real(r8), intent(out) :: psacwstot(mgncol,nlev)       ! collection of cloud water by snow
   real(r8), intent(out) :: bergstot(mgncol,nlev)        ! bergeron process on snow
   real(r8), intent(out) :: bergtot(mgncol,nlev)         ! bergeron process on cloud ice
+  real(r8), intent(out) :: bergf(mgncol,nlev)           ! factor for bergeron process in RafWBF
   real(r8), intent(out) :: melttot(mgncol,nlev)         ! melting of cloud ice
   real(r8), intent(out) :: homotot(mgncol,nlev)         ! homogeneous freezing cloud water
   real(r8), intent(out) :: qcrestot(mgncol,nlev)        ! residual cloud condensation due to removal of excess supersat
@@ -1298,6 +1299,7 @@ subroutine micro_mg_tend ( &
   FEATURESB(:) = 0._r8
   YPREDB = 0._r8
   wbf_factor(:,:) = 1._r8 ! this should default to 1
+  bergf=1.0_r8
 
 
   !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1762,7 +1764,7 @@ subroutine micro_mg_tend ( &
               PBLHb = pblh(i)               !m
               TSKb  = tsk(i) - 273.15       ! DegC
               FEATURESB =(/ Pb, LWCb, IWCb, Tb, PBLHb, TSKb /)
-              call runforest(MDIMB, MAX_NODESB, JBTB, FEATURESB, YPREDB,
+              call runforest(MDIMB, MAX_NODESB, JBTB, FEATURESB, YPREDB, &
                              LEFTCHILDB, RIGHTCHILDB, SPLITFEATB, THRESHB, OUTB)
               wbf_factor(i,k) = max(0.0_r8, min(1.0_r8,YPREDB))
            else
@@ -2478,6 +2480,7 @@ subroutine micro_mg_tend ( &
         psacwstot(i,k) = psacws(i,k)*lcldm(i,k)
         bergstot(i,k) = bergs(i,k)*lcldm(i,k)
         bergtot(i,k) = berg(i,k)
+        bergf(i,k) = wbf_factor(i,k)
         prcitot(i,k) = prci(i,k)*icldm(i,k)
         praitot(i,k) = prai(i,k)*icldm(i,k)
         mnuccdtot(i,k) = mnuccd(i,k)*icldm(i,k)

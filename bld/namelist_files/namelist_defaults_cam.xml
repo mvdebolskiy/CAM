@@ -1276,7 +1276,7 @@
 <forestfileBRwarm>atm/cam/RaFSIP/forestBRwarm.txt</forestfileBRwarm>
 
 <!-- WBF multiplier -->
-<rafwbf_on_on>.false.</rafwbf_on>
+<rafwbf_on>.false.</rafwbf_on>
 <forestfileWBF>atm/cam/RaFWBF/forestWBF_c260424.txt</forestfileWBF>
 
 
