@@ -2161,7 +2161,7 @@ contains
              call physics_tend_dealloc(tend_sc)
              call physics_ptend_dealloc(ptend_sc)
           else
-             call microp_driver_tend(state, ptend, cld_macmic_ztodt, cam_in, pbuf)
+             call microp_driver_tend(state, ptend, cld_macmic_ztodt, cam_in%ts, pbuf)
           end if
           ! combine aero and micro tendencies for the grid
           call physics_ptend_sum(ptend_aero, ptend, ncol)
