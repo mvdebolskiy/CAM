@@ -2137,7 +2137,7 @@ contains
           call t_startf('microp_tend')
 
           if (use_subcol_microp) then
-             call microp_driver_tend(state_sc, ptend_sc, cld_macmic_ztodt, cam_in, pbuf)
+             call microp_driver_tend(state_sc, ptend_sc, cld_macmic_ztodt, cam_in%ts, pbuf)
 
              ! Average the sub-column ptend for use in gridded update - will not contain ptend_aero
              call subcol_ptend_avg(ptend_sc, state_sc%ngrdcol, lchnk, ptend)

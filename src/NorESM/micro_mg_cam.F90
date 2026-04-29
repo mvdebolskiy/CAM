@@ -87,7 +87,6 @@ use cldfrc2m,       only: rhmini=>rhmini_const
 
 use cam_history,    only: addfld, add_default, outfld, horiz_only
 
-use camsrfexch,  only: cam_in_t
 
 use cam_logfile,    only: iulog
 use cam_abortutils, only: endrun
@@ -1203,7 +1202,7 @@ end subroutine micro_mg_cam_init
 
 !===============================================================================
 
-subroutine micro_mg_cam_tend(state, ptend, dtime, cam_in, pbuf)
+subroutine micro_mg_cam_tend(state, ptend, dtime, tskin, pbuf)
 
    use micro_mg1_0, only: micro_mg_get_cols1_0 => micro_mg_get_cols
    use micro_mg2_0, only: micro_mg_get_cols2_0 => micro_mg_get_cols
@@ -1212,7 +1211,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, cam_in, pbuf)
    type(physics_state),         intent(in)    :: state
    type(physics_ptend),         intent(out)   :: ptend
    real(r8),                    intent(in)    :: dtime
-   type(cam_in_t),              intent(in)    :: cam_in
+   real(r8),                    intent(in)    :: tskin(:)
    type(physics_buffer_desc),   pointer       :: pbuf(:)
 
    ! Local variables
@@ -1233,11 +1232,11 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, cam_in, pbuf)
            mgncol, mgcols)
    end select
 
-   call micro_mg_cam_tend_pack(state, ptend, dtime, cam_in, pbuf, mgncol, mgcols, nlev)
+   call micro_mg_cam_tend_pack(state, ptend, dtime, tskin, pbuf, mgncol, mgcols, nlev)
 
 end subroutine micro_mg_cam_tend
 
-subroutine micro_mg_cam_tend_pack(state, ptend, dtime,cam_in, pbuf, mgncol, mgcols, nlev)
+subroutine micro_mg_cam_tend_pack(state, ptend, dtime,tskin, pbuf, mgncol, mgcols, nlev)
 
    use micro_mg_utils, only: size_dist_param_basic, size_dist_param_liq, &
         mg_liq_props, mg_ice_props, avg_diameter, rhoi, rhosn, rhow, rhows, &
@@ -1257,7 +1256,7 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime,cam_in, pbuf, mgncol, mgco
    type(physics_state),         intent(in)    :: state
    type(physics_ptend),         intent(out)   :: ptend
    real(r8),                    intent(in)    :: dtime
-   type(cam_in_t),              intent(in)    :: cam_in
+   real(r8),                    intent(in)    :: tskin(pcols)
    type(physics_buffer_desc),   pointer       :: pbuf(:)
 
    integer, intent(in) :: nlev
@@ -2284,7 +2283,7 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime,cam_in, pbuf, mgncol, mgco
    end if
 
    if (micro_mg_version > 1) then
-      packed_tsk = packer%pack(cam_in%ts)
+      packed_tsk = packer%pack(tskin)
       packed_pblh = packer%pack(pblh)
    end if
 

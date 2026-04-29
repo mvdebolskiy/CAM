@@ -147,7 +147,7 @@ use module_random_forests, only: max_nodes5, leftchild5, rightchild5, splitfeat5
 use module_random_forests, only: thresh5, out51
 
 !RafWBF
-use module_random_forests, only: rafwbf_on, jbtb
+use module_random_forests, only: rafwbf_on, jbtb, tupb, tlob
 use module_random_forests, only: max_nodesb, leftchildb, rightchildb, splitfeatb
 use module_random_forests, only: threshb, outb
 
@@ -1755,7 +1755,7 @@ subroutine micro_mg_tend ( &
      ! RaFWBF parameterisattion:
      if (rafwbf_on) then
         do i = 1,mgncol
-           if (t(i,k) .le. 273.15_r8 .and. t(i,k) .ge. 235.15_r8) then
+           if (t(i,k) >= tupb .and. t(i,k) <= tlob) then
               ! make inputs:
               Pb    = p(i,k)                ! Pa
               LWCb  = qcic(i,k) + qric(i,k) !kg/kg

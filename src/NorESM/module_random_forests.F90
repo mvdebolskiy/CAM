@@ -82,6 +82,10 @@ module module_random_forests
    INTEGER, DIMENSION(JBT), PUBLIC, PROTECTED  :: NRNODES1,NRNODES2,NRNODES3,NRNODES4,NRNODES5
    INTEGER, DIMENSION(JBTB), PUBLIC, PROTECTED :: NRNODESB
 
+   ! RAFWBF specific parameters
+   REAL(r8), PUBLIC, PARAMETER :: TUPB = 273.15 ! Upper bound for temperature for running RF [K]
+   REAL(r8), PUBLIC, PARAMETER :: TLOB = 238.15 ! Lower bound for temperature for running RF [K]
+
    !! Namelist variables
    logical, public, protected :: rafsip_on = .false.
    logical, public, protected :: rafwbf_on = .false.
