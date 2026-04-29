@@ -209,7 +209,7 @@ CONTAINS
           close(unitn)
         end if
       else
-         call endrun(subname//':: ERROR rafwbf_on = .true. is incompatible with micro_mg_version=2')
+         call endrun(subname//':: ERROR rafwbf_on = .true. is incompatible with micro_mg_version=1')
       endif
 
       call MPI_Bcast(rafwbf_on, 1, mpi_logical, mstrid, mpicom, ierr)
