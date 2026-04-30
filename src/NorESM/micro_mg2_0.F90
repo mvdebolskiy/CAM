@@ -1758,8 +1758,10 @@ subroutine micro_mg_tend ( &
            if (t(i,k) >= tupb .and. t(i,k) <= tlob) then
               ! make inputs:
               Pb    = p(i,k)                ! Pa
-              LWCb  = qcic(i,k) + qric(i,k) !kg/kg
-              IWCb  = qiic(i,k) + qsic(i,k) !kg/kg
+              !  input contents are used to be consistent
+              ! with WRF data used to constract RF
+              LWCb  = qcn(i,k) + qrn(i,k) !kg/kg
+              IWCb  = qin(i,k) + qsn(i,k) !kg/kg
               Tb    = t(i,k) - 273.15_r8    ! DegC
               PBLHb = pblh(i)               !m
               TSKb  = tsk(i) - 273.15       ! DegC
