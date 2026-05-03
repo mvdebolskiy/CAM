@@ -1755,7 +1755,7 @@ subroutine micro_mg_tend ( &
      ! RaFWBF parameterisattion:
      if (rafwbf_on) then
         do i = 1,mgncol
-           if (t(i,k) >= tupb .and. t(i,k) <= tlob) then
+           if (t(i,k) >= tlob .and. t(i,k) <= tupb) then
               ! make inputs:
               Pb    = p(i,k)                ! Pa
               !  input contents are used to be consistent
