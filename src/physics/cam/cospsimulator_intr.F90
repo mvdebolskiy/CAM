@@ -69,6 +69,12 @@ module cospsimulator_intr
 
   ! Frequency at which cosp is called, every cosp_nradsteps radiation timestep
   integer, public :: cosp_nradsteps = 1! CAM namelist variable default, not in COSP namelist
+
+  ! jks COSP backpack for slf_isotherms:
+  integer           :: nisotherms_mpc, k
+  real(r8), target  :: isotherms_mpc_midpoints(9) ! temp midpoints of cuz cloud phase output (9)
+  real(r8)         :: isotherms_mpc_bounds(2,9)  ! temp bounds for cuz outputs (2,9)
+  logical           :: slf_isotherms         = .true. ! jks adding isos coord bool
   
 #ifdef USE_COSP
 
@@ -448,6 +454,25 @@ CONTAINS
     integer :: unitn, ierr
     character(len=*), parameter :: subname = 'cospsimulator_intr_readnl'
 
+    ! jks Do all slf_isotherm operations outside of USE_COSP #ifdef statement
+    namelist /slfsimulator_nl/ slf_isotherms ! jks out of loop. Not sure if this will work.
+#ifdef SPMD
+    call mpibcast(slf_isotherms,        1,  mpilog, 0, mpicom) ! Broadcast namelist variables
+#endif
+
+    nisotherms_mpc = 9 ! jks
+
+    ! assign midpoint and bound values:
+    do k=1,nisotherms_mpc
+       isotherms_mpc_midpoints(k)=273.15_r8-5._r8*(nisotherms_mpc-k)
+       isotherms_mpc_bounds(1,k)=isotherms_mpc_midpoints(k)-1.0_r8
+       isotherms_mpc_bounds(2,k)=isotherms_mpc_midpoints(k)+1.0_r8
+    end do
+
+    if (slf_isotherms) then
+       write(iulog,*)'  Adding SLF_isotherms (jks)                 = ', slf_isotherms
+    end if
+
 #ifdef USE_COSP
 !!! this list should include any variable that you might want to include in the namelist
 !!! philosophy is to not include COSP output flags but just important COSP settings and cfmip controls. 
@@ -647,6 +672,13 @@ CONTAINS
   subroutine cospsimulator_intr_register()
 
     use cam_history_support, only: add_hist_coord
+
+    ! jks using namelist option to add new history coordinate for SLF by isotherm
+    if (slf_isotherms) then ! doesn't seem to give the midpoints values, but I guess that's ok.
+      call add_hist_coord('isotherms_mpc', nisotherms_mpc,                                                 &
+         'mixed-phase cloud isotherms (data within 1.0C)', 'C',                                            &
+         isotherms_mpc_midpoints, bounds_name='isotherms_mpc_bounds', bounds=isotherms_mpc_bounds)
+    end if
     
 #ifdef USE_COSP
     ! register non-standard variable dimensions
