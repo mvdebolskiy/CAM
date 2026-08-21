@@ -2149,7 +2149,7 @@ subroutine micro_mg_cam_tend_pack(state, ptend, dtime,tskin, pbuf, mgncol, mgcol
    call post_proc%add_field(p(bergso), p(packed_bergs))
    call post_proc%add_field(p(bergo), p(packed_berg))
    if (rafwbf_on) then
-      call post_proc%add_field(p(bergf), p(packed_bergf))
+      call post_proc%add_field(p(bergf), p(packed_bergf), fillvalue=1.0_r8)
    endif
    call post_proc%add_field(p(melto), p(packed_melt))
    call post_proc%add_field(p(homoo), p(packed_homo))

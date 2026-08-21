@@ -438,6 +438,8 @@ CONTAINS
               mstrid, mpicom, ierr)
          call MPI_Bcast(splitfeatb, JBTB*MAX_NODESB, mpi_integer,              &
               mstrid, mpicom, ierr)
+         call MPI_Bcast(threshb, JBTB*MAX_NODESB, mpi_real8,              &
+              mstrid, mpicom, ierr)
 
          rafwbf_initialized = .true.
       end if

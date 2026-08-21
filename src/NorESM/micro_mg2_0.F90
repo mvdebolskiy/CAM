@@ -1760,38 +1760,43 @@ subroutine micro_mg_tend ( &
               Pb    = p(i,k)                ! Pa
               !  input contents are used to be consistent
               ! with WRF data used to constract RF
-              LWCb  = qcn(i,k) + qrn(i,k) !kg/kg
-              IWCb  = qin(i,k) + qsn(i,k) !kg/kg
+              LWCb  = qc(i,k) + qr(i,k) !kg/kg
+              IWCb  = qi(i,k) + qs(i,k) !kg/kg
               Tb    = t(i,k) - 273.15_r8    ! DegC
               PBLHb = pblh(i)               !m
-              TSKb  = tsk(i) - 273.15       ! DegC
-              FEATURESB =(/ Pb, LWCb, IWCb, Tb, PBLHb, TSKb /)
-              call runforest(MDIMB, MAX_NODESB, JBTB, FEATURESB, YPREDB, &
-                             LEFTCHILDB, RIGHTCHILDB, SPLITFEATB, THRESHB, OUTB)
-              wbf_factor(i,k) = max(0.0_r8, min(1.0_r8,YPREDB))
+              TSKb  = tsk(i) - 273.15_r8       ! DegC
+              if (LWCb > 1.0e-9_r8 .and. IWCb > 1.0e-9_r8) then
+                 FEATURESB(:) =(/ Pb, LWCb, IWCb, Tb, PBLHb, TSKb /)
+                 call runforest(MDIMB, MAX_NODESB, JBTB, FEATURESB, YPREDB, &
+                               LEFTCHILDB, RIGHTCHILDB, SPLITFEATB, THRESHB, OUTB)
+                  wbf_factor(i,k) = max(0.0_r8, min(1.0_r8,YPREDB))
+              else 
+                wbf_factor(i,k) = 1.0_r8
+              endif
+
            else
               wbf_factor(i,k) = 1.0_r8
            end if
         end do
      else
-        wbf_factor(:,:) = 1.0_r8
+        wbf_factor(:,k) = 1.0_r8
      end if
 
      call bergeron_process_snow(t(:,k), rho(:,k), dv(:,k), mu(:,k), sc(:,k), &
           qvl(:,k), qvi(:,k), asn(:,k), qcic(1:mgncol,k), qsic(:,k), lams(:,k), n0s(:,k), &
           bergs(:,k), mgncol)
-
-     bergs(:,k)=bergs(:,k)*micro_mg_berg_eff_factor * wbf_factor(:,k)
-
+     do i = 1,mgncol
+        bergs(i,k)=bergs(i,k)*micro_mg_berg_eff_factor * wbf_factor(i,k)
+     end do
      !+++PMC 12/3/12 - NEW VAPOR DEP/SUBLIMATION GOES HERE!!!
      if (do_cldice) then
 
         call ice_deposition_sublimation(t(:,k), q(:,k), qi(:,k), ni(:,k), &
              icldm(:,k), rho(:,k), dv(:,k), qvl(:,k), qvi(:,k), &
              berg(:,k), vap_dep(:,k), ice_sublim(:,k), mgncol)
-
-        berg(:,k)=berg(:,k)*micro_mg_berg_eff_factor * wbf_factor(:,k)
-
+        do i = 1,mgncol
+           berg(i,k)=berg(i,k)*micro_mg_berg_eff_factor * wbf_factor(i,k)
+        end do
         where (ice_sublim(:,k) < 0._r8 .and. qi(:,k) > qsmall .and. icldm(:,k) > mincld)
            nsubi(:,k) = sublim_factor*ice_sublim(:,k) / qi(:,k) * ni(:,k) / icldm(:,k)
 
