@@ -2466,6 +2466,14 @@ This default logical is set in cospsimulator_intr.F90
 Default: FALSE
 </entry>
 
+<!-- Fake COSP -->
+<entry id="slf_isotherms" type="logical"  category="cosp"
+       group="slfsimulator_nl" valid_values="">
+Adds an additional vertical coordinate used to bin supercooled-liquid fraction by isotherm.
+JKS
+Default: TRUE
+</entry>
+
 <!-- Cloud Macro/Micro-physics -->
 
 <entry id="cld_macmic_num_steps" type="integer" category="conv"
