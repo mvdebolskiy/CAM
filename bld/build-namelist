@@ -871,6 +871,11 @@ if ($cfg->get('cosp')) {
     add_default($nl, 'docosp', 'val'=>'.true.');
 }
 
+# slf isotherm simulator
+if (! defined $nl->get_value('slf_isotherms')) {
+    add_default($nl, 'slf_isotherms');
+}
+
 
 # Constituents
 # ============
