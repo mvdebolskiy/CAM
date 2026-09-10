@@ -398,7 +398,7 @@ subroutine micro_mg_tend ( &
      qrtend,                       qstend,                       &
      nrtend,                       nstend,                       &
      effc,               effc_fn,            effi,               &
-     sadice, sadliq,               sadsnow,                      &
+     sadice,                       sadsnow,                      &
      prect,                        preci,                        &
      nevapr,                       evapsnow,                     &
      am_evp_st,                                                  &
@@ -549,7 +549,6 @@ subroutine micro_mg_tend ( &
   real(r8), intent(out) :: effc_fn(mgncol,nlev)      ! droplet effective radius, assuming nc = 1.e8 kg-1
   real(r8), intent(out) :: effi(mgncol,nlev)         ! cloud ice effective radius (micron)
   real(r8), intent(out) :: sadice(mgncol,nlev)       ! cloud ice surface area density (cm2/cm3)
-  real(r8), intent(out) :: sadliq(mgncol,nlev)       ! cloud liquid surface area density (cm2/cm3) !zsm, jks
   real(r8), intent(out) :: sadsnow(mgncol,nlev)      ! cloud snow surface area density (cm2/cm3)
   real(r8), intent(out) :: prect(mgncol)             ! surface precip rate (m/s)
   real(r8), intent(out) :: preci(mgncol)             ! cloud ice/snow precip rate (m/s)
@@ -1208,7 +1207,6 @@ subroutine micro_mg_tend ( &
   effc_fn = 10._r8
   effi = 25._r8
   sadice = 0._r8
-  sadliq = 0._r8 !zsm, jks
   sadsnow = 0._r8
   deffi = 50._r8
 
@@ -3476,8 +3474,6 @@ subroutine micro_mg_tend ( &
            end if
 
            effc(i,k) = (pgam(i,k)+3._r8)/lamc(i,k)/2._r8*1.e6_r8
-           sadliq(i,k) = dumnc(i,k)/gamma(pgam(i,k)+1._r8)*pi*gamma(pgam(i,k)+3._r8)/(4._r8*lamc(i,k)**2._r8) !zsm, jks
-
            !assign output fields for shape here
            lamcrad(i,k)=lamc(i,k)
            pgamrad(i,k)=pgam(i,k)
@@ -3502,7 +3498,6 @@ subroutine micro_mg_tend ( &
            lamcrad(i,k)=0._r8
            pgamrad(i,k)=0._r8
            effc_fn(i,k) = 10._r8
-           sadliq(i,k)=0._r8 !zsm, jks
         end if
      enddo
   enddo
